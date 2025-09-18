@@ -11,6 +11,9 @@ import { assignDuties } from '@/lib/assignment';
 import { exportAssignmentsOverview, exportDaySlotAssignments } from '@/lib/excel';
 import { cn } from '@/lib/utils';
 import type { AssignmentResult } from '@/types';
+import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'sonner';
+import { AssignmentResults } from '@/components/assignment-results';
 
 type Phase = 'setup' | 'config' | 'assignment';
 
@@ -55,12 +58,17 @@ export default function App() {
   // Handle assignment generation
   const runAssignment = useCallback(async () => {
     setAssigning(true);
+    toast.loading('Generating duty assignments...', { id: 'assignment' });
+
     try {
       const result = assignDuties(data.faculty, data.examStructure, data.unavailability);
       setAssignmentResult(result);
       
       if (result.success) {
         await updateAssignments(result.assignments);
+        toast.success(`Successfully generated ${result.assignments.length} duty assignments.`, { id: 'assignment' });
+      } else {
+        toast.error(`${result.errors[0]}`, { id: 'assignment' });
       }
     } catch (error) {
       setAssignmentResult({
@@ -69,6 +77,7 @@ export default function App() {
         errors: [`Assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`],
         warnings: []
       });
+      toast.error('Assignment generation failed!', { id: 'assignment' });
     } finally {
       setAssigning(false);
     }
@@ -84,6 +93,7 @@ export default function App() {
       bufferDuties: slot.bufferDuties
     }));
     exportAssignmentsOverview(overviewData);
+    toast.success('Overview exported successfully!');
   }, [data.examStructure.dutySlots]);
 
   const exportSlotAssignments = useCallback((day: number, slot: number) => {
@@ -108,6 +118,7 @@ export default function App() {
       `${dutySlot.startTime} - ${dutySlot.endTime}`,
       exportData
     );
+    toast.success(`Day ${day + 1} Slot ${slot + 1} assignments exported.`);
   }, [data.examStructure.dutySlots, data.assignments, data.faculty]);
 
   if (loading) {
@@ -148,7 +159,7 @@ export default function App() {
             <div>
               <h1 className="text-2xl font-bold">ExamDuty</h1>
               <p className="text-sm text-muted-foreground">
-                Examination duty assignment system
+                An exam duty assignment system.
               </p>
             </div>
             
@@ -234,7 +245,7 @@ export default function App() {
                     {isComplete && <CheckCircle className="size-4" />}
                   </div>
                   {index < 2 && (
-                    <div className="w-8 h-px bg-border mx-2" />
+                    <div className="w-142 h-px bg-border mx-2" />
                   )}
                 </div>
               );
@@ -330,7 +341,6 @@ export default function App() {
 
             <div className="max-w-6xl mx-auto">
               <ScheduleConfigForm
-                faculty={data.faculty}
                 examStructure={data.examStructure}
                 onExamStructureUpdated={updateExamStructure}
               />
@@ -425,45 +435,13 @@ export default function App() {
                         </div>
                       )}
 
-                      {assignmentResult.warnings.length > 0 && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                          <h4 className="font-medium text-yellow-700 mb-2">Warnings</h4>
-                          <ul className="text-sm text-yellow-600 space-y-1">
-                            {assignmentResult.warnings.map((warning, index) => (
-                              <li key={index}>• {warning}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
                       {/* Assignment Stats */}
                       {assignmentResult.success && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-2xl font-bold">
-                                {assignmentResult.assignments.filter(a => !a.isBuffer).length}
-                              </div>
-                              <div className="text-sm text-muted-foreground">Regular Duties</div>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-2xl font-bold">
-                                {assignmentResult.assignments.filter(a => a.isBuffer).length}
-                              </div>
-                              <div className="text-sm text-muted-foreground">Buffer Duties</div>
-                            </CardContent>
-                          </Card>
-                          <Card>
-                            <CardContent className="p-4">
-                              <div className="text-2xl font-bold">
-                                {new Set(assignmentResult.assignments.map(a => a.facultyId)).size}
-                              </div>
-                              <div className="text-sm text-muted-foreground">Faculty Assigned</div>
-                            </CardContent>
-                          </Card>
-                        </div>
+                        <AssignmentResults
+                          result={assignmentResult}
+                          faculty={data.faculty}
+                          dutySlots={data.examStructure.dutySlots}
+                        />
                       )}
 
                       {/* Export Options */}
@@ -518,6 +496,8 @@ export default function App() {
           </div>
         )}
       </main>
+      
+      <Toaster />
     </div>
   );
 }
