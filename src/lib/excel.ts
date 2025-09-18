@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import type { Faculty, ExcelParseResult } from '@/types';
+import JSZip from 'jszip';
+import type { Faculty, ExcelParseResult, DutySlot, Assignment } from '@/types';
 
 // Faculty Excel parsing
 export function parseFacultyExcel(file: File): Promise<ExcelParseResult<Faculty>> {
@@ -191,4 +192,88 @@ export function exportDaySlotAssignments(
   
   const filename = `duty-${date.toISOString().split('T')[0]}-slot.xlsx`;
   XLSX.writeFile(workbook, filename);
+}
+
+export async function exportBatchAssignments(
+  dutySlots: DutySlot[],
+  assignments: Assignment[],
+  faculty: Faculty[]
+): Promise<void> {
+  const zip = new JSZip();
+
+  // 1. Create overview data and add to ZIP
+  const overviewData = dutySlots.map(slot => ({
+    date: slot.date,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    totalDuties: slot.totalDuties,
+    bufferDuties: slot.bufferDuties
+  }));
+
+  const overviewWorksheet = XLSX.utils.aoa_to_sheet([
+    ['Date', 'Time Slot', 'Total Duties', 'Buffer Duties'],
+    ...overviewData.map(slot => [
+      slot.date.toLocaleDateString(),
+      `${slot.startTime} - ${slot.endTime}`,
+      slot.totalDuties.toString(),
+      slot.bufferDuties.toString(),
+    ]),
+  ]);
+
+  const overviewWorkbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(overviewWorkbook, overviewWorksheet, 'Overview');
+  const overviewBuffer = XLSX.write(overviewWorkbook, { type: 'array', bookType: 'xlsx' });
+  zip.file('00-exam-duty-overview.xlsx', overviewBuffer);
+
+  // 2. Create individual slot files and add to ZIP
+  for (const dutySlot of dutySlots) {
+    const slotAssignments = assignments.filter(a => 
+      a.day === dutySlot.day && a.slot === dutySlot.slot
+    );
+
+    const exportData = slotAssignments.map((assignment, index) => {
+      const assignedFaculty = faculty.find(f => f.facultyId === assignment.facultyId);
+      return {
+        sNo: index + 1,
+        roomNumber: assignment.roomNumber || 'BUFFER',
+        facultyId: assignment.facultyId,
+        facultyName: assignedFaculty?.facultyName || 'Unknown',
+        phoneNo: assignedFaculty?.phoneNo || 'N/A'
+      };
+    });
+
+    const data = [
+      ['DATE AND TIME SLOT'],
+      [`${dutySlot.date.toLocaleDateString()} ${dutySlot.startTime} - ${dutySlot.endTime}`],
+      [],
+      ['S No', 'Room Number', 'Faculty ID', 'Faculty Name', 'Phone Number'],
+      ...exportData.map(assignment => [
+        assignment.sNo.toString(),
+        assignment.roomNumber,
+        assignment.facultyId,
+        assignment.facultyName,
+        assignment.phoneNo,
+      ]),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Assignments');
+    
+    const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+    const filename = `${String(dutySlot.day + 1).padStart(2, '0')}-${String(dutySlot.slot + 1).padStart(2, '0')}-day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${dutySlot.date.toISOString().split('T')[0]}.xlsx`;
+    
+    zip.file(filename, buffer);
+  }
+
+  // 3. Generate and download ZIP
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = window.URL.createObjectURL(zipBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `exam-duty-assignments-${new Date().toISOString().split('T')[0]}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 }

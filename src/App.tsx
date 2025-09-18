@@ -8,12 +8,14 @@ import { ScheduleConfigForm } from '@/components/forms/schedule-config-form';
 import { AvailabilityForm } from '@/components/forms/availability-form';
 import { useExamData } from '@/hooks/use-exam-data';
 import { assignDuties } from '@/lib/assignment';
-import { exportAssignmentsOverview, exportDaySlotAssignments } from '@/lib/excel';
+import { exportAssignmentsOverview, exportBatchAssignments, exportDaySlotAssignments } from '@/lib/excel';
 import { cn } from '@/lib/utils';
 import type { AssignmentResult } from '@/types';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { AssignmentResults } from '@/components/assignment-results';
+import { PWAPrompt } from './components/pwa-prompt';
+import { format } from 'date-fns';
 
 type Phase = 'setup' | 'config' | 'assignment';
 
@@ -120,6 +122,19 @@ export default function App() {
     );
     toast.success(`Day ${day + 1} Slot ${slot + 1} assignments exported.`);
   }, [data.examStructure.dutySlots, data.assignments, data.faculty]);
+
+  const exportBatchAll = useCallback(async () => {
+  try {
+    await exportBatchAssignments(
+      data.examStructure.dutySlots,
+      data.assignments,
+      data.faculty
+    );
+    toast.success('All assignments exported successfully');
+  } catch (error) {
+    toast.error('Export failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+}, [data.examStructure.dutySlots, data.assignments, data.faculty]);
 
   if (loading) {
     return (
@@ -454,26 +469,47 @@ export default function App() {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            <Button onClick={exportOverview} className="w-full">
-                              <FileSpreadsheet className="mr-2 size-4" />
-                              Export Overview
+                            {/* Batch Export - Primary Action */}
+                            <Button 
+                              onClick={exportBatchAll} 
+                              className="w-full" 
+                              size="lg"
+                            >
+                              <Download className="mr-2 size-4" />
+                              Export All Assignments (ZIP)
                             </Button>
 
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-medium">Export Individual Slots:</h4>
-                              <div className="grid gap-2">
-                                {data.examStructure.dutySlots.map(slot => (
-                                  <Button
-                                    key={`${slot.day}-${slot.slot}`}
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => exportSlotAssignments(slot.day, slot.slot)}
-                                    className="justify-start"
-                                  >
-                                    <Download className="mr-2 size-3" />
-                                    Day {slot.day + 1} Slot {slot.slot + 1} - {slot.startTime} to {slot.endTime}
-                                  </Button>
-                                ))}
+                            {/* Individual Exports - Secondary Actions */}
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div className="h-px bg-border flex-1" />
+                                <span className="text-xs text-muted-foreground">Or export individually</span>
+                                <div className="h-px bg-border flex-1" />
+                              </div>
+
+                              <Button onClick={exportOverview} variant="outline" className="w-full">
+                                <FileSpreadsheet className="mr-2 size-4" />
+                                Export Overview Only
+                              </Button>
+
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium">Individual Slot Assignments:</h4>
+                                <div className="grid gap-2 max-h-32 overflow-y-auto">
+                                  {data.examStructure.dutySlots
+                                    .sort((a, b) => a.day - b.day || a.slot - b.slot)
+                                    .map(slot => (
+                                      <Button
+                                        key={`${slot.day}-${slot.slot}`}
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => exportSlotAssignments(slot.day, slot.slot)}
+                                        className="justify-start text-xs"
+                                      >
+                                        <Download className="mr-2 size-3" />
+                                        Day {slot.day + 1} Slot {slot.slot + 1} - {format(slot.date, 'MMM dd')} {slot.startTime}
+                                      </Button>
+                                    ))}
+                                </div>
                               </div>
                             </div>
                           </CardContent>
@@ -498,6 +534,7 @@ export default function App() {
       </main>
       
       <Toaster />
+      <PWAPrompt />
     </div>
   );
 }
