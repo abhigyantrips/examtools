@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { parseFacultyExcel } from '@/lib/excel';
 import type { Faculty, ExcelParseResult } from '@/types';
+import { toast } from 'sonner';
 
 interface FacultyUploadFormProps {
   onFacultyUploaded: (faculty: Faculty[]) => void;
@@ -22,6 +23,7 @@ export function FacultyUploadForm({ onFacultyUploaded, currentFaculty }: Faculty
         errors: ['Please upload an Excel file (.xlsx or .xls)'],
         warnings: []
       });
+	  
       return;
     }
 
@@ -31,8 +33,13 @@ export function FacultyUploadForm({ onFacultyUploaded, currentFaculty }: Faculty
       setResult(parseResult);
       
       if (parseResult.data.length > 0 && parseResult.errors.length === 0) {
-        onFacultyUploaded(parseResult.data);
-      }
+		onFacultyUploaded(parseResult.data);
+		toast.success(`Successfully uploaded ${parseResult.data.length} faculty members.`);
+		} else if (parseResult.errors.length > 0) {
+		toast.error(`Upload failed: ${parseResult.errors[0]}`);
+		} else if (parseResult.warnings.length > 0) {
+		toast.warning(`Upload completed with ${parseResult.warnings.length} warnings.`);
+		}
     } catch (error) {
       setResult({
         data: [],
