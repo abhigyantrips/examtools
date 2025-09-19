@@ -260,7 +260,7 @@ export default function App() {
                     {isComplete && <CheckCircle className="size-4" />}
                   </div>
                   {index < 2 && (
-                    <div className="w-142 h-px bg-border mx-2" />
+                    <div className="min-w-full max-w-142 h-px bg-border mx-2" />
                   )}
                 </div>
               );

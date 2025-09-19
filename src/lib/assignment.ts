@@ -246,7 +246,7 @@ function assignRegularDuties(
       context,
       facultyDutyCounts,
       existingAssignments,
-      false // not buffer duty
+      false, // not buffer duty
     );
 
     if (eligibleFaculty.length === 0) {
@@ -255,7 +255,7 @@ function assignRegularDuties(
     }
 
     // Select faculty using weighted random (favor those with fewer duties)
-    const selectedFaculty = selectFacultyWeighted(eligibleFaculty, facultyDutyCounts);
+    const selectedFaculty = selectFacultyDeterministic(eligibleFaculty, facultyDutyCounts);
     const room = availableRooms.shift()!; // Remove room from available list
 
     // Create assignment
@@ -291,7 +291,7 @@ function assignBufferDuties(
       context,
       facultyDutyCounts,
       existingAssignments,
-      true // is buffer duty
+      true, // is buffer duty
     );
 
     if (eligibleFaculty.length === 0) {
@@ -300,7 +300,7 @@ function assignBufferDuties(
     }
 
     // Select faculty using weighted random
-    const selectedFaculty = selectFacultyWeighted(eligibleFaculty, facultyDutyCounts);
+    const selectedFaculty = selectFacultyDeterministic(eligibleFaculty, facultyDutyCounts);
 
     // Create assignment
     const assignment: Assignment = {
@@ -326,15 +326,19 @@ function getEligibleFaculty(
   context: SlotAssignmentContext,
   facultyDutyCounts: FacultyDutyCount[],
   existingAssignments: Assignment[],
-  isBufferDuty: boolean
+  isBufferDuty: boolean,
 ): Faculty[] {
+  // Count faculty with remaining capacity
+  const facultyWithRemainingCapacity = facultyDutyCounts.filter(
+    f => f.assignedDuties < f.targetDuties
+  ).length;
+
+  const facultyWithRemainingBufferCapacity = isBufferDuty 
+    ? facultyDutyCounts.filter(f => f.bufferDuties < 1).length 
+    : 0;
+
   return context.availableFaculty.filter(faculty => {
     const dutyCount = facultyDutyCounts.find(f => f.facultyId === faculty.facultyId)!;
-
-    // Check if faculty has reached their target duties
-    if (dutyCount.assignedDuties >= dutyCount.targetDuties) {
-      return false;
-    }
 
     // Check buffer duty limit (max 1 per faculty across entire exam)
     if (isBufferDuty && dutyCount.bufferDuties >= 1) {
@@ -344,6 +348,21 @@ function getEligibleFaculty(
     // Check for consecutive slots constraint
     if (hasConsecutiveSlotConflict(faculty.facultyId, context, existingAssignments)) {
       return false;
+    }
+
+    // Simplified target checking - only enforce strict targets if we have backup faculty
+    if (!isBufferDuty) {
+      // For regular duties: only enforce strict targets if we have at least 5 faculty with remaining capacity
+      if (dutyCount.assignedDuties >= dutyCount.targetDuties && 
+          facultyWithRemainingCapacity > 5) {
+        return false;
+      }
+    } else {
+      // For buffer duties: similar but stricter
+      if (dutyCount.assignedDuties >= dutyCount.targetDuties && 
+          facultyWithRemainingBufferCapacity > 2) {
+        return false;
+      }
     }
 
     return true;
@@ -370,32 +389,35 @@ function hasConsecutiveSlotConflict(
   return false;
 }
 
-function selectFacultyWeighted(
+function selectFacultyDeterministic(
   eligibleFaculty: Faculty[],
   facultyDutyCounts: FacultyDutyCount[]
 ): Faculty {
-  // Create weights based on remaining duties (higher weight = fewer assigned duties)
-  const weights = eligibleFaculty.map(faculty => {
-    const dutyCount = facultyDutyCounts.find(f => f.facultyId === faculty.facultyId)!;
-    const remainingDuties = dutyCount.targetDuties - dutyCount.assignedDuties;
-    
-    // Weight formula: remaining duties + 1 (to avoid zero weights)
-    return Math.max(1, remainingDuties + 1);
-  });
+  // Sort by: 1) furthest behind target, 2) lowest total duties assigned, 3) faculty ID for consistency
+  const sorted = eligibleFaculty
+    .map(faculty => {
+      const dutyCount = facultyDutyCounts.find(f => f.facultyId === faculty.facultyId)!;
+      return {
+        faculty,
+        dutyCount,
+        deficit: dutyCount.targetDuties - dutyCount.assignedDuties, // How far behind target
+        totalAssigned: dutyCount.assignedDuties
+      };
+    })
+    .sort((a, b) => {
+      // Primary: Highest deficit (furthest behind target)
+      if (a.deficit !== b.deficit) {
+        return b.deficit - a.deficit;
+      }
+      // Secondary: Lowest total duties assigned
+      if (a.totalAssigned !== b.totalAssigned) {
+        return a.totalAssigned - b.totalAssigned;
+      }
+      // Tertiary: Consistent tie-breaking by faculty ID
+      return a.faculty.facultyId.localeCompare(b.faculty.facultyId);
+    });
 
-  // Weighted random selection
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  let random = Math.random() * totalWeight;
-
-  for (let i = 0; i < eligibleFaculty.length; i++) {
-    random -= weights[i];
-    if (random <= 0) {
-      return eligibleFaculty[i];
-    }
-  }
-
-  // Fallback (should never reach here)
-  return eligibleFaculty[Math.floor(Math.random() * eligibleFaculty.length)];
+  return sorted[0].faculty;
 }
 
 function validateFinalAssignments(
