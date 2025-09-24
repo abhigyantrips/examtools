@@ -13,9 +13,10 @@ export interface DutySlot {
   date: Date;
   startTime: string; // "2:00 PM"
   endTime: string; // "4:00 PM"
-  totalDuties: number;
+  regularDuties: number;
   bufferDuties: number;
   rooms: string[]; // Room numbers
+  // totalDuties is implied: regularDuties + bufferDuties
 }
 
 export interface ExamStructure {

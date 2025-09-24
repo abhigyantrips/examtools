@@ -75,7 +75,7 @@ export function ScheduleConfigForm({
           date: new Date(),
           startTime: slot === 0 ? '9:00 AM' : '2:00 PM',
           endTime: slot === 0 ? '12:00 PM' : '5:00 PM',
-          totalDuties: 10,
+          regularDuties: 8,
           bufferDuties: 2,
           rooms: []
         });
@@ -86,9 +86,9 @@ export function ScheduleConfigForm({
   }, [days, slots, dutySlots]);
 
   // Update individual slot properties (duties, rooms)
-  const updateSlotTotalDuties = useCallback((day: number, slot: number, totalDuties: number) => {
+  const updateSlotRegularDuties = useCallback((day: number, slot: number, regularDuties: number) => {
     setDutySlots(prev => prev.map(s =>
-      s.day === day && s.slot === slot ? { ...s, totalDuties } : s
+      s.day === day && s.slot === slot ? { ...s, regularDuties } : s
     ));
   }, []);
 
@@ -289,12 +289,12 @@ export function ScheduleConfigForm({
                               {/* Duties Configuration */}
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="text-xs text-muted-foreground">Total</label>
+                                  <label className="text-xs text-muted-foreground">Regular</label>
                                   <input
                                     type="number"
                                     min="0"
-                                    value={dutySlot.totalDuties}
-                                    onChange={(e) => updateSlotTotalDuties(dayIndex, slotIndex, parseInt(e.target.value) || 0)}
+                                    value={dutySlot.regularDuties}
+                                    onChange={(e) => updateSlotRegularDuties(dayIndex, slotIndex, parseInt(e.target.value) || 0)}
                                     className="w-full px-2 py-1 border rounded text-sm text-center"
                                   />
                                 </div>

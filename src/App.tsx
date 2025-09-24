@@ -40,10 +40,10 @@ export default function App() {
       Object.values(data.examStructure.designationDutyCounts).some(count => count > 0);
 
     const hasValidSchedule = data.examStructure.dutySlots.length > 0 &&
-      data.examStructure.dutySlots.every(slot => 
-        slot.date && 
-        slot.totalDuties > 0 && 
-        slot.rooms.length === (slot.totalDuties - slot.bufferDuties)
+      data.examStructure.dutySlots.every(slot =>
+        slot.date &&
+        (slot.regularDuties + slot.bufferDuties) > 0 &&
+        slot.rooms.length === slot.regularDuties
       );
 
     return {
@@ -91,7 +91,7 @@ export default function App() {
       date: slot.date,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      totalDuties: slot.totalDuties,
+      regularDuties: slot.regularDuties,
       bufferDuties: slot.bufferDuties
     }));
     exportAssignmentsOverview(overviewData);

@@ -148,14 +148,14 @@ export function parseRoomsExcel(file: File): Promise<ExcelParseResult<string>> {
 
 // Export functions
 export function exportAssignmentsOverview(
-  dutySlots: { date: Date; startTime: string; endTime: string; totalDuties: number; bufferDuties: number }[]
+  dutySlots: { date: Date; startTime: string; endTime: string; regularDuties: number; bufferDuties: number }[]
 ): void {
   const data = [
-    ['Date', 'Time Slot', 'Total Duties', 'Buffer Duties'],
+    ['Date', 'Time Slot', 'Regular Duties', 'Buffer Duties'],
     ...dutySlots.map(slot => [
       slot.date.toLocaleDateString(),
       `${slot.startTime} - ${slot.endTime}`,
-      slot.totalDuties.toString(),
+      slot.regularDuties.toString(),
       slot.bufferDuties.toString(),
     ]),
   ];
@@ -206,7 +206,7 @@ export async function exportBatchAssignments(
     date: slot.date,
     startTime: slot.startTime,
     endTime: slot.endTime,
-    totalDuties: slot.totalDuties,
+    totalDuties: slot.regularDuties + slot.bufferDuties,
     bufferDuties: slot.bufferDuties
   }));
 

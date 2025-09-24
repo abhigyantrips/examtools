@@ -110,7 +110,7 @@ function validateAssignmentRequirements(
 
   // Calculate total duties needed
   const totalRegularDuties = examStructure.dutySlots.reduce(
-    (sum, slot) => sum + (slot.totalDuties - slot.bufferDuties), 0
+    (sum, slot) => sum + slot.regularDuties, 0
   );
   const totalBufferDuties = examStructure.dutySlots.reduce(
     (sum, slot) => sum + slot.bufferDuties, 0
@@ -131,10 +131,9 @@ function validateAssignmentRequirements(
 
   // Validate room counts match duty requirements
   for (const slot of examStructure.dutySlots) {
-    const regularDuties = slot.totalDuties - slot.bufferDuties;
-    if (slot.rooms.length !== regularDuties) {
+    if (slot.rooms.length !== slot.regularDuties) {
       errors.push(
-        `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${regularDuties} regular duties needed`
+        `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${slot.regularDuties} regular duties needed`
       );
     }
   }
@@ -202,7 +201,7 @@ function assignSlotDuties(
     date: dateString,
     availableFaculty,
     availableRooms: [...dutySlot.rooms], // Copy for mutation
-    regularDutiesNeeded: dutySlot.totalDuties - dutySlot.bufferDuties,
+    regularDutiesNeeded: dutySlot.regularDuties,
     bufferDutiesNeeded: dutySlot.bufferDuties
   };
 
