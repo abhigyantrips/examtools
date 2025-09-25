@@ -328,7 +328,8 @@ export function AssignmentResults({
                       <div className="flex items-center gap-2 text-sm">
                         <CheckCircle className="size-4 text-green-600" />
                         <span>
-                          {slotAssignments.length}/{dutySlot.totalDuties}{" "}
+                          {slotAssignments.length}/
+                          {dutySlot.regularDuties + dutySlot.bufferDuties}{" "}
                           assigned
                         </span>
                       </div>
