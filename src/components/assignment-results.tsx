@@ -1,9 +1,23 @@
-import { useMemo, useState } from 'react';
-import { User, Calendar, MapPin, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
-import type { Assignment, Faculty, DutySlot, AssignmentResult } from '@/types';
+import { useMemo, useState } from "react";
+import {
+  User,
+  Calendar,
+  MapPin,
+  AlertTriangle,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import type { Assignment, Faculty, DutySlot, AssignmentResult } from "@/types";
 
 interface AssignmentResultsProps {
   result: AssignmentResult;
@@ -23,33 +37,37 @@ interface ParsedWarning {
   originalMessage: string;
   facultyId?: string;
   facultyName?: string;
-  type: 'faculty' | 'general';
+  type: "faculty" | "general";
 }
 
-export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResultsProps) {
+export function AssignmentResults({
+  result,
+  faculty,
+  dutySlots,
+}: AssignmentResultsProps) {
   const [warningsExpanded, setWarningsExpanded] = useState(false);
 
   // Parse warnings to extract faculty information
   const parsedWarnings = useMemo((): ParsedWarning[] => {
-    return result.warnings.map(warning => {
+    return result.warnings.map((warning) => {
       // Look for faculty ID patterns in the warning message
       const facultyIdMatch = warning.match(/Faculty (\w+)/);
-      
+
       if (facultyIdMatch) {
         const facultyId = facultyIdMatch[1];
-        const facultyMember = faculty.find(f => f.facultyId === facultyId);
-        
+        const facultyMember = faculty.find((f) => f.facultyId === facultyId);
+
         return {
           originalMessage: warning,
           facultyId,
           facultyName: facultyMember?.facultyName,
-          type: 'faculty'
+          type: "faculty",
         };
       }
-      
+
       return {
         originalMessage: warning,
-        type: 'general'
+        type: "general",
       };
     });
   }, [result.warnings, faculty]);
@@ -59,18 +77,18 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
     const workloadMap = new Map<string, FacultyWorkload>();
 
     // Initialize all faculty
-    faculty.forEach(f => {
+    faculty.forEach((f) => {
       workloadMap.set(f.facultyId, {
         faculty: f,
         regularDuties: 0,
         bufferDuties: 0,
         totalDuties: 0,
-        assignments: []
+        assignments: [],
       });
     });
 
     // Count assignments
-    result.assignments.forEach(assignment => {
+    result.assignments.forEach((assignment) => {
       const workload = workloadMap.get(assignment.facultyId);
       if (workload) {
         workload.assignments.push(assignment);
@@ -84,7 +102,7 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
     });
 
     return Array.from(workloadMap.values())
-      .filter(w => w.totalDuties > 0)
+      .filter((w) => w.totalDuties > 0)
       .sort((a, b) => b.totalDuties - a.totalDuties);
   }, [result.assignments, faculty]);
 
@@ -92,7 +110,7 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
   const assignmentsBySlot = useMemo(() => {
     const grouped = new Map<string, Assignment[]>();
 
-    result.assignments.forEach(assignment => {
+    result.assignments.forEach((assignment) => {
       const key = `${assignment.day}-${assignment.slot}`;
       if (!grouped.has(key)) {
         grouped.set(key, []);
@@ -130,7 +148,7 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {result.assignments.filter(a => !a.isBuffer).length}
+              {result.assignments.filter((a) => !a.isBuffer).length}
             </div>
             <div className="text-sm text-muted-foreground">Regular Duties</div>
           </CardContent>
@@ -138,17 +156,17 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
-              {result.assignments.filter(a => a.isBuffer).length}
+              {result.assignments.filter((a) => a.isBuffer).length}
             </div>
             <div className="text-sm text-muted-foreground">Buffer Duties</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">
-              {facultyWorkloads.length}
+            <div className="text-2xl font-bold">{facultyWorkloads.length}</div>
+            <div className="text-sm text-muted-foreground">
+              Faculty Assigned
             </div>
-            <div className="text-sm text-muted-foreground">Faculty Assigned</div>
           </CardContent>
         </Card>
       </div>
@@ -187,15 +205,18 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
               </CardDescription>
             )}
           </CardHeader>
-          
+
           {warningsExpanded && (
             <CardContent className="pt-0">
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {parsedWarnings.map((warning, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-yellow-100 rounded-lg">
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 bg-yellow-100 rounded-lg"
+                  >
                     <AlertTriangle className="size-4 text-yellow-600 mt-0.5 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      {warning.type === 'faculty' && warning.facultyName ? (
+                      {warning.type === "faculty" && warning.facultyName ? (
                         <div>
                           <div className="font-medium text-yellow-800">
                             {warning.facultyName} ({warning.facultyId})
@@ -228,14 +249,20 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
         </CardHeader>
         <CardContent>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {facultyWorkloads.map(workload => (
-              <div key={workload.faculty.facultyId} className="flex items-center justify-between p-3 border rounded-lg">
+            {facultyWorkloads.map((workload) => (
+              <div
+                key={workload.faculty.facultyId}
+                className="flex items-center justify-between p-3 border rounded-lg"
+              >
                 <div className="flex items-center gap-3">
                   <User className="size-4 text-muted-foreground" />
                   <div>
-                    <div className="font-medium">{workload.faculty.facultyName}</div>
+                    <div className="font-medium">
+                      {workload.faculty.facultyName}
+                    </div>
                     <div className="text-sm text-muted-foreground">
-                      {workload.faculty.facultyId} • {workload.faculty.designation}
+                      {workload.faculty.facultyId} •{" "}
+                      {workload.faculty.designation}
                     </div>
                   </div>
                 </div>
@@ -249,7 +276,9 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                     <div className="text-muted-foreground">Buffer</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-bold text-primary">{workload.totalDuties}</div>
+                    <div className="font-bold text-primary">
+                      {workload.totalDuties}
+                    </div>
                     <div className="text-muted-foreground">Total</div>
                   </div>
                 </div>
@@ -271,11 +300,15 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
           <div className="space-y-6">
             {dutySlots
               .sort((a, b) => a.day - b.day || a.slot - b.slot)
-              .map(dutySlot => {
+              .map((dutySlot) => {
                 const key = `${dutySlot.day}-${dutySlot.slot}`;
                 const slotAssignments = assignmentsBySlot.get(key) || [];
-                const regularAssignments = slotAssignments.filter(a => !a.isBuffer);
-                const bufferAssignments = slotAssignments.filter(a => a.isBuffer);
+                const regularAssignments = slotAssignments.filter(
+                  (a) => !a.isBuffer,
+                );
+                const bufferAssignments = slotAssignments.filter(
+                  (a) => a.isBuffer,
+                );
 
                 return (
                   <div key={key} className="border rounded-lg p-4">
@@ -287,13 +320,17 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                             Day {dutySlot.day + 1} - Slot {dutySlot.slot + 1}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {format(dutySlot.date, 'MMM dd, yyyy')} • {dutySlot.startTime} - {dutySlot.endTime}
+                            {format(dutySlot.date, "MMM dd, yyyy")} •{" "}
+                            {dutySlot.startTime} - {dutySlot.endTime}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <CheckCircle className="size-4 text-green-600" />
-                        <span>{slotAssignments.length}/{dutySlot.totalDuties} assigned</span>
+                        <span>
+                          {slotAssignments.length}/{dutySlot.totalDuties}{" "}
+                          assigned
+                        </span>
                       </div>
                     </div>
 
@@ -306,11 +343,18 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                         </h5>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {regularAssignments.map((assignment, index) => {
-                            const assignedFaculty = faculty.find(f => f.facultyId === assignment.facultyId);
+                            const assignedFaculty = faculty.find(
+                              (f) => f.facultyId === assignment.facultyId,
+                            );
                             return (
-                              <div key={index} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-muted/30 rounded"
+                              >
                                 <div>
-                                  <div className="text-sm font-medium">{assignedFaculty?.facultyName}</div>
+                                  <div className="text-sm font-medium">
+                                    {assignedFaculty?.facultyName}
+                                  </div>
                                   <div className="text-xs text-muted-foreground">
                                     {assignedFaculty?.facultyId}
                                   </div>
@@ -322,7 +366,9 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                             );
                           })}
                           {regularAssignments.length === 0 && (
-                            <div className="text-sm text-muted-foreground italic">No regular duties assigned</div>
+                            <div className="text-sm text-muted-foreground italic">
+                              No regular duties assigned
+                            </div>
                           )}
                         </div>
                       </div>
@@ -335,11 +381,18 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                         </h5>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                           {bufferAssignments.map((assignment, index) => {
-                            const assignedFaculty = faculty.find(f => f.facultyId === assignment.facultyId);
+                            const assignedFaculty = faculty.find(
+                              (f) => f.facultyId === assignment.facultyId,
+                            );
                             return (
-                              <div key={index} className="flex items-center justify-between p-2 bg-orange-50 rounded">
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-orange-50 rounded"
+                              >
                                 <div>
-                                  <div className="text-sm font-medium">{assignedFaculty?.facultyName}</div>
+                                  <div className="text-sm font-medium">
+                                    {assignedFaculty?.facultyName}
+                                  </div>
                                   <div className="text-xs text-muted-foreground">
                                     {assignedFaculty?.facultyId}
                                   </div>
@@ -351,7 +404,9 @@ export function AssignmentResults({ result, faculty, dutySlots }: AssignmentResu
                             );
                           })}
                           {bufferAssignments.length === 0 && (
-                            <div className="text-sm text-muted-foreground italic">No buffer duties assigned</div>
+                            <div className="text-sm text-muted-foreground italic">
+                              No buffer duties assigned
+                            </div>
                           )}
                         </div>
                       </div>

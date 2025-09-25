@@ -1,20 +1,27 @@
-import { useEffect, useState } from 'react';
-import { Download, RefreshCw, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from 'sonner';
+import { useEffect, useState } from "react";
+import { Download, RefreshCw, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
+    outcome: "accepted" | "dismissed";
     platform: string;
   }>;
   prompt(): Promise<void>;
 }
 
 export function PWAPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [updateSW, setUpdateSW] = useState<(() => Promise<void>) | null>(null);
@@ -31,29 +38,38 @@ export function PWAPrompt() {
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setShowInstallPrompt(false);
-      toast.success('ExamDuty installed successfully!');
+      toast.success("ExamDuty installed successfully!");
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
 
   useEffect(() => {
     // Handle service worker updates
-    if ('serviceWorker' in navigator) {
+    if ("serviceWorker" in navigator) {
       const handleControllerChange = () => {
         window.location.reload();
       };
 
-      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+      navigator.serviceWorker.addEventListener(
+        "controllerchange",
+        handleControllerChange,
+      );
 
       return () => {
-        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+        navigator.serviceWorker.removeEventListener(
+          "controllerchange",
+          handleControllerChange,
+        );
       };
     }
   }, []);
@@ -61,16 +77,16 @@ export function PWAPrompt() {
   // PWA update detection (you'll need to import this from workbox-window)
   useEffect(() => {
     const registerSW = async () => {
-      if ('serviceWorker' in navigator) {
-        const { Workbox } = await import('workbox-window');
-        const wb = new Workbox('/sw.js');
+      if ("serviceWorker" in navigator) {
+        const { Workbox } = await import("workbox-window");
+        const wb = new Workbox("/sw.js");
 
-        wb.addEventListener('waiting', () => {
+        wb.addEventListener("waiting", () => {
           setShowUpdatePrompt(true);
           setUpdateSW(() => () => {
             wb.messageSkipWaiting();
             setShowUpdatePrompt(false);
-            toast.loading('Updating ExamDuty...', { id: 'sw-update' });
+            toast.loading("Updating ExamDuty...", { id: "sw-update" });
             return Promise.resolve();
           });
         });
@@ -88,7 +104,7 @@ export function PWAPrompt() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
+    if (outcome === "accepted") {
       setDeferredPrompt(null);
       setShowInstallPrompt(false);
     }
@@ -150,7 +166,9 @@ export function PWAPrompt() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm text-blue-900">Update Available</CardTitle>
+                  <CardTitle className="text-sm text-blue-900">
+                    Update Available
+                  </CardTitle>
                   <CardDescription className="text-xs text-blue-700">
                     A new version of ExamDuty is ready
                   </CardDescription>

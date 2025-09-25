@@ -1,17 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { ExamData, Faculty, ExamStructure, UnavailableFaculty, Assignment } from '@/types';
+import { useState, useEffect, useCallback } from "react";
+import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import type {
+  ExamData,
+  Faculty,
+  ExamStructure,
+  UnavailableFaculty,
+  Assignment,
+} from "@/types";
 
 interface ExamDutyDB extends DBSchema {
   examData: {
-    key: 'current';
+    key: "current";
     value: ExamData;
   };
 }
 
-const DB_NAME = 'ExamDutyDB';
+const DB_NAME = "ExamDutyDB";
 const DB_VERSION = 1;
-const STORE_KEY = 'current';
+const STORE_KEY = "current";
 
 export function useExamData() {
   const [data, setData] = useState<ExamData>({
@@ -33,8 +39,8 @@ export function useExamData() {
   const initDB = useCallback(async (): Promise<IDBPDatabase<ExamDutyDB>> => {
     return openDB<ExamDutyDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        if (!db.objectStoreNames.contains('examData')) {
-          db.createObjectStore('examData');
+        if (!db.objectStoreNames.contains("examData")) {
+          db.createObjectStore("examData");
         }
       },
     });
@@ -46,8 +52,8 @@ export function useExamData() {
       setLoading(true);
       setError(null);
       const db = await initDB();
-      const stored = await db.get('examData', STORE_KEY);
-      
+      const stored = await db.get("examData", STORE_KEY);
+
       if (stored) {
         // Convert date strings back to Date objects
         const restoredData = {
@@ -55,7 +61,7 @@ export function useExamData() {
           lastUpdated: new Date(stored.lastUpdated),
           examStructure: {
             ...stored.examStructure,
-            dutySlots: stored.examStructure.dutySlots.map(slot => ({
+            dutySlots: stored.examStructure.dutySlots.map((slot) => ({
               ...slot,
               date: new Date(slot.date),
             })),
@@ -64,50 +70,65 @@ export function useExamData() {
         setData(restoredData);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
   }, [initDB]);
 
   // Save data to IndexedDB
-  const saveData = useCallback(async (newData: Partial<ExamData>) => {
-    try {
-      const updatedData = {
-        ...data,
-        ...newData,
-        lastUpdated: new Date(),
-      };
-      
-      const db = await initDB();
-      await db.put('examData', updatedData, STORE_KEY);
-      setData(updatedData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save data');
-    }
-  }, [data, initDB]);
+  const saveData = useCallback(
+    async (newData: Partial<ExamData>) => {
+      try {
+        const updatedData = {
+          ...data,
+          ...newData,
+          lastUpdated: new Date(),
+        };
+
+        const db = await initDB();
+        await db.put("examData", updatedData, STORE_KEY);
+        setData(updatedData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save data");
+      }
+    },
+    [data, initDB],
+  );
 
   // Specific update functions
-  const updateFaculty = useCallback((faculty: Faculty[]) => {
-    saveData({ faculty });
-  }, [saveData]);
+  const updateFaculty = useCallback(
+    (faculty: Faculty[]) => {
+      saveData({ faculty });
+    },
+    [saveData],
+  );
 
-  const updateExamStructure = useCallback((examStructure: ExamStructure) => {
-    saveData({ examStructure });
-  }, [saveData]);
+  const updateExamStructure = useCallback(
+    (examStructure: ExamStructure) => {
+      saveData({ examStructure });
+    },
+    [saveData],
+  );
 
-  const updateUnavailability = useCallback((unavailability: UnavailableFaculty[]) => {
-    saveData({ unavailability });
-  }, [saveData]);
+  const updateUnavailability = useCallback(
+    (unavailability: UnavailableFaculty[]) => {
+      saveData({ unavailability });
+    },
+    [saveData],
+  );
 
-  const updateAssignments = useCallback((assignments: Assignment[]) => {
-    saveData({ assignments });
-  }, [saveData]);
+  const updateAssignments = useCallback(
+    (assignments: Assignment[]) => {
+      saveData({ assignments });
+    },
+    [saveData],
+  );
 
   const clearAllData = useCallback(async () => {
     try {
       const db = await initDB();
-      await db.delete('examData', STORE_KEY);
+      await db.delete("examData", STORE_KEY);
       setData({
         faculty: [],
         examStructure: {
@@ -121,7 +142,7 @@ export function useExamData() {
         lastUpdated: new Date(),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear data');
+      setError(err instanceof Error ? err.message : "Failed to clear data");
     }
   }, [initDB]);
 
