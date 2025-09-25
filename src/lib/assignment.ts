@@ -1,11 +1,11 @@
 import type {
-  Faculty,
-  DutySlot,
-  UnavailableFaculty,
   Assignment,
   AssignmentResult,
+  DutySlot,
   ExamStructure,
-} from "@/types";
+  Faculty,
+  UnavailableFaculty,
+} from '@/types';
 
 interface FacultyDutyCount {
   facultyId: string;
@@ -27,7 +27,7 @@ interface SlotAssignmentContext {
 export function assignDuties(
   faculty: Faculty[],
   examStructure: ExamStructure,
-  unavailability: UnavailableFaculty[],
+  unavailability: UnavailableFaculty[]
 ): AssignmentResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -47,7 +47,7 @@ export function assignDuties(
   // Step 2: Initialize faculty duty tracking
   const facultyDutyCounts = initializeFacultyDutyCounts(
     faculty,
-    examStructure.designationDutyCounts,
+    examStructure.designationDutyCounts
   );
 
   // Step 3: Build unavailability map for quick lookups
@@ -61,7 +61,7 @@ export function assignDuties(
         faculty,
         facultyDutyCounts,
         unavailabilityMap,
-        assignments,
+        assignments
       );
 
       assignments.push(...slotResult.assignments);
@@ -76,7 +76,7 @@ export function assignDuties(
     // Step 5: Final validation
     const finalValidation = validateFinalAssignments(
       assignments,
-      facultyDutyCounts,
+      facultyDutyCounts
     );
     warnings.push(...finalValidation.warnings);
 
@@ -91,7 +91,7 @@ export function assignDuties(
       success: false,
       assignments: [],
       errors: [
-        `Assignment failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       ],
       warnings,
     };
@@ -100,29 +100,29 @@ export function assignDuties(
 
 function validateAssignmentRequirements(
   faculty: Faculty[],
-  examStructure: ExamStructure,
+  examStructure: ExamStructure
 ): { valid: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   if (faculty.length === 0) {
-    errors.push("No faculty members available for assignment");
+    errors.push('No faculty members available for assignment');
     return { valid: false, errors, warnings };
   }
 
   if (examStructure.dutySlots.length === 0) {
-    errors.push("No duty slots configured");
+    errors.push('No duty slots configured');
     return { valid: false, errors, warnings };
   }
 
   // Calculate total duties needed
   const totalRegularDuties = examStructure.dutySlots.reduce(
     (sum, slot) => sum + slot.regularDuties,
-    0,
+    0
   );
   const totalBufferDuties = examStructure.dutySlots.reduce(
     (sum, slot) => sum + slot.bufferDuties,
-    0,
+    0
   );
   const totalDuties = totalRegularDuties + totalBufferDuties;
 
@@ -134,7 +134,7 @@ function validateAssignmentRequirements(
 
   if (totalFacultyCapacity < totalDuties) {
     errors.push(
-      `Insufficient faculty capacity. Need ${totalDuties} duties, but faculty can only handle ${totalFacultyCapacity}`,
+      `Insufficient faculty capacity. Need ${totalDuties} duties, but faculty can only handle ${totalFacultyCapacity}`
     );
   }
 
@@ -142,7 +142,7 @@ function validateAssignmentRequirements(
   for (const slot of examStructure.dutySlots) {
     if (slot.rooms.length !== slot.regularDuties) {
       errors.push(
-        `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${slot.regularDuties} regular duties needed`,
+        `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${slot.regularDuties} regular duties needed`
       );
     }
   }
@@ -150,7 +150,7 @@ function validateAssignmentRequirements(
   // Check for buffer duty constraint violations (max 1 per faculty)
   if (totalBufferDuties > faculty.length) {
     warnings.push(
-      `${totalBufferDuties} buffer duties needed but only ${faculty.length} faculty available. Some faculty may get multiple buffer duties.`,
+      `${totalBufferDuties} buffer duties needed but only ${faculty.length} faculty available. Some faculty may get multiple buffer duties.`
     );
   }
 
@@ -159,7 +159,7 @@ function validateAssignmentRequirements(
 
 function initializeFacultyDutyCounts(
   faculty: Faculty[],
-  designationDutyCounts: Record<string, number>,
+  designationDutyCounts: Record<string, number>
 ): FacultyDutyCount[] {
   return faculty.map((f) => ({
     facultyId: f.facultyId,
@@ -170,7 +170,7 @@ function initializeFacultyDutyCounts(
 }
 
 function buildUnavailabilityMap(
-  unavailability: UnavailableFaculty[],
+  unavailability: UnavailableFaculty[]
 ): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
 
@@ -189,23 +189,23 @@ function assignSlotDuties(
   allFaculty: Faculty[],
   facultyDutyCounts: FacultyDutyCount[],
   unavailabilityMap: Map<string, Set<string>>,
-  existingAssignments: Assignment[],
+  existingAssignments: Assignment[]
 ): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
   const assignments: Assignment[] = [];
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const dateString = dutySlot.date.toISOString().split("T")[0];
+  const dateString = dutySlot.date.toISOString().split('T')[0];
   const unavailableToday = unavailabilityMap.get(dateString) || new Set();
 
   // Get faculty available for this slot
   const availableFaculty = allFaculty.filter(
-    (f) => !unavailableToday.has(f.facultyId),
+    (f) => !unavailableToday.has(f.facultyId)
   );
 
   if (availableFaculty.length === 0) {
     errors.push(
-      `Day ${dutySlot.day + 1} Slot ${dutySlot.slot + 1}: No faculty available`,
+      `Day ${dutySlot.day + 1} Slot ${dutySlot.slot + 1}: No faculty available`
     );
     return { assignments, errors, warnings };
   }
@@ -224,7 +224,7 @@ function assignSlotDuties(
   const regularResult = assignRegularDuties(
     context,
     facultyDutyCounts,
-    existingAssignments,
+    existingAssignments
   );
   assignments.push(...regularResult.assignments);
   warnings.push(...regularResult.warnings);
@@ -238,7 +238,7 @@ function assignSlotDuties(
   const bufferResult = assignBufferDuties(
     context,
     facultyDutyCounts,
-    existingAssignments,
+    existingAssignments
   );
   assignments.push(...bufferResult.assignments);
   warnings.push(...bufferResult.warnings);
@@ -250,7 +250,7 @@ function assignSlotDuties(
 function assignRegularDuties(
   context: SlotAssignmentContext,
   facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[],
+  existingAssignments: Assignment[]
 ): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
   const assignments: Assignment[] = [];
   const errors: string[] = [];
@@ -261,7 +261,7 @@ function assignRegularDuties(
   for (let i = 0; i < context.regularDutiesNeeded; i++) {
     if (availableRooms.length === 0) {
       errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No more rooms available for regular duties`,
+        `Day ${context.day + 1} Slot ${context.slot + 1}: No more rooms available for regular duties`
       );
       break;
     }
@@ -270,12 +270,12 @@ function assignRegularDuties(
       context,
       facultyDutyCounts,
       existingAssignments,
-      false, // not buffer duty
+      false // not buffer duty
     );
 
     if (eligibleFaculty.length === 0) {
       errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for regular duty ${i + 1}`,
+        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for regular duty ${i + 1}`
       );
       break;
     }
@@ -283,7 +283,7 @@ function assignRegularDuties(
     // Select faculty using weighted random (favor those with fewer duties)
     const selectedFaculty = selectFacultyDeterministic(
       eligibleFaculty,
-      facultyDutyCounts,
+      facultyDutyCounts
     );
     const room = availableRooms.shift()!; // Remove room from available list
 
@@ -300,7 +300,7 @@ function assignRegularDuties(
 
     // Update faculty duty count
     const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId,
+      (f) => f.facultyId === selectedFaculty.facultyId
     )!;
     facultyDutyCount.assignedDuties++;
   }
@@ -311,7 +311,7 @@ function assignRegularDuties(
 function assignBufferDuties(
   context: SlotAssignmentContext,
   facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[],
+  existingAssignments: Assignment[]
 ): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
   const assignments: Assignment[] = [];
   const errors: string[] = [];
@@ -322,12 +322,12 @@ function assignBufferDuties(
       context,
       facultyDutyCounts,
       existingAssignments,
-      true, // is buffer duty
+      true // is buffer duty
     );
 
     if (eligibleFaculty.length === 0) {
       warnings.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for buffer duty ${i + 1}`,
+        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for buffer duty ${i + 1}`
       );
       continue;
     }
@@ -335,7 +335,7 @@ function assignBufferDuties(
     // Select faculty using weighted random
     const selectedFaculty = selectFacultyDeterministic(
       eligibleFaculty,
-      facultyDutyCounts,
+      facultyDutyCounts
     );
 
     // Create assignment
@@ -351,7 +351,7 @@ function assignBufferDuties(
 
     // Update faculty duty counts
     const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId,
+      (f) => f.facultyId === selectedFaculty.facultyId
     )!;
     facultyDutyCount.assignedDuties++;
     facultyDutyCount.bufferDuties++;
@@ -364,11 +364,11 @@ function getEligibleFaculty(
   context: SlotAssignmentContext,
   facultyDutyCounts: FacultyDutyCount[],
   existingAssignments: Assignment[],
-  isBufferDuty: boolean,
+  isBufferDuty: boolean
 ): Faculty[] {
   // Count faculty with remaining capacity
   const facultyWithRemainingCapacity = facultyDutyCounts.filter(
-    (f) => f.assignedDuties < f.targetDuties,
+    (f) => f.assignedDuties < f.targetDuties
   ).length;
 
   const facultyWithRemainingBufferCapacity = isBufferDuty
@@ -377,7 +377,7 @@ function getEligibleFaculty(
 
   return context.availableFaculty.filter((faculty) => {
     const dutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === faculty.facultyId,
+      (f) => f.facultyId === faculty.facultyId
     )!;
 
     // Check buffer duty limit (max 1 per faculty across entire exam)
@@ -390,7 +390,7 @@ function getEligibleFaculty(
       hasConsecutiveSlotConflict(
         faculty.facultyId,
         context,
-        existingAssignments,
+        existingAssignments
       )
     ) {
       return false;
@@ -422,11 +422,11 @@ function getEligibleFaculty(
 function hasConsecutiveSlotConflict(
   facultyId: string,
   context: SlotAssignmentContext,
-  existingAssignments: Assignment[],
+  existingAssignments: Assignment[]
 ): boolean {
   // Check if faculty is already assigned to adjacent slots on the same day
   const dayAssignments = existingAssignments.filter(
-    (a) => a.facultyId === facultyId && a.day === context.day,
+    (a) => a.facultyId === facultyId && a.day === context.day
   );
 
   for (const assignment of dayAssignments) {
@@ -441,13 +441,13 @@ function hasConsecutiveSlotConflict(
 
 function selectFacultyDeterministic(
   eligibleFaculty: Faculty[],
-  facultyDutyCounts: FacultyDutyCount[],
+  facultyDutyCounts: FacultyDutyCount[]
 ): Faculty {
   // Sort by: 1) furthest behind target, 2) lowest total duties assigned, 3) faculty ID for consistency
   const sorted = eligibleFaculty
     .map((faculty) => {
       const dutyCount = facultyDutyCounts.find(
-        (f) => f.facultyId === faculty.facultyId,
+        (f) => f.facultyId === faculty.facultyId
       )!;
       return {
         faculty,
@@ -474,7 +474,7 @@ function selectFacultyDeterministic(
 
 function validateFinalAssignments(
   assignments: Assignment[],
-  facultyDutyCounts: FacultyDutyCount[],
+  facultyDutyCounts: FacultyDutyCount[]
 ): { warnings: string[] } {
   const warnings: string[] = [];
 
@@ -482,7 +482,7 @@ function validateFinalAssignments(
   for (const dutyCount of facultyDutyCounts) {
     if (dutyCount.assignedDuties < dutyCount.targetDuties) {
       warnings.push(
-        `Faculty ${dutyCount.facultyId} assigned ${dutyCount.assignedDuties}/${dutyCount.targetDuties} duties`,
+        `Faculty ${dutyCount.facultyId} assigned ${dutyCount.assignedDuties}/${dutyCount.targetDuties} duties`
       );
     }
   }
@@ -521,7 +521,7 @@ function checkConstraintViolations(assignments: Assignment[]): string[] {
       for (let i = 0; i < slots.length - 1; i++) {
         if (slots[i + 1] - slots[i] === 1) {
           violations.push(
-            `Faculty ${facultyId} has consecutive slots ${slots[i]} and ${slots[i + 1]} on day ${day}`,
+            `Faculty ${facultyId} has consecutive slots ${slots[i]} and ${slots[i + 1]} on day ${day}`
           );
         }
       }
@@ -534,7 +534,7 @@ function checkConstraintViolations(assignments: Assignment[]): string[] {
     if (assignment.isBuffer) {
       bufferCounts.set(
         assignment.facultyId,
-        (bufferCounts.get(assignment.facultyId) || 0) + 1,
+        (bufferCounts.get(assignment.facultyId) || 0) + 1
       );
     }
   }
@@ -542,7 +542,7 @@ function checkConstraintViolations(assignments: Assignment[]): string[] {
   for (const [facultyId, count] of bufferCounts) {
     if (count > 1) {
       violations.push(
-        `Faculty ${facultyId} has ${count} buffer duties (max 1 allowed)`,
+        `Faculty ${facultyId} has ${count} buffer duties (max 1 allowed)`
       );
     }
   }
@@ -553,7 +553,7 @@ function checkConstraintViolations(assignments: Assignment[]): string[] {
 // Utility function for testing/debugging
 export function getAssignmentStats(
   assignments: Assignment[],
-  faculty: Faculty[],
+  faculty: Faculty[]
 ): Record<string, { regular: number; buffer: number; total: number }> {
   const stats: Record<
     string,

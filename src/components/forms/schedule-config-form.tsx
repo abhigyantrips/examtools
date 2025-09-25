@@ -1,23 +1,27 @@
-import { useState, useCallback, useMemo } from "react";
-import { Calendar, Upload, X, CheckCircle, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { format } from 'date-fns';
+import { AlertCircle, Calendar, CheckCircle, Upload, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { useCallback, useMemo, useState } from 'react';
+
+import type { DutySlot, ExamStructure, ExcelParseResult } from '@/types';
+
+import { parseRoomsExcel } from '@/lib/excel';
+
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+} from '@/components/ui/card';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { parseRoomsExcel } from "@/lib/excel";
-import { format } from "date-fns";
-import type { ExamStructure, DutySlot, ExcelParseResult } from "@/types";
-import { toast } from "sonner";
+} from '@/components/ui/popover';
 
 interface ScheduleConfigFormProps {
   examStructure: ExamStructure;
@@ -35,28 +39,28 @@ export function ScheduleConfigForm({
   const [days, setDays] = useState(examStructure.days || 3);
   const [slots, setSlots] = useState(examStructure.slots || 2);
   const [dutySlots, setDutySlots] = useState<DutySlot[]>(
-    examStructure.dutySlots || [],
+    examStructure.dutySlots || []
   );
   const [roomUploadResults, setRoomUploadResults] = useState<RoomUploadState>(
-    {},
+    {}
   );
 
   // Time options for dropdowns
   const timeOptions = useMemo(
     () => [
-      "8:00 AM",
-      "9:00 AM",
-      "10:00 AM",
-      "11:00 AM",
-      "12:00 PM",
-      "1:00 PM",
-      "2:00 PM",
-      "3:00 PM",
-      "4:00 PM",
-      "5:00 PM",
-      "6:00 PM",
+      '8:00 AM',
+      '9:00 AM',
+      '10:00 AM',
+      '11:00 AM',
+      '12:00 PM',
+      '1:00 PM',
+      '2:00 PM',
+      '3:00 PM',
+      '4:00 PM',
+      '5:00 PM',
+      '6:00 PM',
     ],
-    [],
+    []
   );
 
   // Get date for a specific day
@@ -65,7 +69,7 @@ export function ScheduleConfigForm({
       const daySlot = dutySlots.find((s) => s.day === day);
       return daySlot?.date || new Date();
     },
-    [dutySlots],
+    [dutySlots]
   );
 
   // Get time range for a specific slot
@@ -73,17 +77,17 @@ export function ScheduleConfigForm({
     (slot: number): { startTime: string; endTime: string } => {
       const slotData = dutySlots.find((s) => s.slot === slot);
       return {
-        startTime: slotData?.startTime || (slot === 0 ? "9:00 AM" : "2:00 PM"),
-        endTime: slotData?.endTime || (slot === 0 ? "12:00 PM" : "5:00 PM"),
+        startTime: slotData?.startTime || (slot === 0 ? '9:00 AM' : '2:00 PM'),
+        endTime: slotData?.endTime || (slot === 0 ? '12:00 PM' : '5:00 PM'),
       };
     },
-    [dutySlots],
+    [dutySlots]
   );
 
   // Update date for all slots of a specific day
   const updateDayDate = useCallback((day: number, date: Date) => {
     setDutySlots((prev) =>
-      prev.map((slot) => (slot.day === day ? { ...slot, date } : slot)),
+      prev.map((slot) => (slot.day === day ? { ...slot, date } : slot))
     );
   }, []);
 
@@ -91,10 +95,10 @@ export function ScheduleConfigForm({
   const updateSlotTimes = useCallback(
     (slot: number, startTime: string, endTime: string) => {
       setDutySlots((prev) =>
-        prev.map((s) => (s.slot === slot ? { ...s, startTime, endTime } : s)),
+        prev.map((s) => (s.slot === slot ? { ...s, startTime, endTime } : s))
       );
     },
-    [],
+    []
   );
 
   // Initialize duty slots grid when dimensions change
@@ -104,19 +108,19 @@ export function ScheduleConfigForm({
     for (let day = 0; day < days; day++) {
       for (let slot = 0; slot < slots; slot++) {
         const existing = dutySlots.find(
-          (s) => s.day === day && s.slot === slot,
+          (s) => s.day === day && s.slot === slot
         );
         newSlots.push(
           existing || {
             day,
             slot,
             date: new Date(),
-            startTime: slot === 0 ? "9:00 AM" : "2:00 PM",
-            endTime: slot === 0 ? "12:00 PM" : "5:00 PM",
+            startTime: slot === 0 ? '9:00 AM' : '2:00 PM',
+            endTime: slot === 0 ? '12:00 PM' : '5:00 PM',
             regularDuties: 8,
             bufferDuties: 2,
             rooms: [],
-          },
+          }
         );
       }
     }
@@ -129,33 +133,33 @@ export function ScheduleConfigForm({
     (day: number, slot: number, regularDuties: number) => {
       setDutySlots((prev) =>
         prev.map((s) =>
-          s.day === day && s.slot === slot ? { ...s, regularDuties } : s,
-        ),
+          s.day === day && s.slot === slot ? { ...s, regularDuties } : s
+        )
       );
     },
-    [],
+    []
   );
 
   const updateSlotBufferDuties = useCallback(
     (day: number, slot: number, bufferDuties: number) => {
       setDutySlots((prev) =>
         prev.map((s) =>
-          s.day === day && s.slot === slot ? { ...s, bufferDuties } : s,
-        ),
+          s.day === day && s.slot === slot ? { ...s, bufferDuties } : s
+        )
       );
     },
-    [],
+    []
   );
 
   const updateSlotRooms = useCallback(
     (day: number, slot: number, rooms: string[]) => {
       setDutySlots((prev) =>
         prev.map((s) =>
-          s.day === day && s.slot === slot ? { ...s, rooms } : s,
-        ),
+          s.day === day && s.slot === slot ? { ...s, rooms } : s
+        )
       );
     },
-    [],
+    []
   );
 
   // Handle room upload
@@ -166,7 +170,7 @@ export function ScheduleConfigForm({
       // Set loading state
       setRoomUploadResults((prev) => ({
         ...prev,
-        [key]: { data: [], errors: ["Uploading..."], warnings: [] },
+        [key]: { data: [], errors: ['Uploading...'], warnings: [] },
       }));
 
       try {
@@ -179,7 +183,7 @@ export function ScheduleConfigForm({
         if (result.data.length > 0) {
           updateSlotRooms(day, slot, result.data);
           toast.success(
-            `Uploaded ${result.data.length} rooms for Day ${day + 1} Slot ${slot + 1}.`,
+            `Uploaded ${result.data.length} rooms for Day ${day + 1} Slot ${slot + 1}.`
           );
         }
       } catch (error) {
@@ -188,14 +192,14 @@ export function ScheduleConfigForm({
           [key]: {
             data: [],
             errors: [
-              `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+              `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
             ],
             warnings: [],
           },
         }));
       }
     },
-    [updateSlotRooms],
+    [updateSlotRooms]
   );
 
   const clearRoomUploadResult = useCallback((day: number, slot: number) => {
@@ -215,7 +219,7 @@ export function ScheduleConfigForm({
       designationDutyCounts: examStructure.designationDutyCounts,
     };
     onExamStructureUpdated(structure);
-    toast.success("Schedule configuration saved successfully.");
+    toast.success('Schedule configuration saved successfully.');
   }, [
     days,
     slots,
@@ -237,7 +241,7 @@ export function ScheduleConfigForm({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium block mb-1">
+              <label className="mb-1 block text-sm font-medium">
                 Number of Days
               </label>
               <input
@@ -248,11 +252,11 @@ export function ScheduleConfigForm({
                 onChange={(e) =>
                   setDays(Math.max(1, parseInt(e.target.value) || 1))
                 }
-                className="w-full px-3 py-2 border rounded-md"
+                className="w-full rounded-md border px-3 py-2"
               />
             </div>
             <div>
-              <label className="text-sm font-medium block mb-1">
+              <label className="mb-1 block text-sm font-medium">
                 Slots per Day
               </label>
               <input
@@ -263,7 +267,7 @@ export function ScheduleConfigForm({
                 onChange={(e) =>
                   setSlots(Math.max(1, parseInt(e.target.value) || 1))
                 }
-                className="w-full px-3 py-2 border rounded-md"
+                className="w-full rounded-md border px-3 py-2"
               />
             </div>
           </div>
@@ -289,13 +293,13 @@ export function ScheduleConfigForm({
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="p-3 border text-center uppercase w-32">
+                    <th className="w-32 border p-3 text-center uppercase">
                       Day / Slot
                     </th>
                     {Array.from({ length: days }, (_, dayIndex) => (
                       <th
                         key={dayIndex}
-                        className="p-3 border text-center min-w-[200px]"
+                        className="min-w-[200px] border p-3 text-center"
                       >
                         <div className="space-y-2">
                           <div className="font-medium">Day {dayIndex + 1}</div>
@@ -308,7 +312,7 @@ export function ScheduleConfigForm({
                                 className="w-full justify-center font-normal"
                               >
                                 <Calendar className="mr-2 size-3" />
-                                {format(getDayDate(dayIndex), "MMM dd, yyyy")}
+                                {format(getDayDate(dayIndex), 'MMM dd, yyyy')}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -330,7 +334,7 @@ export function ScheduleConfigForm({
                 <tbody>
                   {Array.from({ length: slots }, (_, slotIndex) => (
                     <tr key={slotIndex}>
-                      <td className="p-3 border font-medium min-w-32">
+                      <td className="min-w-32 border p-3 font-medium">
                         <div className="space-y-2">
                           <div className="text-sm font-medium">
                             Slot {slotIndex + 1}
@@ -343,10 +347,10 @@ export function ScheduleConfigForm({
                                 updateSlotTimes(
                                   slotIndex,
                                   e.target.value,
-                                  getSlotTimes(slotIndex).endTime,
+                                  getSlotTimes(slotIndex).endTime
                                 )
                               }
-                              className="w-full px-2 py-1 border rounded text-xs"
+                              className="w-full rounded border px-2 py-1 text-xs"
                             >
                               {timeOptions.map((time) => (
                                 <option key={time} value={time}>
@@ -354,7 +358,7 @@ export function ScheduleConfigForm({
                                 </option>
                               ))}
                             </select>
-                            <div className="text-center text-xs text-muted-foreground">
+                            <div className="text-muted-foreground text-center text-xs">
                               to
                             </div>
                             <select
@@ -363,10 +367,10 @@ export function ScheduleConfigForm({
                                 updateSlotTimes(
                                   slotIndex,
                                   getSlotTimes(slotIndex).startTime,
-                                  e.target.value,
+                                  e.target.value
                                 )
                               }
-                              className="w-full px-2 py-1 border rounded text-xs"
+                              className="w-full rounded border px-2 py-1 text-xs"
                             >
                               {timeOptions.map((time) => (
                                 <option key={time} value={time}>
@@ -381,21 +385,21 @@ export function ScheduleConfigForm({
                       {/* Individual day-slot cells */}
                       {Array.from({ length: days }, (_, dayIndex) => {
                         const dutySlot = dutySlots.find(
-                          (s) => s.day === dayIndex && s.slot === slotIndex,
+                          (s) => s.day === dayIndex && s.slot === slotIndex
                         );
                         const uploadKey = `${dayIndex}-${slotIndex}`;
                         const uploadResult = roomUploadResults[uploadKey];
 
                         if (!dutySlot)
-                          return <td key={dayIndex} className="p-3 border" />;
+                          return <td key={dayIndex} className="border p-3" />;
 
                         return (
-                          <td key={dayIndex} className="p-3 border">
+                          <td key={dayIndex} className="border p-3">
                             <div className="space-y-3">
                               {/* Duties Configuration */}
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="text-xs text-muted-foreground">
+                                  <label className="text-muted-foreground text-xs">
                                     Regular
                                   </label>
                                   <input
@@ -406,14 +410,14 @@ export function ScheduleConfigForm({
                                       updateSlotRegularDuties(
                                         dayIndex,
                                         slotIndex,
-                                        parseInt(e.target.value) || 0,
+                                        parseInt(e.target.value) || 0
                                       )
                                     }
-                                    className="w-full px-2 py-1 border rounded text-sm text-center"
+                                    className="w-full rounded border px-2 py-1 text-center text-sm"
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-xs text-muted-foreground">
+                                  <label className="text-muted-foreground text-xs">
                                     Buffer
                                   </label>
                                   <input
@@ -424,10 +428,10 @@ export function ScheduleConfigForm({
                                       updateSlotBufferDuties(
                                         dayIndex,
                                         slotIndex,
-                                        parseInt(e.target.value) || 0,
+                                        parseInt(e.target.value) || 0
                                       )
                                     }
-                                    className="w-full px-2 py-1 border rounded text-sm text-center"
+                                    className="w-full rounded border px-2 py-1 text-center text-sm"
                                   />
                                 </div>
                               </div>
@@ -443,10 +447,10 @@ export function ScheduleConfigForm({
                                       handleRoomUpload(
                                         dayIndex,
                                         slotIndex,
-                                        file,
+                                        file
                                       );
                                   }}
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                                 />
                                 <Button
                                   variant="outline"
@@ -471,7 +475,7 @@ export function ScheduleConfigForm({
                                       onClick={() =>
                                         clearRoomUploadResult(
                                           dayIndex,
-                                          slotIndex,
+                                          slotIndex
                                         )
                                       }
                                       className="size-6 p-0"
@@ -485,7 +489,7 @@ export function ScheduleConfigForm({
                                       <div className="flex items-center gap-1 text-green-600">
                                         <CheckCircle className="size-3" />
                                         <span className="text-xs">
-                                          Success: {uploadResult.data.length}{" "}
+                                          Success: {uploadResult.data.length}{' '}
                                           rooms
                                         </span>
                                       </div>
@@ -499,7 +503,7 @@ export function ScheduleConfigForm({
                                           Errors
                                         </span>
                                       </div>
-                                      <div className="text-xs text-red-600 max-h-16 overflow-y-auto">
+                                      <div className="max-h-16 overflow-y-auto text-xs text-red-600">
                                         {uploadResult.errors
                                           .slice(0, 2)
                                           .map((error, index) => (
@@ -507,8 +511,8 @@ export function ScheduleConfigForm({
                                           ))}
                                         {uploadResult.errors.length > 2 && (
                                           <div>
-                                            ...and{" "}
-                                            {uploadResult.errors.length - 2}{" "}
+                                            ...and{' '}
+                                            {uploadResult.errors.length - 2}{' '}
                                             more
                                           </div>
                                         )}

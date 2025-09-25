@@ -1,23 +1,26 @@
-import { useMemo, useState } from "react";
+import { format } from 'date-fns';
 import {
-  User,
-  Calendar,
-  MapPin,
   AlertTriangle,
+  Calendar,
   CheckCircle,
   ChevronDown,
   ChevronUp,
-} from "lucide-react";
+  MapPin,
+  User,
+} from 'lucide-react';
+
+import { useMemo, useState } from 'react';
+
+import type { Assignment, AssignmentResult, DutySlot, Faculty } from '@/types';
+
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import type { Assignment, Faculty, DutySlot, AssignmentResult } from "@/types";
+} from '@/components/ui/card';
 
 interface AssignmentResultsProps {
   result: AssignmentResult;
@@ -37,7 +40,7 @@ interface ParsedWarning {
   originalMessage: string;
   facultyId?: string;
   facultyName?: string;
-  type: "faculty" | "general";
+  type: 'faculty' | 'general';
 }
 
 export function AssignmentResults({
@@ -61,13 +64,13 @@ export function AssignmentResults({
           originalMessage: warning,
           facultyId,
           facultyName: facultyMember?.facultyName,
-          type: "faculty",
+          type: 'faculty',
         };
       }
 
       return {
         originalMessage: warning,
-        type: "general",
+        type: 'general',
       };
     });
   }, [result.warnings, faculty]);
@@ -131,7 +134,7 @@ export function AssignmentResults({
           <div className="space-y-2">
             {result.errors.map((error, index) => (
               <div key={index} className="flex items-start gap-2 text-red-600">
-                <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <span className="text-sm">{error}</span>
               </div>
             ))}
@@ -144,13 +147,13 @@ export function AssignmentResults({
   return (
     <div className="space-y-6">
       {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">
               {result.assignments.filter((a) => !a.isBuffer).length}
             </div>
-            <div className="text-sm text-muted-foreground">Regular Duties</div>
+            <div className="text-muted-foreground text-sm">Regular Duties</div>
           </CardContent>
         </Card>
         <Card>
@@ -158,13 +161,13 @@ export function AssignmentResults({
             <div className="text-2xl font-bold">
               {result.assignments.filter((a) => a.isBuffer).length}
             </div>
-            <div className="text-sm text-muted-foreground">Buffer Duties</div>
+            <div className="text-muted-foreground text-sm">Buffer Duties</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{facultyWorkloads.length}</div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-muted-foreground text-sm">
               Faculty Assigned
             </div>
           </CardContent>
@@ -173,7 +176,7 @@ export function AssignmentResults({
 
       {/* Collapsible Warnings */}
       {parsedWarnings.length > 0 && (
-        <Card className="bg-yellow-50 border-yellow-200">
+        <Card className="border-yellow-200 bg-yellow-50">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -186,7 +189,7 @@ export function AssignmentResults({
                 variant="ghost"
                 size="sm"
                 onClick={() => setWarningsExpanded(!warningsExpanded)}
-                className="text-yellow-700 hover:text-yellow-800 hover:bg-yellow-100"
+                className="text-yellow-700 hover:bg-yellow-100 hover:text-yellow-800"
               >
                 {warningsExpanded ? (
                   <>
@@ -208,20 +211,20 @@ export function AssignmentResults({
 
           {warningsExpanded && (
             <CardContent className="pt-0">
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="max-h-64 space-y-2 overflow-y-auto">
                 {parsedWarnings.map((warning, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-3 p-3 bg-yellow-100 rounded-lg"
+                    className="flex items-start gap-3 rounded-lg bg-yellow-100 p-3"
                   >
-                    <AlertTriangle className="size-4 text-yellow-600 mt-0.5 shrink-0" />
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-yellow-600" />
                     <div className="min-w-0 flex-1">
-                      {warning.type === "faculty" && warning.facultyName ? (
+                      {warning.type === 'faculty' && warning.facultyName ? (
                         <div>
                           <div className="font-medium text-yellow-800">
                             {warning.facultyName} ({warning.facultyId})
                           </div>
-                          <div className="text-sm text-yellow-700 mt-1">
+                          <div className="mt-1 text-sm text-yellow-700">
                             {warning.originalMessage}
                           </div>
                         </div>
@@ -248,20 +251,20 @@ export function AssignmentResults({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="max-h-96 space-y-3 overflow-y-auto">
             {facultyWorkloads.map((workload) => (
               <div
                 key={workload.faculty.facultyId}
-                className="flex items-center justify-between p-3 border rounded-lg"
+                className="flex items-center justify-between rounded-lg border p-3"
               >
                 <div className="flex items-center gap-3">
-                  <User className="size-4 text-muted-foreground" />
+                  <User className="text-muted-foreground size-4" />
                   <div>
                     <div className="font-medium">
                       {workload.faculty.facultyName}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {workload.faculty.facultyId} •{" "}
+                    <div className="text-muted-foreground text-sm">
+                      {workload.faculty.facultyId} •{' '}
                       {workload.faculty.designation}
                     </div>
                   </div>
@@ -276,7 +279,7 @@ export function AssignmentResults({
                     <div className="text-muted-foreground">Buffer</div>
                   </div>
                   <div className="text-center">
-                    <div className="font-bold text-primary">
+                    <div className="text-primary font-bold">
                       {workload.totalDuties}
                     </div>
                     <div className="text-muted-foreground">Total</div>
@@ -304,23 +307,23 @@ export function AssignmentResults({
                 const key = `${dutySlot.day}-${dutySlot.slot}`;
                 const slotAssignments = assignmentsBySlot.get(key) || [];
                 const regularAssignments = slotAssignments.filter(
-                  (a) => !a.isBuffer,
+                  (a) => !a.isBuffer
                 );
                 const bufferAssignments = slotAssignments.filter(
-                  (a) => a.isBuffer,
+                  (a) => a.isBuffer
                 );
 
                 return (
-                  <div key={key} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
+                  <div key={key} className="rounded-lg border p-4">
+                    <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Calendar className="size-4 text-muted-foreground" />
+                        <Calendar className="text-muted-foreground size-4" />
                         <div>
                           <div className="font-medium">
                             Day {dutySlot.day + 1} - Slot {dutySlot.slot + 1}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {format(dutySlot.date, "MMM dd, yyyy")} •{" "}
+                          <div className="text-muted-foreground text-sm">
+                            {format(dutySlot.date, 'MMM dd, yyyy')} •{' '}
                             {dutySlot.startTime} - {dutySlot.endTime}
                           </div>
                         </div>
@@ -329,45 +332,45 @@ export function AssignmentResults({
                         <CheckCircle className="size-4 text-green-600" />
                         <span>
                           {slotAssignments.length}/
-                          {dutySlot.regularDuties + dutySlot.bufferDuties}{" "}
+                          {dutySlot.regularDuties + dutySlot.bufferDuties}{' '}
                           assigned
                         </span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       {/* Regular Duties */}
                       <div>
-                        <h5 className="font-medium mb-2 flex items-center gap-2">
+                        <h5 className="mb-2 flex items-center gap-2 font-medium">
                           <MapPin className="size-4" />
                           Regular Duties ({regularAssignments.length})
                         </h5>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="max-h-48 space-y-2 overflow-y-auto">
                           {regularAssignments.map((assignment, index) => {
                             const assignedFaculty = faculty.find(
-                              (f) => f.facultyId === assignment.facultyId,
+                              (f) => f.facultyId === assignment.facultyId
                             );
                             return (
                               <div
                                 key={index}
-                                className="flex items-center justify-between p-2 bg-muted/30 rounded"
+                                className="bg-muted/30 flex items-center justify-between rounded p-2"
                               >
                                 <div>
                                   <div className="text-sm font-medium">
                                     {assignedFaculty?.facultyName}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
+                                  <div className="text-muted-foreground text-xs">
                                     {assignedFaculty?.facultyId}
                                   </div>
                                 </div>
-                                <div className="text-sm font-mono bg-background px-2 py-1 rounded">
+                                <div className="bg-background rounded px-2 py-1 font-mono text-sm">
                                   {assignment.roomNumber}
                                 </div>
                               </div>
                             );
                           })}
                           {regularAssignments.length === 0 && (
-                            <div className="text-sm text-muted-foreground italic">
+                            <div className="text-muted-foreground text-sm italic">
                               No regular duties assigned
                             </div>
                           )}
@@ -376,36 +379,36 @@ export function AssignmentResults({
 
                       {/* Buffer Duties */}
                       <div>
-                        <h5 className="font-medium mb-2 flex items-center gap-2">
+                        <h5 className="mb-2 flex items-center gap-2 font-medium">
                           <User className="size-4" />
                           Buffer Duties ({bufferAssignments.length})
                         </h5>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="max-h-48 space-y-2 overflow-y-auto">
                           {bufferAssignments.map((assignment, index) => {
                             const assignedFaculty = faculty.find(
-                              (f) => f.facultyId === assignment.facultyId,
+                              (f) => f.facultyId === assignment.facultyId
                             );
                             return (
                               <div
                                 key={index}
-                                className="flex items-center justify-between p-2 bg-orange-50 rounded"
+                                className="flex items-center justify-between rounded bg-orange-50 p-2"
                               >
                                 <div>
                                   <div className="text-sm font-medium">
                                     {assignedFaculty?.facultyName}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
+                                  <div className="text-muted-foreground text-xs">
                                     {assignedFaculty?.facultyId}
                                   </div>
                                 </div>
-                                <div className="text-sm text-orange-700 font-medium">
+                                <div className="text-sm font-medium text-orange-700">
                                   BUFFER
                                 </div>
                               </div>
                             );
                           })}
                           {bufferAssignments.length === 0 && (
-                            <div className="text-sm text-muted-foreground italic">
+                            <div className="text-muted-foreground text-sm italic">
                               No buffer duties assigned
                             </div>
                           )}

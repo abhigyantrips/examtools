@@ -1,16 +1,20 @@
-import { useState, useCallback } from "react";
-import { Upload, X, CheckCircle, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, Upload, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { useCallback, useState } from 'react';
+
+import type { ExcelParseResult, Faculty } from '@/types';
+
+import { parseFacultyExcel } from '@/lib/excel';
+
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { parseFacultyExcel } from "@/lib/excel";
-import type { Faculty, ExcelParseResult } from "@/types";
-import { toast } from "sonner";
+} from '@/components/ui/card';
 
 interface FacultyUploadFormProps {
   onFacultyUploaded: (faculty: Faculty[]) => void;
@@ -30,7 +34,7 @@ export function FacultyUploadForm({
       if (!file.name.match(/\.(xlsx|xls)$/i)) {
         setResult({
           data: [],
-          errors: ["Please upload an Excel file (.xlsx or .xls)"],
+          errors: ['Please upload an Excel file (.xlsx or .xls)'],
           warnings: [],
         });
 
@@ -45,20 +49,20 @@ export function FacultyUploadForm({
         if (parseResult.data.length > 0 && parseResult.errors.length === 0) {
           onFacultyUploaded(parseResult.data);
           toast.success(
-            `Successfully uploaded ${parseResult.data.length} faculty members.`,
+            `Successfully uploaded ${parseResult.data.length} faculty members.`
           );
         } else if (parseResult.errors.length > 0) {
           toast.error(`Upload failed: ${parseResult.errors[0]}`);
         } else if (parseResult.warnings.length > 0) {
           toast.warning(
-            `Upload completed with ${parseResult.warnings.length} warnings.`,
+            `Upload completed with ${parseResult.warnings.length} warnings.`
           );
         }
       } catch (error) {
         setResult({
           data: [],
           errors: [
-            `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+            `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
           ],
           warnings: [],
         });
@@ -66,7 +70,7 @@ export function FacultyUploadForm({
         setUploading(false);
       }
     },
-    [onFacultyUploaded],
+    [onFacultyUploaded]
   );
 
   const handleDrop = useCallback(
@@ -80,7 +84,7 @@ export function FacultyUploadForm({
         handleFileUpload(file);
       }
     },
-    [handleFileUpload],
+    [handleFileUpload]
   );
 
   const handleFileSelect = useCallback(
@@ -90,7 +94,7 @@ export function FacultyUploadForm({
         handleFileUpload(file);
       }
     },
-    [handleFileUpload],
+    [handleFileUpload]
   );
 
   const clearResults = useCallback(() => {
@@ -109,10 +113,10 @@ export function FacultyUploadForm({
       <CardContent className="space-y-4">
         {/* Upload Area */}
         <div
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
             dragActive
-              ? "border-primary bg-primary/5"
-              : "border-muted-foreground/25 hover:border-muted-foreground/50"
+              ? 'border-primary bg-primary/5'
+              : 'border-muted-foreground/25 hover:border-muted-foreground/50'
           }`}
           onDragEnter={(e) => {
             e.preventDefault();
@@ -134,34 +138,34 @@ export function FacultyUploadForm({
             type="file"
             accept=".xlsx,.xls"
             onChange={handleFileSelect}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             disabled={uploading}
           />
 
           <div className="space-y-3">
-            <Upload className="mx-auto size-12 text-muted-foreground" />
+            <Upload className="text-muted-foreground mx-auto size-12" />
             <div>
               <p className="text-sm font-medium">
                 {dragActive
-                  ? "Drop the file here"
-                  : "Drag and drop your Excel file here"}
+                  ? 'Drop the file here'
+                  : 'Drag and drop your Excel file here'}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-xs">
                 or click to browse files (.xlsx, .xls)
               </p>
             </div>
           </div>
 
           {uploading && (
-            <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-              <div className="animate-spin size-8 border-2 border-primary border-t-transparent rounded-full" />
+            <div className="bg-background/80 absolute inset-0 flex items-center justify-center">
+              <div className="border-primary size-8 animate-spin rounded-full border-2 border-t-transparent" />
             </div>
           )}
         </div>
 
         {/* Current Faculty Count */}
         {currentFaculty.length > 0 && (
-          <div className="text-sm text-muted-foreground">
+          <div className="text-muted-foreground text-sm">
             Currently loaded: {currentFaculty.length} faculty members
           </div>
         )}
@@ -195,7 +199,7 @@ export function FacultyUploadForm({
                     Errors ({result.errors.length})
                   </span>
                 </div>
-                <ul className="text-xs text-red-600 space-y-1 pl-6">
+                <ul className="space-y-1 pl-6 text-xs text-red-600">
                   {result.errors.map((error, index) => (
                     <li key={index} className="list-disc">
                       {error}
@@ -214,14 +218,14 @@ export function FacultyUploadForm({
                     Warnings ({result.warnings.length})
                   </span>
                 </div>
-                <ul className="text-xs text-yellow-600 space-y-1 pl-6">
+                <ul className="space-y-1 pl-6 text-xs text-yellow-600">
                   {result.warnings.slice(0, 5).map((warning, index) => (
                     <li key={index} className="list-disc">
                       {warning}
                     </li>
                   ))}
                   {result.warnings.length > 5 && (
-                    <li className="text-xs text-muted-foreground">
+                    <li className="text-muted-foreground text-xs">
                       ...and {result.warnings.length - 5} more
                     </li>
                   )}
@@ -235,10 +239,10 @@ export function FacultyUploadForm({
                 <span className="text-sm font-medium">
                   Preview (first 3 records)
                 </span>
-                <div className="text-xs font-mono bg-muted p-3 rounded-md overflow-x-auto">
+                <div className="bg-muted overflow-x-auto rounded-md p-3 font-mono text-xs">
                   {result.data.slice(0, 3).map((faculty, index) => (
                     <div key={index} className="mb-2">
-                      {faculty.facultyName} ({faculty.facultyId}) -{" "}
+                      {faculty.facultyName} ({faculty.facultyId}) -{' '}
                       {faculty.designation}
                     </div>
                   ))}
