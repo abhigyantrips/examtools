@@ -6,6 +6,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          utils: ['./src/lib/assignment.ts', './src/lib/excel.ts'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -13,10 +23,10 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'ExamDuty - Faculty Assignment System',
-        short_name: 'ExamDuty',
+        name: 'Exam Tools',
+        short_name: 'Exam Tools',
         description:
-          'Automated examination hall duty assignment system for universities',
+          'Automated examination hall duty assignment system for universities.',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

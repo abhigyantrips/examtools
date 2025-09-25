@@ -9,8 +9,8 @@
     "build:pwa": "tsc -b && vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
-    "prettier-w": "prettier --write .",
-    "prettier": "prettier --check ."
+    "format:write": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -32,6 +32,7 @@
     "react": "^19.1.1",
     "react-day-picker": "^9.10.0",
     "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.13",
