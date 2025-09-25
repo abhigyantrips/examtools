@@ -1,4 +1,4 @@
-import { Download, RefreshCw, X } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useEffect, useState } from 'react';
@@ -132,14 +132,6 @@ export function PWAPrompt() {
                     Install for offline access and better performance
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowInstallPrompt(false)}
-                  className="size-6 p-0"
-                >
-                  <X className="size-3" />
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
@@ -172,17 +164,9 @@ export function PWAPrompt() {
                     Update Available
                   </CardTitle>
                   <CardDescription className="text-xs text-blue-700">
-                    A new version of ExamDuty is ready
+                    A new version of the application is ready
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowUpdatePrompt(false)}
-                  className="size-6 p-0 text-blue-700"
-                >
-                  <X className="size-3" />
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
