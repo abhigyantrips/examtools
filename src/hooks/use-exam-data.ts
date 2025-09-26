@@ -26,7 +26,6 @@ export function useExamData() {
     faculty: [],
     examStructure: {
       days: 0,
-      slots: 0,
       dutySlots: [],
       designationDutyCounts: {},
     },
@@ -135,7 +134,6 @@ export function useExamData() {
         faculty: [],
         examStructure: {
           days: 0,
-          slots: 0,
           dutySlots: [],
           designationDutyCounts: {},
         },
