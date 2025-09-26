@@ -232,9 +232,9 @@ export function AssignmentPage() {
   return (
     <div className="bg-background min-h-screen">
       {/* Progress Indicator */}
-      <div className="bg-muted/30 mb-8 border-b">
+      <div className="bg-muted/30 border-b">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             {[
               { key: 'setup', label: 'Setup', icon: Users },
               { key: 'config', label: 'Configuration', icon: Settings },
@@ -247,10 +247,14 @@ export function AssignmentPage() {
                 (key === 'assignment' && assignmentResult?.success);
 
               return (
-                <div key={key} className="flex items-center">
+                <div
+                  key={key}
+                  className="flex flex-1 items-center last:flex-none"
+                >
+                  {/* Badge */}
                   <div
                     className={cn(
-                      'flex items-center gap-2 rounded-lg px-3 py-2 transition-colors',
+                      'flex items-center gap-2 rounded-lg px-3 py-2 whitespace-nowrap transition-colors',
                       isActive && 'bg-primary text-primary-foreground',
                       isComplete && !isActive && 'bg-green-100 text-green-700',
                       !isActive && !isComplete && 'text-muted-foreground'
@@ -260,9 +264,9 @@ export function AssignmentPage() {
                     <span className="text-sm font-medium">{label}</span>
                     {isComplete && <CheckCircle className="size-4" />}
                   </div>
-                  {index < 2 && (
-                    <div className="bg-border mx-2 h-px max-w-142 min-w-full" />
-                  )}
+
+                  {/* Connector Line - only between items, not after last */}
+                  {index < 2 && <div className="bg-border mx-4 h-px flex-1" />}
                 </div>
               );
             })}
