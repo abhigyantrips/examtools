@@ -115,6 +115,15 @@ function validateAssignmentRequirements(
     return { valid: false, errors, warnings };
   }
 
+  // Group slots by day for better error messages
+  const slotsByDay = new Map<number, DutySlot[]>();
+  examStructure.dutySlots.forEach((slot) => {
+    if (!slotsByDay.has(slot.day)) {
+      slotsByDay.set(slot.day, []);
+    }
+    slotsByDay.get(slot.day)!.push(slot);
+  });
+
   // Calculate total duties needed
   const totalRegularDuties = examStructure.dutySlots.reduce(
     (sum, slot) => sum + slot.regularDuties,
