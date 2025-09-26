@@ -167,7 +167,8 @@ export function AssignmentPage() {
         );
         return {
           sNo: index + 1,
-          roomNumber: assignment.roomNumber || 'BUFFER',
+          roomNumber: assignment.roomNumber || 'N/A',
+          role: assignment.role,
           facultyId: assignment.facultyId,
           facultyName: faculty?.facultyName || 'Unknown',
           phoneNo: faculty?.phoneNo || 'N/A',

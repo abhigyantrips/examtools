@@ -14,6 +14,8 @@ export interface DutySlot {
   startTime: string; // "2:00 PM"
   endTime: string; // "4:00 PM"
   regularDuties: number;
+  relieverDuties: number;
+  squadDuties: number;
   bufferDuties: number;
   rooms: string[]; // Room numbers
   // totalDuties is implied: regularDuties + bufferDuties
@@ -35,7 +37,7 @@ export interface Assignment {
   slot: number;
   facultyId: string;
   roomNumber?: string; // undefined for buffer duties
-  isBuffer: boolean;
+  role: 'regular' | 'reliever' | 'squad' | 'buffer';
 }
 
 export interface ExamData {

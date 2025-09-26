@@ -211,16 +211,25 @@ export function exportDaySlotAssignments(
     facultyId: string;
     facultyName: string;
     phoneNo: string;
+    role: string;
   }[]
 ): void {
   const data = [
     ['DATE AND TIME SLOT'],
     [`${date.toLocaleDateString()} ${timeSlot}`],
     [],
-    ['S No', 'Room Number', 'Faculty ID', 'Faculty Name', 'Phone Number'],
-    ...assignments.map((assignment) => [
-      assignment.sNo.toString(),
-      assignment.roomNumber || 'BUFFER',
+    [
+      'S No',
+      'Role',
+      'Room Number',
+      'Faculty ID',
+      'Faculty Name',
+      'Phone Number',
+    ],
+    ...assignments.map((assignment, index) => [
+      (index + 1).toString(),
+      assignment.role.toUpperCase(),
+      assignment.roomNumber || getRoleDisplay(assignment.role),
       assignment.facultyId,
       assignment.facultyName,
       assignment.phoneNo,
@@ -233,6 +242,21 @@ export function exportDaySlotAssignments(
 
   const filename = `duty-${date.toISOString().split('T')[0]}-slot.xlsx`;
   XLSX.writeFile(workbook, filename);
+}
+
+function getRoleDisplay(role: string): string {
+  switch (role) {
+    case 'regular':
+      return 'ROOM';
+    case 'reliever':
+      return 'RELIEVER';
+    case 'squad':
+      return 'SQUAD';
+    case 'buffer':
+      return 'BUFFER';
+    default:
+      return 'UNKNOWN';
+  }
 }
 
 export async function exportBatchAssignments(
@@ -285,6 +309,7 @@ export async function exportBatchAssignments(
         facultyId: assignment.facultyId,
         facultyName: assignedFaculty?.facultyName || 'Unknown',
         phoneNo: assignedFaculty?.phoneNo || 'N/A',
+        role: assignment.role,
       };
     });
 
@@ -294,9 +319,17 @@ export async function exportBatchAssignments(
         `${dutySlot.date.toLocaleDateString()} ${dutySlot.startTime} - ${dutySlot.endTime}`,
       ],
       [],
-      ['S No', 'Room Number', 'Faculty ID', 'Faculty Name', 'Phone Number'],
+      [
+        'S No',
+        'Role',
+        'Room Number',
+        'Faculty ID',
+        'Faculty Name',
+        'Phone Number',
+      ],
       ...exportData.map((assignment) => [
         assignment.sNo.toString(),
+        assignment.role.toUpperCase(),
         assignment.roomNumber,
         assignment.facultyId,
         assignment.facultyName,

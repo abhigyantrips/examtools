@@ -125,6 +125,8 @@ export function ScheduleConfigForm({
         startTime: nextSlotNumber === 0 ? '9:00 AM' : '2:00 PM',
         endTime: nextSlotNumber === 0 ? '12:00 PM' : '5:00 PM',
         regularDuties: 10,
+        relieverDuties: 0,
+        squadDuties: 0,
         bufferDuties: 2,
         rooms: [],
       };
@@ -366,7 +368,7 @@ export function ScheduleConfigForm({
                             </Button>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
                             {/* Start Time */}
                             <div>
                               <label className="mb-1 block text-sm font-medium">
@@ -430,6 +432,43 @@ export function ScheduleConfigForm({
                               />
                             </div>
 
+                            {/* Reliever Duties */}
+                            <div>
+                              <label className="mb-1 block text-sm font-medium">
+                                Reliever Duties
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={slot.relieverDuties || 0}
+                                onChange={(e) =>
+                                  updateSlot(dayData.day, slot.slot, {
+                                    relieverDuties:
+                                      parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full rounded-md border px-3 py-2 text-sm"
+                              />
+                            </div>
+
+                            {/* Squad Duties */}
+                            <div>
+                              <label className="mb-1 block text-sm font-medium">
+                                Squad Duties
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={slot.squadDuties || 0}
+                                onChange={(e) =>
+                                  updateSlot(dayData.day, slot.slot, {
+                                    squadDuties: parseInt(e.target.value) || 0,
+                                  })
+                                }
+                                className="w-full rounded-md border px-3 py-2 text-sm"
+                              />
+                            </div>
+
                             {/* Buffer Duties */}
                             <div>
                               <label className="mb-1 block text-sm font-medium">
@@ -438,7 +477,6 @@ export function ScheduleConfigForm({
                               <input
                                 type="number"
                                 min="0"
-                                max={slot.regularDuties}
                                 value={slot.bufferDuties}
                                 onChange={(e) =>
                                   updateSlot(dayData.day, slot.slot, {
@@ -641,13 +679,29 @@ export function ScheduleConfigForm({
                                     </div>
 
                                     {/* Duties Info */}
-                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
                                       <div className="rounded bg-blue-50 p-2 text-center">
                                         <div className="font-medium text-blue-700">
                                           {slot.regularDuties}
                                         </div>
                                         <div className="text-blue-600">
                                           Regular
+                                        </div>
+                                      </div>
+                                      <div className="rounded bg-green-50 p-2 text-center">
+                                        <div className="font-medium text-green-700">
+                                          {slot.relieverDuties || 0}
+                                        </div>
+                                        <div className="text-green-600">
+                                          Reliever
+                                        </div>
+                                      </div>
+                                      <div className="rounded bg-purple-50 p-2 text-center">
+                                        <div className="font-medium text-purple-700">
+                                          {slot.squadDuties || 0}
+                                        </div>
+                                        <div className="text-purple-600">
+                                          Squad
                                         </div>
                                       </div>
                                       <div className="rounded bg-orange-50 p-2 text-center">
@@ -658,20 +712,25 @@ export function ScheduleConfigForm({
                                           Buffer
                                         </div>
                                       </div>
-                                      <div className="rounded bg-green-50 p-2 text-center">
-                                        <div className="font-medium text-green-700">
+                                      <div className="rounded bg-gray-100 p-2 text-center">
+                                        <div className="font-medium text-gray-700">
                                           {slot.rooms.length}
                                         </div>
-                                        <div className="text-green-600">
+                                        <div className="text-gray-600">
                                           Rooms
                                         </div>
                                       </div>
-                                    </div>
-
-                                    {/* Total Duties */}
-                                    <div className="rounded bg-gray-100 px-2 py-1 text-center text-xs font-medium text-gray-700">
-                                      Total:{' '}
-                                      {slot.regularDuties + slot.bufferDuties}
+                                      <div className="rounded bg-gray-100 p-2 text-center">
+                                        <div className="font-medium text-gray-700">
+                                          {slot.regularDuties +
+                                            (slot.relieverDuties || 0) +
+                                            (slot.squadDuties || 0) +
+                                            (slot.bufferDuties || 0)}
+                                        </div>
+                                        <div className="text-gray-600">
+                                          Duties
+                                        </div>
+                                      </div>
                                     </div>
 
                                     {/* Room Validation */}
@@ -703,12 +762,16 @@ export function ScheduleConfigForm({
                             (sum, slot) => sum + slot.regularDuties,
                             0
                           );
-                          const totalBuffer = day.slots.reduce(
-                            (sum, slot) => sum + slot.bufferDuties,
+                          const totalReliever = day.slots.reduce(
+                            (sum, slot) => sum + (slot.relieverDuties || 0),
                             0
                           );
-                          const totalRooms = day.slots.reduce(
-                            (sum, slot) => sum + slot.rooms.length,
+                          const totalSquad = day.slots.reduce(
+                            (sum, slot) => sum + (slot.squadDuties || 0),
+                            0
+                          );
+                          const totalBuffer = day.slots.reduce(
+                            (sum, slot) => sum + (slot.bufferDuties || 0),
                             0
                           );
 
@@ -718,12 +781,26 @@ export function ScheduleConfigForm({
                               className="border border-gray-300 p-3"
                             >
                               <div className="space-y-2">
-                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div className="rounded bg-blue-100 p-2 text-center font-medium">
                                     <div className="text-blue-800">
                                       {totalRegular}
                                     </div>
                                     <div className="text-blue-600">Regular</div>
+                                  </div>
+                                  <div className="rounded bg-green-100 p-2 text-center font-medium">
+                                    <div className="text-green-800">
+                                      {totalReliever}
+                                    </div>
+                                    <div className="text-green-600">
+                                      Reliever
+                                    </div>
+                                  </div>
+                                  <div className="rounded bg-purple-100 p-2 text-center font-medium">
+                                    <div className="text-purple-800">
+                                      {totalSquad}
+                                    </div>
+                                    <div className="text-purple-600">Squad</div>
                                   </div>
                                   <div className="rounded bg-orange-100 p-2 text-center font-medium">
                                     <div className="text-orange-800">
@@ -733,15 +810,16 @@ export function ScheduleConfigForm({
                                       Buffer
                                     </div>
                                   </div>
-                                  <div className="rounded bg-green-100 p-2 text-center font-medium">
-                                    <div className="text-green-800">
-                                      {totalRooms}
+
+                                  <div className="col-span-2 rounded bg-gray-100 p-2 text-center">
+                                    <div className="font-semibold text-gray-700">
+                                      {totalRegular +
+                                        totalReliever +
+                                        totalSquad +
+                                        totalBuffer}{' '}
+                                      Total Duties
                                     </div>
-                                    <div className="text-green-600">Rooms</div>
                                   </div>
-                                </div>
-                                <div className="rounded bg-gray-200 px-2 py-1 text-center text-sm font-bold text-gray-800">
-                                  Total: {totalRegular + totalBuffer}
                                 </div>
                               </div>
                             </td>
