@@ -43,6 +43,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface ScheduleConfigFormProps {
   faculty: Faculty[];
@@ -783,18 +791,17 @@ export function ScheduleConfigForm({
               }
 
               return (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
-                    {/* Header Row */}
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="min-w-[120px] border border-gray-300 p-3 text-left font-medium">
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="min-w-[120px] px-4 py-3 text-left font-medium">
                           Time Slot
-                        </th>
+                        </TableHead>
                         {daySlots.map((day) => (
-                          <th
+                          <TableHead
                             key={day.day}
-                            className="min-w-[180px] border border-gray-300 p-3 text-center font-medium"
+                            className="min-w-[180px] px-4 py-3 text-center font-medium"
                           >
                             <div className="space-y-1">
                               <div className="font-semibold">
@@ -804,28 +811,24 @@ export function ScheduleConfigForm({
                                 {format(day.date, 'MMM dd, yyyy')}
                               </div>
                             </div>
-                          </th>
+                          </TableHead>
                         ))}
-                      </tr>
-                    </thead>
+                      </TableRow>
+                    </TableHeader>
 
-                    {/* Body Rows */}
-                    <tbody>
+                    <TableBody>
                       {Array.from({ length: maxSlots }, (_, slotIndex) => (
-                        <tr key={slotIndex} className="hover:bg-muted/20">
-                          <td className="bg-muted/30 border border-gray-300 p-3 font-medium">
+                        <TableRow key={slotIndex}>
+                          <TableCell className="bg-muted/30 px-4 py-3 font-medium">
                             Slot {slotIndex + 1}
-                          </td>
+                          </TableCell>
                           {daySlots.map((day) => {
                             const slot = day.slots.find(
                               (s) => s.slot === slotIndex
                             );
 
                             return (
-                              <td
-                                key={`${day.day}-${slotIndex}`}
-                                className="border border-gray-300 p-3"
-                              >
+                              <TableCell key={`${day.day}-${slotIndex}`}>
                                 {slot ? (
                                   <div className="space-y-2">
                                     {/* Time Range */}
@@ -901,17 +904,17 @@ export function ScheduleConfigForm({
                                     No slot
                                   </div>
                                 )}
-                              </td>
+                              </TableCell>
                             );
                           })}
-                        </tr>
+                        </TableRow>
                       ))}
 
                       {/* Summary Row */}
-                      <tr className="bg-muted/30 border-t-2 border-gray-400">
-                        <td className="border border-gray-300 p-3 font-semibold">
+                      <TableRow className="bg-muted/30 border-t-2">
+                        <TableCell className="px-4 py-3 font-semibold">
                           Day Totals
-                        </td>
+                        </TableCell>
                         {daySlots.map((day) => {
                           const totalRegular = day.slots.reduce(
                             (sum, slot) => sum + slot.regularDuties,
@@ -931,10 +934,7 @@ export function ScheduleConfigForm({
                           );
 
                           return (
-                            <td
-                              key={`total-${day.day}`}
-                              className="border border-gray-300 p-3"
-                            >
+                            <TableCell key={`total-${day.day}`}>
                               <div className="space-y-2">
                                 <div className="grid grid-cols-2 gap-2 text-xs">
                                   <div className="rounded bg-blue-100 p-2 text-center font-medium dark:bg-blue-900/40">
@@ -981,12 +981,12 @@ export function ScheduleConfigForm({
                                   </div>
                                 </div>
                               </div>
-                            </td>
+                            </TableCell>
                           );
                         })}
-                      </tr>
-                    </tbody>
-                  </table>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </div>
               );
             })()}

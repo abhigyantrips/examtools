@@ -391,6 +391,7 @@ export function AssignmentPage() {
               <Button
                 variant="outline"
                 onClick={() => setCurrentPhase('setup')}
+                size="lg"
               >
                 Back to Setup
               </Button>
@@ -573,6 +574,7 @@ export function AssignmentPage() {
               <Button
                 variant="outline"
                 onClick={() => setCurrentPhase('config')}
+                size="lg"
               >
                 Back to Configuration
               </Button>
