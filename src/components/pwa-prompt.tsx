@@ -40,7 +40,7 @@ export function PWAPrompt() {
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setShowInstallPrompt(false);
-      toast.success('ExamDuty installed successfully!');
+      toast.success('ExamTools installed successfully!');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -88,7 +88,7 @@ export function PWAPrompt() {
           setUpdateSW(() => () => {
             wb.messageSkipWaiting();
             setShowUpdatePrompt(false);
-            toast.loading('Updating ExamDuty...', { id: 'sw-update' });
+            toast.loading('Updating ExamTools...', { id: 'sw-update' });
             return Promise.resolve();
           });
         });
@@ -127,7 +127,7 @@ export function PWAPrompt() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm">Install ExamDuty</CardTitle>
+                  <CardTitle className="text-sm">Install ExamTools</CardTitle>
                   <CardDescription className="text-xs">
                     Install for offline access and better performance
                   </CardDescription>
