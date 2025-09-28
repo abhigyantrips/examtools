@@ -1,12 +1,4 @@
-import {
-  ArrowRight,
-  BarChart3,
-  Calendar,
-  ClipboardCheck,
-  Clock,
-  FileSpreadsheet,
-  Users,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, Calendar, ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -31,8 +23,8 @@ export function HomePage() {
         'Excel import/export',
         'Offline functionality',
       ],
-      color: 'bg-blue-50 border-blue-200',
-      iconColor: 'text-blue-600',
+      color: 'bg-red-50 border-red-200 dark:bg-red-900/50 dark:border-red-800',
+      iconColor: 'text-red-600',
     },
     {
       title: 'Duty Attendance Marking',
@@ -45,9 +37,10 @@ export function HomePage() {
         'Absence reporting',
         'Excel export',
       ],
-      color: 'bg-green-50 border-green-200',
-      iconColor: 'text-green-600',
-      badge: 'Coming Soon',
+      color:
+        'bg-orange-50 border-orange-200 dark:bg-orange-900/50 dark:border-orange-800',
+      iconColor: 'text-orange-600',
+      incomplete: true,
     },
     {
       title: 'Faculty Duty Accumulation',
@@ -60,45 +53,17 @@ export function HomePage() {
         'Fair distribution calculation',
         'Annual reports',
       ],
-      color: 'bg-purple-50 border-purple-200',
-      iconColor: 'text-purple-600',
-      badge: 'Coming Soon',
+      color:
+        'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/50 dark:border-yellow-800',
+      iconColor: 'text-yellow-600',
+      incomplete: true,
     },
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Hero Section */}
-      <div className="mb-12 text-center">
-        <h1 className="mb-4 text-4xl font-bold">Exam Tools</h1>
-        <p className="text-muted-foreground mx-auto max-w-2xl text-xl">
-          Comprehensive examination management tools for universities. Automate
-          duty assignments, track attendance, and ensure fair faculty
-          distribution.
-        </p>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="rounded-lg border p-6 text-center">
-          <Users className="mx-auto mb-3 size-12 text-blue-600" />
-          <div className="text-2xl font-bold">177+</div>
-          <div className="text-muted-foreground text-sm">Faculty Supported</div>
-        </div>
-        <div className="rounded-lg border p-6 text-center">
-          <Clock className="mx-auto mb-3 size-12 text-green-600" />
-          <div className="text-2xl font-bold">15×</div>
-          <div className="text-muted-foreground text-sm">Slot Combinations</div>
-        </div>
-        <div className="rounded-lg border p-6 text-center">
-          <FileSpreadsheet className="mx-auto mb-3 size-12 text-purple-600" />
-          <div className="text-2xl font-bold">100%</div>
-          <div className="text-muted-foreground text-sm">Offline Capable</div>
-        </div>
-      </div>
-
+    <div className="container mx-auto px-4 py-8 lg:flex lg:h-[calc(100vh-9.15rem)] lg:items-center">
       {/* Tools Grid */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-8 lg:grid-cols-3">
         {tools.map((tool) => {
           const Icon = tool.icon;
           return (
@@ -106,12 +71,6 @@ export function HomePage() {
               key={tool.path}
               className={`relative ${tool.color} transition-shadow hover:shadow-lg`}
             >
-              {tool.badge && (
-                <div className="absolute top-4 right-4 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
-                  {tool.badge}
-                </div>
-              )}
-
               <CardHeader>
                 <div className="mb-3 flex items-center gap-3">
                   <Icon className={`size-8 ${tool.iconColor}`} />
@@ -139,14 +98,13 @@ export function HomePage() {
                 </div>
 
                 <Button
-                  asChild
+                  asChild={!tool.incomplete}
                   className="w-full"
-                  variant={tool.badge ? 'secondary' : 'default'}
-                  disabled={!!tool.badge}
+                  disabled={tool.incomplete}
                 >
                   <Link to={tool.path}>
-                    {tool.badge ? (
-                      tool.badge
+                    {tool.incomplete ? (
+                      'Coming Soon'
                     ) : (
                       <>
                         Open Tool
@@ -159,16 +117,6 @@ export function HomePage() {
             </Card>
           );
         })}
-      </div>
-
-      {/* Footer Info */}
-      <div className="bg-muted/30 mt-16 rounded-lg border p-8 text-center">
-        <h3 className="mb-2 font-semibold">Built for Universities</h3>
-        <p className="text-muted-foreground mx-auto max-w-2xl text-sm">
-          Designed specifically for university examination departments. Works
-          offline, handles complex constraints, and exports data in familiar
-          Excel formats.
-        </p>
       </div>
     </div>
   );

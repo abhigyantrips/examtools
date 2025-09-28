@@ -24,7 +24,7 @@ export function Header() {
 
   return (
     <header className="bg-card border-b">
-      <div className="container mx-auto px-4 py-4">
+      <div className="mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex flex-row items-center space-x-0.5">

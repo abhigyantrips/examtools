@@ -4,6 +4,7 @@ import { AttendancePage } from '@/pages/attendance/page';
 import { HomePage } from '@/pages/page';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
+import { Footer } from '@/components/footer';
 import { Header } from '@/components/header';
 import { PWAPrompt } from '@/components/pwa-prompt';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -24,6 +25,8 @@ export default function App() {
               <Route path="/accumulation" element={<AccumulationPage />} />
             </Routes>
           </main>
+
+          <Footer />
 
           <Toaster />
           <PWAPrompt />
