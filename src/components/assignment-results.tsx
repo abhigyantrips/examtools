@@ -209,12 +209,12 @@ export function AssignmentResults({
 
       {/* Collapsible Warnings */}
       {parsedWarnings.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/30">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="size-4 text-yellow-600" />
-                <CardTitle className="text-yellow-800">
+                <AlertTriangle className="size-4 text-yellow-600 dark:text-yellow-400" />
+                <CardTitle className="text-yellow-800 dark:text-yellow-300">
                   Assignment Warnings ({parsedWarnings.length})
                 </CardTitle>
               </div>
@@ -222,7 +222,7 @@ export function AssignmentResults({
                 variant="ghost"
                 size="sm"
                 onClick={() => setWarningsExpanded(!warningsExpanded)}
-                className="text-yellow-700 hover:bg-yellow-100 hover:text-yellow-800"
+                className="text-yellow-700 hover:bg-yellow-100 hover:text-yellow-800 dark:text-yellow-300 dark:hover:bg-yellow-800/50 dark:hover:text-yellow-200"
               >
                 {warningsExpanded ? (
                   <>
@@ -236,7 +236,7 @@ export function AssignmentResults({
               </Button>
             </div>
             {!warningsExpanded && (
-              <CardDescription className="text-yellow-700">
+              <CardDescription className="text-yellow-700 dark:text-yellow-400">
                 Some assignments may not be optimal. Click to view details.
               </CardDescription>
             )}
@@ -248,21 +248,21 @@ export function AssignmentResults({
                 {parsedWarnings.map((warning, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-3 rounded-lg bg-yellow-100 p-3"
+                    className="flex items-start gap-3 rounded-lg bg-yellow-100 p-3 dark:bg-yellow-900/40"
                   >
-                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-yellow-600" />
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
                     <div className="min-w-0 flex-1">
                       {warning.type === 'faculty' && warning.facultyName ? (
                         <div>
-                          <div className="font-medium text-yellow-800">
+                          <div className="font-medium text-yellow-800 dark:text-yellow-200">
                             {warning.facultyName} ({warning.facultyId})
                           </div>
-                          <div className="mt-1 text-sm text-yellow-700">
+                          <div className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
                             {warning.originalMessage}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-sm text-yellow-700">
+                        <div className="text-sm text-yellow-700 dark:text-yellow-300">
                           {warning.originalMessage}
                         </div>
                       )}
@@ -439,7 +439,7 @@ export function AssignmentResults({
                             return (
                               <div
                                 key={index}
-                                className="rounded bg-blue-50 p-2"
+                                className="rounded bg-blue-50 p-2 dark:bg-blue-900/30"
                               >
                                 <div className="text-sm font-medium">
                                   {assignedFaculty?.facultyName}
@@ -472,7 +472,7 @@ export function AssignmentResults({
                             return (
                               <div
                                 key={index}
-                                className="rounded bg-green-50 p-2"
+                                className="rounded bg-green-50 p-2 dark:bg-green-900/30"
                               >
                                 <div className="text-sm font-medium">
                                   {assignedFaculty?.facultyName}
@@ -505,7 +505,7 @@ export function AssignmentResults({
                             return (
                               <div
                                 key={index}
-                                className="rounded bg-orange-50 p-2"
+                                className="rounded bg-orange-50 p-2 dark:bg-orange-900/30"
                               >
                                 <div className="text-sm font-medium">
                                   {assignedFaculty?.facultyName}

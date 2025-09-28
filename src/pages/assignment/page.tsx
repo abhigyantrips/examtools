@@ -257,7 +257,9 @@ export function AssignmentPage() {
                     className={cn(
                       'flex items-center gap-2 rounded-lg px-3 py-2 whitespace-nowrap transition-colors',
                       isActive && 'bg-primary text-primary-foreground',
-                      isComplete && !isActive && 'bg-green-100 text-green-700',
+                      isComplete &&
+                        !isActive &&
+                        'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400',
                       !isActive && !isComplete && 'text-muted-foreground'
                     )}
                   >
@@ -453,24 +455,24 @@ export function AssignmentPage() {
                   {assignmentResult && (
                     <div className="space-y-4">
                       {assignmentResult.success ? (
-                        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                          <div className="mb-2 flex items-center gap-2 text-green-700">
+                        <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/30">
+                          <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-300">
                             <CheckCircle className="size-4" />
                             <span className="font-medium">
                               Assignment Successful!
                             </span>
                           </div>
-                          <p className="text-sm text-green-600">
+                          <p className="text-sm text-green-600 dark:text-green-400">
                             Generated {assignmentResult.assignments.length} duty
                             assignments
                           </p>
                         </div>
                       ) : (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                          <h4 className="mb-2 font-medium text-red-700">
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/30">
+                          <h4 className="mb-2 font-medium text-red-700 dark:text-red-300">
                             Assignment Failed
                           </h4>
-                          <ul className="space-y-1 text-sm text-red-600">
+                          <ul className="space-y-1 text-sm text-red-600 dark:text-red-400">
                             {assignmentResult.errors.map((error, index) => (
                               <li key={index}>• {error}</li>
                             ))}

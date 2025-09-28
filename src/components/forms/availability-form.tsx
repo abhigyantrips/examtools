@@ -263,7 +263,7 @@ export function AvailabilityForm({
                         {dates.map((date) => (
                           <span
                             key={date}
-                            className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs text-red-700"
+                            className="inline-flex items-center gap-1 rounded bg-red-50 px-2 py-1 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300"
                           >
                             {format(new Date(date), 'MMM dd')}
                             <button
@@ -273,7 +273,7 @@ export function AvailabilityForm({
                                   date
                                 )
                               }
-                              className="rounded-full p-0.5 hover:bg-red-100"
+                              className="rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-800/50"
                             >
                               <X className="size-3" />
                             </button>
