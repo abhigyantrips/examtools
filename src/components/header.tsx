@@ -1,7 +1,9 @@
-import { ArrowLeft, Home } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
+
+import { ThemeToggle } from './theme-toggle';
 
 export function Header() {
   const location = useLocation();
@@ -10,13 +12,13 @@ export function Header() {
   const getPageTitle = () => {
     switch (location.pathname) {
       case '/assignment':
-        return 'Exam Duty Assignment';
+        return 'duties.';
       case '/attendance':
-        return 'Duty Attendance Marking';
+        return 'attendance.';
       case '/accumulation':
-        return 'Faculty Duty Accumulation';
+        return 'accumulation.';
       default:
-        return 'Exam Tools';
+        return '';
     }
   };
 
@@ -25,33 +27,59 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {!isHome && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/">
-                  <ArrowLeft className="mr-2 size-4" />
-                  Back
-                </Link>
-              </Button>
-            )}
-
-            <div>
-              <h1 className="text-2xl font-bold">{getPageTitle()}</h1>
+            <div className="flex flex-row items-center space-x-0.5">
+              <img
+                src="/favicon.png"
+                alt="Institute Logo"
+                height={28}
+                width={28}
+              />
+              <svg height="32" role="separator" viewBox="0 0 32 32" width="32">
+                <path
+                  d="M22 5L9 28"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="stroke-current"
+                />
+              </svg>
+              <span className="text-foreground text-xl font-semibold tracking-tight">
+                examtools
+                {isHome && <span className="text-primary">.</span>}
+              </span>
               {!isHome && (
-                <p className="text-muted-foreground text-sm">
-                  Manipal&apos;s Exam Management System
-                </p>
+                <>
+                  <svg
+                    height="32"
+                    role="separator"
+                    viewBox="0 0 32 32"
+                    width="32"
+                  >
+                    <path
+                      d="M22 5L9 28"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="stroke-current"
+                    />
+                  </svg>
+                  <span className="text-foreground text-xl font-semibold tracking-tight">
+                    {getPageTitle()}
+                  </span>
+                </>
               )}
             </div>
           </div>
 
-          {!isHome && (
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/">
-                <Home className="mr-2 size-4" />
-                Home
-              </Link>
-            </Button>
-          )}
+          <div className="flex space-x-2">
+            {!isHome && (
+              <Button variant="outline" asChild>
+                <Link to="/">
+                  <Home className="size-4" />
+                  Home
+                </Link>
+              </Button>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </header>
