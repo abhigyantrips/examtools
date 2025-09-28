@@ -4,18 +4,30 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  FlaskConical,
   Plus,
   Trash2,
   Upload,
   X,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useCallback, useMemo, useState } from 'react';
 
-import type { DutySlot, ExamStructure, ExcelParseResult } from '@/types';
+import type {
+  DutySlot,
+  ExamStructure,
+  ExcelParseResult,
+  Faculty,
+} from '@/types';
 
 import { parseRoomsExcel } from '@/lib/excel';
+import {
+  calculateTotalDuties,
+  generateRandomTestConfiguration,
+  validateTestConfiguration,
+} from '@/lib/test-data';
 
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -33,6 +45,7 @@ import {
 } from '@/components/ui/popover';
 
 interface ScheduleConfigFormProps {
+  faculty: Faculty[];
   examStructure: ExamStructure;
   onExamStructureUpdated: (structure: ExamStructure) => void;
 }
@@ -48,6 +61,7 @@ interface DaySlots {
 }
 
 export function ScheduleConfigForm({
+  faculty,
   examStructure,
   onExamStructureUpdated,
 }: ScheduleConfigFormProps) {
@@ -108,6 +122,74 @@ export function ScheduleConfigForm({
     onExamStructureUpdated(updatedStructure);
     toast.success(`Initialized ${days} days schedule.`);
   }, [days, examStructure, onExamStructureUpdated]);
+
+  // Generate test data for the given faculty distribution
+  const generateTestData = useCallback(
+    async (totalDuties: number) => {
+      try {
+        toast.loading('Generating random test configuration...', {
+          id: 'test-data',
+        });
+
+        // Generate random configuration
+        const randomStructure = generateRandomTestConfiguration(totalDuties);
+
+        // Preserve existing designation counts
+        const updatedStructure: ExamStructure = {
+          ...randomStructure,
+          designationDutyCounts: examStructure.designationDutyCounts,
+        };
+
+        // Validate the generated data
+        const validation = validateTestConfiguration(
+          updatedStructure,
+          totalDuties
+        );
+
+        if (!validation.isValid) {
+          toast.error(`Test data generation failed: ${validation.errors[0]}`, {
+            id: 'test-data',
+          });
+          return;
+        }
+
+        // Update the exam structure
+        onExamStructureUpdated(updatedStructure);
+
+        // Show success message with summary
+        const { summary } = validation;
+        toast.success(
+          `Test configuration generated! ${summary.regularDuties}R + ${summary.relieverDuties}V + ${summary.squadDuties}S + ${summary.bufferDuties}B = ${summary.actualTotal} total duties across ${updatedStructure.days} days.`,
+          {
+            id: 'test-data',
+            duration: 6000, // Longer duration for more details
+          }
+        );
+
+        console.log('🧪 Generated test configuration:', {
+          days: updatedStructure.days,
+          totalSlots: updatedStructure.dutySlots.length,
+          summary,
+          structure: updatedStructure.dutySlots.map((slot) => ({
+            day: slot.day + 1,
+            slot: slot.slot + 1,
+            regular: slot.regularDuties,
+            reliever: slot.relieverDuties,
+            squad: slot.squadDuties,
+            buffer: slot.bufferDuties,
+            rooms: slot.rooms.length,
+          })),
+        });
+      } catch (error) {
+        toast.error(
+          `Test data generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          { id: 'test-data' }
+        );
+        console.error('Test data generation error:', error);
+      }
+    },
+    [examStructure, onExamStructureUpdated]
+  );
 
   // Add a new slot to a specific day
   const addSlot = useCallback(
@@ -296,6 +378,79 @@ export function ScheduleConfigForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* Test Data Generation */}
+      {faculty.length > 0 &&
+        Object.keys(examStructure.designationDutyCounts).length > 0 && (
+          <Card className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-900/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FlaskConical className="size-5 text-purple-600 dark:text-purple-500" />
+                Testing Data Framework
+              </CardTitle>
+              <CardDescription>
+                Generate random schedule configurations for testing the
+                assignment system
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const totalDuties = calculateTotalDuties(
+                  // You'll need to pass faculty data to this component
+                  faculty, // Add faculty as prop
+                  examStructure.designationDutyCounts
+                );
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-lg border bg-white p-3 text-center dark:bg-purple-900/50">
+                        <div className="text-2xl font-bold text-purple-700 dark:text-white">
+                          {faculty.length}
+                        </div>
+                        <div className="text-sm text-purple-600 dark:text-white">
+                          Faculty Members
+                        </div>
+                      </div>
+                      <div className="rounded-lg border bg-white p-3 text-center dark:bg-purple-900/50">
+                        <div className="text-2xl font-bold text-purple-700 dark:text-white">
+                          {totalDuties}
+                        </div>
+                        <div className="text-sm text-purple-600 dark:text-white">
+                          Total Duties Needed
+                        </div>
+                      </div>
+                      <div className="rounded-lg border bg-white p-3 text-center dark:bg-purple-900/50">
+                        <div className="text-2xl font-bold text-purple-700 dark:text-white">
+                          {examStructure.dutySlots.length}
+                        </div>
+                        <div className="text-sm text-purple-600 dark:text-white">
+                          Current Slots
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => generateTestData(totalDuties)}
+                      className="w-full"
+                      variant="outline"
+                      size="lg"
+                    >
+                      <Zap className="mr-2 size-4" />
+                      Generate Random Test Configuration
+                    </Button>
+
+                    <div className="text-xs text-purple-600">
+                      This will create a random schedule with {totalDuties}{' '}
+                      duties spread across 2-6 days with 1-4 slots per day. The
+                      configuration will replace your current schedule.
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Dynamic Days and Slots */}
       {daySlots.length > 0 && (
@@ -902,7 +1057,11 @@ export function ScheduleConfigForm({
                     .flatMap((day) => day.slots)
                     .reduce(
                       (sum, slot) =>
-                        sum + slot.regularDuties + slot.bufferDuties,
+                        sum +
+                        slot.regularDuties +
+                        slot.relieverDuties +
+                        slot.squadDuties +
+                        slot.bufferDuties,
                       0
                     )}
                 </div>

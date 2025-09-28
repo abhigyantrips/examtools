@@ -381,6 +381,7 @@ export function AssignmentPage() {
 
             <div className="mx-auto max-w-6xl">
               <ScheduleConfigForm
+                faculty={data.faculty}
                 examStructure={data.examStructure}
                 onExamStructureUpdated={updateExamStructure}
               />
