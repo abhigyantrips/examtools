@@ -10,14 +10,14 @@ import type {
   UnavailableFaculty,
 } from '@/types';
 
-interface ExamDutyDB extends DBSchema {
+interface ExamToolsDB extends DBSchema {
   examData: {
     key: 'current';
     value: ExamData;
   };
 }
 
-const DB_NAME = 'ExamDutyDB';
+const DB_NAME = 'ExamToolsDB';
 const DB_VERSION = 1;
 const STORE_KEY = 'current';
 
@@ -37,8 +37,8 @@ export function useExamData() {
   const [error, setError] = useState<string | null>(null);
 
   // Initialize IndexedDB
-  const initDB = useCallback(async (): Promise<IDBPDatabase<ExamDutyDB>> => {
-    return openDB<ExamDutyDB>(DB_NAME, DB_VERSION, {
+  const initDB = useCallback(async (): Promise<IDBPDatabase<ExamToolsDB>> => {
+    return openDB<ExamToolsDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
         if (!db.objectStoreNames.contains('examData')) {
           db.createObjectStore('examData');
