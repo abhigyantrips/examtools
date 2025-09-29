@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import {
   Calendar,
+  CalendarCheck,
   CheckCircle,
   Clock,
   Download,
@@ -30,6 +31,7 @@ import { AvailabilityForm } from '@/components/forms/availability-form';
 import { FacultyUploadForm } from '@/components/forms/faculty-upload-form';
 import { ScheduleConfigForm } from '@/components/forms/schedule-config-form';
 import { PWAPrompt } from '@/components/pwa-prompt';
+import { ScheduleOverview } from '@/components/schedule-overview';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -40,7 +42,7 @@ import {
 } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/sonner';
 
-type Phase = 'setup' | 'config' | 'assignment';
+type Phase = 'setup' | 'config' | 'verify' | 'assignment';
 
 interface StepStatus {
   facultyUpload: boolean;
@@ -239,12 +241,14 @@ export function AssignmentPage() {
             {[
               { key: 'setup', label: 'Setup', icon: Users },
               { key: 'config', label: 'Configuration', icon: Settings },
+              { key: 'verify', label: 'Verify', icon: CalendarCheck },
               { key: 'assignment', label: 'Assignment', icon: Calendar },
             ].map(({ key, label, icon: Icon }, index) => {
               const isActive = currentPhase === key;
               const isComplete =
                 (key === 'setup' && canProceedToConfig) ||
                 (key === 'config' && canProceedToAssignment) ||
+                (key === 'verify' && canProceedToAssignment) ||
                 (key === 'assignment' && assignmentResult?.success);
 
               return (
@@ -269,7 +273,7 @@ export function AssignmentPage() {
                   </div>
 
                   {/* Connector Line - only between items, not after last */}
-                  {index < 2 && <div className="bg-border mx-4 h-px flex-1" />}
+                  {index < 3 && <div className="bg-border mx-4 h-px flex-1" />}
                 </div>
               );
             })}
@@ -396,11 +400,11 @@ export function AssignmentPage() {
                 Back to Setup
               </Button>
               <Button
-                onClick={() => setCurrentPhase('assignment')}
+                onClick={() => setCurrentPhase('verify')}
                 disabled={!canProceedToAssignment}
                 size="lg"
               >
-                Continue to Assignment
+                Continue to Verify
               </Button>
             </div>
           </div>
@@ -577,6 +581,37 @@ export function AssignmentPage() {
                 size="lg"
               >
                 Back to Configuration
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {currentPhase === 'verify' && (
+          <div className="space-y-8">
+            <div className="space-y-2 text-center">
+              <h2 className="text-3xl font-bold">Verify Schedule</h2>
+              <p className="text-muted-foreground mx-auto max-w-2xl">
+                Review the complete examination schedule before generating
+                assignments.
+              </p>
+            </div>
+            <div className="mx-auto max-w-6xl">
+              <ScheduleOverview examStructure={data.examStructure} />
+            </div>
+            <div className="flex justify-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPhase('config')}
+                size="lg"
+              >
+                Back to Configuration
+              </Button>
+              <Button
+                onClick={() => setCurrentPhase('assignment')}
+                disabled={!canProceedToAssignment}
+                size="lg"
+              >
+                Continue to Assignment
               </Button>
             </div>
           </div>
