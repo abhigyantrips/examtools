@@ -76,6 +76,7 @@ export function ScheduleConfigForm({
   onExamStructureUpdated,
 }: ScheduleConfigFormProps) {
   const [days, setDays] = useState(examStructure.days || 3);
+  const [perRegularDuties, setPerRegularDuties] = useState(5);
   const [roomUploadResults, setRoomUploadResults] = useState<RoomUploadState>(
     {}
   );
@@ -200,6 +201,27 @@ export function ScheduleConfigForm({
     },
     [examStructure, onExamStructureUpdated]
   );
+
+  // Auto-fill squad and reliever counts based on regular duties
+  const autoFillCounts = useCallback(() => {
+    const updatedSlots = examStructure.dutySlots.map((slot) => {
+      const squadDuties = Math.floor(slot.regularDuties / perRegularDuties);
+      const relieverDuties = Math.floor(slot.regularDuties / perRegularDuties);
+
+      return {
+        ...slot,
+        squadDuties,
+        relieverDuties,
+      };
+    });
+
+    const updatedStructure: ExamStructure = {
+      ...examStructure,
+      dutySlots: updatedSlots,
+    };
+    onExamStructureUpdated(updatedStructure);
+    toast.success('Auto-filled squad and reliever counts.');
+  }, [examStructure, onExamStructureUpdated, perRegularDuties]);
 
   // Add a new slot to a specific day
   const addSlot = useCallback(
@@ -379,6 +401,31 @@ export function ScheduleConfigForm({
               }
             />
             <Button onClick={initializeDays}>Initialize {days} Days</Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <div>
+            <CardTitle>Squad / Reliever per "X" Regular Duties</CardTitle>
+            <CardDescription>
+              Auto-fill squad and reliever duties based on regular duties
+            </CardDescription>
+          </div>
+
+          {/* Input to initialize the number of days */}
+          <div className="flex items-center space-x-2">
+            <Input
+              type="number"
+              min="1"
+              max="30"
+              value={days}
+              onChange={(e) =>
+                setPerRegularDuties(Math.max(1, parseInt(e.target.value) || 1))
+              }
+            />
+            <Button onClick={autoFillCounts}>Auto-fill Counts</Button>
           </div>
         </CardHeader>
       </Card>
