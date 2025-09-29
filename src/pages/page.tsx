@@ -15,7 +15,7 @@ export function HomePage() {
     {
       title: 'Exam Duty Assignment',
       description:
-        'Automatically assign faculty to examination hall duties using constraint-based algorithms',
+        'Automatically assign faculty to examination duties using constraint-based algorithms.',
       path: '/assignment',
       icon: Calendar,
       features: [
@@ -29,7 +29,7 @@ export function HomePage() {
     {
       title: 'Duty Attendance Marking',
       description:
-        'Mark and track faculty attendance during examination duties',
+        'Mark and track faculty attendance during examination duties.',
       path: '/attendance',
       icon: ClipboardCheck,
       features: [
@@ -45,7 +45,7 @@ export function HomePage() {
     {
       title: 'Faculty Duty Accumulation',
       description:
-        'End-of-year analysis and accumulation of faculty duty distribution',
+        'End-of-year analysis and accumulation of faculty duty distribution.',
       path: '/accumulation',
       icon: BarChart3,
       features: [

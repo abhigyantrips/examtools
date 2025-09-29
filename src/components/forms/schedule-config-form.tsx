@@ -52,6 +52,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+import { Input } from '../ui/input';
+
 interface ScheduleConfigFormProps {
   faculty: Faculty[];
   examStructure: ExamStructure;
@@ -356,35 +358,29 @@ export function ScheduleConfigForm({
     <div className="space-y-6">
       {/* Days Configuration */}
       <Card>
-        <CardHeader>
-          <CardTitle>Exam Days</CardTitle>
-          <CardDescription>
-            Set the number of examination days, then configure slots for each
-            day
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="max-w-xs flex-1">
-              <label className="mb-2 block text-sm font-medium">
-                Number of Days
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={days}
-                onChange={(e) =>
-                  setDays(Math.max(1, parseInt(e.target.value) || 1))
-                }
-                className="w-full rounded-md border px-3 py-2"
-              />
-            </div>
-            <Button onClick={initializeDays} variant="outline" className="mt-7">
-              Initialize {days} Days
-            </Button>
+        <CardHeader className="flex items-center justify-between">
+          <div>
+            <CardTitle>Exam Days</CardTitle>
+            <CardDescription>
+              Set the number of examination days, then configure slots for each
+              day
+            </CardDescription>
           </div>
-        </CardContent>
+
+          {/* Input to initialize the number of days */}
+          <div className="flex items-center space-x-2">
+            <Input
+              type="number"
+              min="1"
+              max="30"
+              value={days}
+              onChange={(e) =>
+                setDays(Math.max(1, parseInt(e.target.value) || 1))
+              }
+            />
+            <Button onClick={initializeDays}>Initialize {days} Days</Button>
+          </div>
+        </CardHeader>
       </Card>
 
       {/* Test Data Generation */}

@@ -21,7 +21,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.ico'],
+      includeAssets: ['favicon.png'],
       manifest: {
         name: 'Exam Tools',
         short_name: 'Exam Tools',
