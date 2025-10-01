@@ -1,37 +1,46 @@
+import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import * as XLSX from 'xlsx';
 
 import type { Assignment, DutySlot, ExcelParseResult, Faculty } from '@/types';
 
 // Faculty Excel parsing
-export function parseFacultyExcel(
+export async function parseFacultyExcel(
   file: File
 ): Promise<ExcelParseResult<Faculty>> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-        }) as unknown[][];
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
 
-        const result = parseFacultyData(jsonData);
-        resolve(result);
-      } catch (error) {
-        resolve({
-          data: [],
-          errors: [
-            `Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          ],
-          warnings: [],
-        });
-      }
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      return {
+        data: [],
+        errors: ['No worksheet found in the Excel file'],
+        warnings: [],
+      };
+    }
+
+    const jsonData: unknown[][] = [];
+    worksheet.eachRow((row) => {
+      const rowData: unknown[] = [];
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        rowData.push(cell.value);
+      });
+      jsonData.push(rowData);
+    });
+
+    const result = parseFacultyData(jsonData);
+    return result;
+  } catch (error) {
+    return {
+      data: [],
+      errors: [
+        `Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ],
+      warnings: [],
     };
-    reader.readAsArrayBuffer(file);
-  });
+  }
 }
 
 function parseFacultyData(rows: unknown[][]): ExcelParseResult<Faculty> {
@@ -128,81 +137,252 @@ function parseFacultyData(rows: unknown[][]): ExcelParseResult<Faculty> {
 }
 
 // Room numbers Excel parsing
-export function parseRoomsExcel(file: File): Promise<ExcelParseResult<string>> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-          header: 1,
-        }) as unknown[][];
+export async function parseRoomsExcel(
+  file: File
+): Promise<ExcelParseResult<string>> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
 
-        const rooms: string[] = [];
-        const errors: string[] = [];
-        const warnings: string[] = [];
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      return {
+        data: [],
+        errors: ['No worksheet found in the Excel file'],
+        warnings: [],
+      };
+    }
 
-        // Extract all non-empty cells as room numbers
-        jsonData.forEach((row, rowIndex) => {
-          row.forEach((cell, colIndex) => {
-            if (cell && String(cell).trim()) {
-              const roomNumber = String(cell).trim();
-              if (!rooms.includes(roomNumber)) {
-                rooms.push(roomNumber);
-              } else {
-                warnings.push(
-                  `Duplicate room number: ${roomNumber} at row ${rowIndex + 1}, col ${colIndex + 1}`
-                );
-              }
-            }
-          });
-        });
+    const rooms: string[] = [];
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
-        resolve({ data: rooms, errors, warnings });
-      } catch (error) {
-        resolve({
-          data: [],
-          errors: [
-            `Room Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          ],
-          warnings: [],
-        });
-      }
+    // Extract all non-empty cells as room numbers
+    worksheet.eachRow((row, rowIndex) => {
+      row.eachCell((cell, colIndex) => {
+        if (cell.value && String(cell.value).trim()) {
+          const roomNumber = String(cell.value).trim();
+          if (!rooms.includes(roomNumber)) {
+            rooms.push(roomNumber);
+          } else {
+            warnings.push(
+              `Duplicate room number: ${roomNumber} at row ${rowIndex}, col ${colIndex}`
+            );
+          }
+        }
+      });
+    });
+
+    return { data: rooms, errors, warnings };
+  } catch (error) {
+    return {
+      data: [],
+      errors: [
+        `Room Excel parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ],
+      warnings: [],
     };
-    reader.readAsArrayBuffer(file);
-  });
+  }
 }
 
 // Export functions
-export function exportAssignmentsOverview(
-  dutySlots: {
-    date: Date;
-    startTime: string;
-    endTime: string;
-    regularDuties: number;
-    bufferDuties: number;
-  }[]
-): void {
-  const data = [
-    ['Date', 'Time Slot', 'Regular Duties', 'Buffer Duties'],
-    ...dutySlots.map((slot) => [
-      slot.date.toLocaleDateString(),
-      `${slot.startTime} - ${slot.endTime}`,
-      slot.regularDuties.toString(),
-      slot.bufferDuties.toString(),
-    ]),
-  ];
+export async function exportAssignmentsOverview(
+  dutySlots: DutySlot[],
+  assignments: Assignment[],
+  faculty: Faculty[]
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook();
 
-  const worksheet = XLSX.utils.aoa_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Overview');
+  // 1. Create Slots Sheet
+  const slotsWorksheet = workbook.addWorksheet('Slots');
 
-  XLSX.writeFile(workbook, 'exam-duty-overview.xlsx');
+  // Add main title (merged across all columns)
+  slotsWorksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  slotsWorksheet.mergeCells('A1:F1');
+  const mainTitleCell = slotsWorksheet.getCell('A1');
+  mainTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  mainTitleCell.font = { bold: true, size: 14 };
+
+  // Add sheet title (merged across all columns)
+  slotsWorksheet.addRow(['LIST OF SLOTS']);
+  slotsWorksheet.mergeCells('A2:F2');
+  const sheetTitleCell = slotsWorksheet.getCell('A2');
+  sheetTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheetTitleCell.font = { bold: true, size: 14 };
+
+  // Add empty row
+  slotsWorksheet.addRow([]);
+
+  // Add headers
+  const headerRow = slotsWorksheet.addRow([
+    'Date',
+    'Time Slot',
+    'Regular',
+    'Reliever',
+    'Squad',
+    'Buffer',
+  ]);
+  headerRow.font = { bold: true };
+
+  // Group slots by date for merging
+  const dateGroups = new Map<string, typeof dutySlots>();
+  dutySlots.forEach((slot) => {
+    const dateStr = slot.date.toLocaleDateString();
+    if (!dateGroups.has(dateStr)) {
+      dateGroups.set(dateStr, []);
+    }
+    dateGroups.get(dateStr)!.push(slot);
+  });
+
+  let currentRow = 5; // Starting row for data (after headers)
+
+  dateGroups.forEach((slots, dateStr) => {
+    const startRow = currentRow;
+
+    slots.forEach((slot) => {
+      // Count duties by role for this slot
+      const slotAssignments = assignments.filter(
+        (a) => a.day === slot.day && a.slot === slot.slot
+      );
+
+      const regularCount = slotAssignments.filter(
+        (a) => a.role === 'regular'
+      ).length;
+      const relieverCount = slotAssignments.filter(
+        (a) => a.role === 'reliever'
+      ).length;
+      const squadCount = slotAssignments.filter(
+        (a) => a.role === 'squad'
+      ).length;
+      const bufferCount = slotAssignments.filter(
+        (a) => a.role === 'buffer'
+      ).length;
+
+      slotsWorksheet.addRow([
+        currentRow === startRow ? dateStr : '', // Only show date on first row of group
+        `${slot.startTime} - ${slot.endTime}`,
+        regularCount,
+        relieverCount,
+        squadCount,
+        bufferCount,
+      ]);
+      currentRow++;
+    });
+
+    // Merge date cells for this date group if more than one slot
+    if (slots.length > 1) {
+      slotsWorksheet.mergeCells(`A${startRow}:A${currentRow - 1}`);
+      const dateCell = slotsWorksheet.getCell(`A${startRow}`);
+      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+  });
+
+  // Auto-fit columns but set specific widths for better appearance
+  autoFitColumns(slotsWorksheet);
+  slotsWorksheet.getColumn(1).width = 15; // Date column
+  slotsWorksheet.getColumn(2).width = 20; // Time slot column
+  slotsWorksheet.getColumn(3).width = 10; // Regular column
+  slotsWorksheet.getColumn(4).width = 10; // Reliever column
+  slotsWorksheet.getColumn(5).width = 10; // Squad column
+  slotsWorksheet.getColumn(6).width = 10; // Buffer column
+
+  // 2. Create Faculty List Sheet
+  const facultyWorksheet = workbook.addWorksheet('Faculty List');
+
+  // Add main title (merged across all columns)
+  facultyWorksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  facultyWorksheet.mergeCells('A1:F1');
+  const facultyMainTitleCell = facultyWorksheet.getCell('A1');
+  facultyMainTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  facultyMainTitleCell.font = { bold: true, size: 14 };
+
+  // Add sheet title (merged across all columns)
+  facultyWorksheet.addRow(['FACULTY ASSIGNMENT OVERVIEW']);
+  facultyWorksheet.mergeCells('A2:F2');
+  const facultySheetTitleCell = facultyWorksheet.getCell('A2');
+  facultySheetTitleCell.alignment = {
+    horizontal: 'center',
+    vertical: 'middle',
+  };
+  facultySheetTitleCell.font = { bold: true, size: 14 };
+
+  // Add empty row
+  facultyWorksheet.addRow([]);
+
+  // Add headers
+  const facultyHeaderRow = facultyWorksheet.addRow([
+    'Faculty ID',
+    'Faculty Name',
+    'Regular',
+    'Reliever',
+    'Squad',
+    'Buffer',
+  ]);
+  facultyHeaderRow.font = { bold: true };
+
+  // Count assignments by faculty and role
+  const facultyStats = new Map<
+    string,
+    { regular: number; reliever: number; squad: number; buffer: number }
+  >();
+
+  assignments.forEach((assignment) => {
+    if (!facultyStats.has(assignment.facultyId)) {
+      facultyStats.set(assignment.facultyId, {
+        regular: 0,
+        reliever: 0,
+        squad: 0,
+        buffer: 0,
+      });
+    }
+    const stats = facultyStats.get(assignment.facultyId)!;
+    stats[assignment.role as keyof typeof stats]++;
+  });
+
+  // Add faculty data rows
+  faculty.forEach((f) => {
+    const stats = facultyStats.get(f.facultyId) || {
+      regular: 0,
+      reliever: 0,
+      squad: 0,
+      buffer: 0,
+    };
+    facultyWorksheet.addRow([
+      f.facultyId,
+      f.facultyName,
+      stats.regular,
+      stats.reliever,
+      stats.squad,
+      stats.buffer,
+    ]);
+  });
+
+  // Auto-fit columns but set specific widths for better appearance
+  autoFitColumns(facultyWorksheet);
+  facultyWorksheet.getColumn(1).width = 15; // Faculty ID column
+  facultyWorksheet.getColumn(2).width = 35; // Faculty Name column
+  facultyWorksheet.getColumn(3).width = 10; // Regular column
+  facultyWorksheet.getColumn(4).width = 10; // Reliever column
+  facultyWorksheet.getColumn(5).width = 10; // Squad column
+  facultyWorksheet.getColumn(6).width = 10; // Buffer column
+
+  // Generate buffer and download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'exam-duty-overview.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 }
 
-export function exportDaySlotAssignments(
+export async function exportDaySlotAssignments(
   date: Date,
   timeSlot: string,
   assignments: {
@@ -213,35 +393,75 @@ export function exportDaySlotAssignments(
     phoneNo: string;
     role: string;
   }[]
-): void {
-  const data = [
-    ['DATE AND TIME SLOT'],
-    [`${date.toLocaleDateString()} ${timeSlot}`],
-    [],
-    [
-      'S No',
-      'Role',
-      'Room Number',
-      'Faculty ID',
-      'Faculty Name',
-      'Phone Number',
-    ],
-    ...assignments.map((assignment, index) => [
-      (index + 1).toString(),
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Assignments');
+
+  // Add title row (merged across 6 columns)
+  worksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  worksheet.mergeCells('A1:F1');
+  const titleCell = worksheet.getCell('A1');
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.font = { bold: true, size: 14 };
+
+  // Add date/time row (merged across 6 columns)
+  worksheet.addRow([`${date.toLocaleDateString()} ${timeSlot}`]);
+  worksheet.mergeCells('A2:F2');
+  const dateCell = worksheet.getCell('A2');
+  dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  dateCell.font = { bold: true };
+
+  // Add empty row
+  worksheet.addRow([]);
+
+  // Add header row
+  const headerRow = worksheet.addRow([
+    'S No',
+    'Role',
+    'Room Number',
+    'Faculty ID',
+    'Faculty Name',
+    'Phone Number',
+  ]);
+  headerRow.font = { bold: true };
+
+  // Add data rows
+  assignments.forEach((assignment, index) => {
+    worksheet.addRow([
+      index + 1,
       assignment.role.toUpperCase(),
       assignment.roomNumber || getRoleDisplay(assignment.role),
       assignment.facultyId,
       assignment.facultyName,
       assignment.phoneNo,
-    ]),
-  ];
+    ]);
+  });
 
-  const worksheet = XLSX.utils.aoa_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Assignments');
+  // Auto-fit columns
+  autoFitColumns(worksheet);
 
+  // Set specific column widths for better appearance
+  worksheet.getColumn(1).width = 6; // S No column
+  worksheet.getColumn(2).width = 12; // Role column
+  worksheet.getColumn(3).width = 15; // Room Number column
+  worksheet.getColumn(4).width = 12; // Faculty ID column
+  worksheet.getColumn(5).width = 25; // Faculty Name column
+  worksheet.getColumn(6).width = 15; // Phone Number column
+
+  // Generate buffer and download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
   const filename = `duty-${date.toISOString().split('T')[0]}-slot.xlsx`;
-  XLSX.writeFile(workbook, filename);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 }
 
 function getRoleDisplay(role: string): string {
@@ -266,31 +486,183 @@ export async function exportBatchAssignments(
 ): Promise<void> {
   const zip = new JSZip();
 
-  // 1. Create overview data and add to ZIP
-  const overviewData = dutySlots.map((slot) => ({
-    date: slot.date,
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    totalDuties: slot.regularDuties + slot.bufferDuties,
-    bufferDuties: slot.bufferDuties,
-  }));
+  // 1. Create overview workbook with multiple sheets and add to ZIP
+  const overviewWorkbook = new ExcelJS.Workbook();
 
-  const overviewWorksheet = XLSX.utils.aoa_to_sheet([
-    ['Date', 'Time Slot', 'Total Duties', 'Buffer Duties'],
-    ...overviewData.map((slot) => [
-      slot.date.toLocaleDateString(),
-      `${slot.startTime} - ${slot.endTime}`,
-      slot.totalDuties.toString(),
-      slot.bufferDuties.toString(),
-    ]),
+  // Create Slots Sheet
+  const slotsWorksheet = overviewWorkbook.addWorksheet('Slots');
+
+  // Add main title (merged across all columns)
+  slotsWorksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  slotsWorksheet.mergeCells('A1:F1');
+  const mainTitleCell = slotsWorksheet.getCell('A1');
+  mainTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  mainTitleCell.font = { bold: true, size: 14 };
+
+  // Add sheet title (merged across all columns)
+  slotsWorksheet.addRow(['LIST OF SLOTS']);
+  slotsWorksheet.mergeCells('A2:F2');
+  const sheetTitleCell = slotsWorksheet.getCell('A2');
+  sheetTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheetTitleCell.font = { bold: true, size: 14 };
+
+  // Add empty row
+  slotsWorksheet.addRow([]);
+
+  // Add headers
+  const headerRow = slotsWorksheet.addRow([
+    'Date',
+    'Time Slot',
+    'Regular',
+    'Reliever',
+    'Squad',
+    'Buffer',
   ]);
+  headerRow.font = { bold: true };
 
-  const overviewWorkbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(overviewWorkbook, overviewWorksheet, 'Overview');
-  const overviewBuffer = XLSX.write(overviewWorkbook, {
-    type: 'array',
-    bookType: 'xlsx',
+  // Group slots by date for merging
+  const dateGroups = new Map<string, typeof dutySlots>();
+  dutySlots.forEach((slot) => {
+    const dateStr = slot.date.toLocaleDateString();
+    if (!dateGroups.has(dateStr)) {
+      dateGroups.set(dateStr, []);
+    }
+    dateGroups.get(dateStr)!.push(slot);
   });
+
+  let currentRow = 5; // Starting row for data (after headers)
+
+  dateGroups.forEach((slots, dateStr) => {
+    const startRow = currentRow;
+
+    slots.forEach((slot) => {
+      // Count duties by role for this slot
+      const slotAssignments = assignments.filter(
+        (a) => a.day === slot.day && a.slot === slot.slot
+      );
+
+      const regularCount = slotAssignments.filter(
+        (a) => a.role === 'regular'
+      ).length;
+      const relieverCount = slotAssignments.filter(
+        (a) => a.role === 'reliever'
+      ).length;
+      const squadCount = slotAssignments.filter(
+        (a) => a.role === 'squad'
+      ).length;
+      const bufferCount = slotAssignments.filter(
+        (a) => a.role === 'buffer'
+      ).length;
+
+      slotsWorksheet.addRow([
+        currentRow === startRow ? dateStr : '', // Only show date on first row of group
+        `${slot.startTime} - ${slot.endTime}`,
+        regularCount,
+        relieverCount,
+        squadCount,
+        bufferCount,
+      ]);
+      currentRow++;
+    });
+
+    // Merge date cells for this date group if more than one slot
+    if (slots.length > 1) {
+      slotsWorksheet.mergeCells(`A${startRow}:A${currentRow - 1}`);
+      const dateCell = slotsWorksheet.getCell(`A${startRow}`);
+      dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+  });
+
+  // Auto-fit columns but set specific widths for better appearance
+  autoFitColumns(slotsWorksheet);
+  slotsWorksheet.getColumn(1).width = 15; // Date column
+  slotsWorksheet.getColumn(2).width = 20; // Time slot column
+  slotsWorksheet.getColumn(3).width = 10; // Regular column
+  slotsWorksheet.getColumn(4).width = 10; // Reliever column
+  slotsWorksheet.getColumn(5).width = 10; // Squad column
+  slotsWorksheet.getColumn(6).width = 10; // Buffer column
+
+  // Create Faculty List Sheet
+  const facultyWorksheet = overviewWorkbook.addWorksheet('Faculty List');
+
+  // Add main title (merged across all columns)
+  facultyWorksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  facultyWorksheet.mergeCells('A1:F1');
+  const facultyMainTitleCell = facultyWorksheet.getCell('A1');
+  facultyMainTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  facultyMainTitleCell.font = { bold: true, size: 14 };
+
+  // Add sheet title (merged across all columns)
+  facultyWorksheet.addRow(['FACULTY ASSIGNMENT OVERVIEW']);
+  facultyWorksheet.mergeCells('A2:F2');
+  const facultySheetTitleCell = facultyWorksheet.getCell('A2');
+  facultySheetTitleCell.alignment = {
+    horizontal: 'center',
+    vertical: 'middle',
+  };
+  facultySheetTitleCell.font = { bold: true, size: 14 };
+
+  // Add empty row
+  facultyWorksheet.addRow([]);
+
+  // Add headers
+  const facultyHeaderRow = facultyWorksheet.addRow([
+    'Faculty ID',
+    'Faculty Name',
+    'Regular',
+    'Reliever',
+    'Squad',
+    'Buffer',
+  ]);
+  facultyHeaderRow.font = { bold: true };
+
+  // Count assignments by faculty and role
+  const facultyStats = new Map<
+    string,
+    { regular: number; reliever: number; squad: number; buffer: number }
+  >();
+
+  assignments.forEach((assignment) => {
+    if (!facultyStats.has(assignment.facultyId)) {
+      facultyStats.set(assignment.facultyId, {
+        regular: 0,
+        reliever: 0,
+        squad: 0,
+        buffer: 0,
+      });
+    }
+    const stats = facultyStats.get(assignment.facultyId)!;
+    stats[assignment.role as keyof typeof stats]++;
+  });
+
+  // Add faculty data rows
+  faculty.forEach((f) => {
+    const stats = facultyStats.get(f.facultyId) || {
+      regular: 0,
+      reliever: 0,
+      squad: 0,
+      buffer: 0,
+    };
+    facultyWorksheet.addRow([
+      f.facultyId,
+      f.facultyName,
+      stats.regular,
+      stats.reliever,
+      stats.squad,
+      stats.buffer,
+    ]);
+  });
+
+  // Auto-fit columns but set specific widths for better appearance
+  autoFitColumns(facultyWorksheet);
+  facultyWorksheet.getColumn(1).width = 15; // Faculty ID column
+  facultyWorksheet.getColumn(2).width = 35; // Faculty Name column
+  facultyWorksheet.getColumn(3).width = 10; // Regular column
+  facultyWorksheet.getColumn(4).width = 10; // Reliever column
+  facultyWorksheet.getColumn(5).width = 10; // Squad column
+  facultyWorksheet.getColumn(6).width = 10; // Buffer column
+
+  const overviewBuffer = await overviewWorkbook.xlsx.writeBuffer();
   zip.file('00-exam-duty-overview.xlsx', overviewBuffer);
 
   // 2. Create individual slot files and add to ZIP
@@ -299,49 +671,66 @@ export async function exportBatchAssignments(
       (a) => a.day === dutySlot.day && a.slot === dutySlot.slot
     );
 
-    const exportData = slotAssignments.map((assignment, index) => {
+    const slotWorkbook = new ExcelJS.Workbook();
+    const worksheet = slotWorkbook.addWorksheet('Assignments');
+
+    // Add title row (merged across 6 columns)
+    worksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+    worksheet.mergeCells('A1:F1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.font = { bold: true, size: 14 };
+
+    // Add date/time row (merged across 6 columns)
+    worksheet.addRow([
+      `${dutySlot.date.toLocaleDateString()} ${dutySlot.startTime} - ${dutySlot.endTime}`,
+    ]);
+    worksheet.mergeCells('A2:F2');
+    const dateCell = worksheet.getCell('A2');
+    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    dateCell.font = { bold: true };
+
+    // Add empty row
+    worksheet.addRow([]);
+
+    // Add header row
+    const headerRow = worksheet.addRow([
+      'S No',
+      'Role',
+      'Room Number',
+      'Faculty ID',
+      'Faculty Name',
+      'Phone Number',
+    ]);
+    headerRow.font = { bold: true };
+
+    // Add data rows
+    slotAssignments.forEach((assignment, index) => {
       const assignedFaculty = faculty.find(
         (f) => f.facultyId === assignment.facultyId
       );
-      return {
-        sNo: index + 1,
-        roomNumber: assignment.roomNumber || 'BUFFER',
-        facultyId: assignment.facultyId,
-        facultyName: assignedFaculty?.facultyName || 'Unknown',
-        phoneNo: assignedFaculty?.phoneNo || 'N/A',
-        role: assignment.role,
-      };
+      worksheet.addRow([
+        index + 1,
+        assignment.role.toUpperCase(),
+        assignment.roomNumber || 'BUFFER',
+        assignment.facultyId,
+        assignedFaculty?.facultyName || 'Unknown',
+        assignedFaculty?.phoneNo || 'N/A',
+      ]);
     });
 
-    const data = [
-      ['DATE AND TIME SLOT'],
-      [
-        `${dutySlot.date.toLocaleDateString()} ${dutySlot.startTime} - ${dutySlot.endTime}`,
-      ],
-      [],
-      [
-        'S No',
-        'Role',
-        'Room Number',
-        'Faculty ID',
-        'Faculty Name',
-        'Phone Number',
-      ],
-      ...exportData.map((assignment) => [
-        assignment.sNo.toString(),
-        assignment.role.toUpperCase(),
-        assignment.roomNumber,
-        assignment.facultyId,
-        assignment.facultyName,
-        assignment.phoneNo,
-      ]),
-    ];
+    // Auto-fit columns
+    autoFitColumns(worksheet);
 
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Assignments');
+    // Set specific column widths for better appearance
+    worksheet.getColumn(1).width = 6; // S No column
+    worksheet.getColumn(2).width = 12; // Role column
+    worksheet.getColumn(3).width = 15; // Room Number column
+    worksheet.getColumn(4).width = 12; // Faculty ID column
+    worksheet.getColumn(5).width = 25; // Faculty Name column
+    worksheet.getColumn(6).width = 15; // Phone Number column
 
-    const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+    const buffer = await slotWorkbook.xlsx.writeBuffer();
     const filename = `${String(dutySlot.day + 1).padStart(2, '0')}-${String(dutySlot.slot + 1).padStart(2, '0')}-day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${dutySlot.date.toISOString().split('T')[0]}.xlsx`;
 
     zip.file(filename, buffer);
@@ -357,4 +746,23 @@ export async function exportBatchAssignments(
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+}
+
+function autoFitColumns(worksheet: ExcelJS.Worksheet): void {
+  worksheet.columns.forEach((column, index) => {
+    let maxLength = 0;
+    column.eachCell?.({ includeEmpty: true }, (cell) => {
+      const columnLength = cell.value ? cell.value.toString().length : 10;
+      if (columnLength > maxLength) {
+        maxLength = columnLength;
+      }
+    });
+
+    // Special handling for S No column (typically first column)
+    if (index === 0 && maxLength <= 4) {
+      column.width = 6; // Set a smaller width for S No column
+    } else {
+      column.width = maxLength < 8 ? 8 : Math.min(maxLength + 2, 50); // Add padding but cap at 50
+    }
+  });
 }

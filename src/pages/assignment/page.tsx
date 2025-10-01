@@ -141,16 +141,13 @@ export function AssignmentPage() {
 
   // Export functions
   const exportOverview = useCallback(() => {
-    const overviewData = data.examStructure.dutySlots.map((slot) => ({
-      date: slot.date,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      regularDuties: slot.regularDuties,
-      bufferDuties: slot.bufferDuties,
-    }));
-    exportAssignmentsOverview(overviewData);
+    exportAssignmentsOverview(
+      data.examStructure.dutySlots,
+      data.assignments,
+      data.faculty
+    );
     toast.success('Overview exported successfully!');
-  }, [data.examStructure.dutySlots]);
+  }, [data.examStructure.dutySlots, data.assignments, data.faculty]);
 
   const exportSlotAssignments = useCallback(
     (day: number, slot: number) => {

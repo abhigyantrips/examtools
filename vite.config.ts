@@ -11,7 +11,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          utils: ['./src/lib/assignment.ts', './src/lib/excel.ts'],
+          assignment: ['./src/lib/assignment.ts'],
+          export: ['./src/lib/excel.ts'],
         },
       },
     },
