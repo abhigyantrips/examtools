@@ -1,7 +1,3 @@
-import { AccumulationPage } from '@/pages/accumulation/page';
-import { AssignmentPage } from '@/pages/assignment/page';
-import { AttendancePage } from '@/pages/attendance/page';
-import { HomePage } from '@/pages/page';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
 import { Footer } from '@/components/footer';
@@ -9,6 +5,11 @@ import { Header } from '@/components/header';
 import { PWAPrompt } from '@/components/pwa-prompt';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
+
+import { AccumulationPage } from '@/pages/accumulation/page';
+import { AssignmentPage } from '@/pages/assignment/page';
+import { AttendancePage } from '@/pages/attendance/page';
+import { HomePage } from '@/pages/page';
 
 export default function App() {
   return (

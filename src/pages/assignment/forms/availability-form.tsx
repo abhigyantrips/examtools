@@ -124,8 +124,9 @@ export function AvailabilityForm({
       <CardHeader>
         <CardTitle>Faculty Availability</CardTitle>
         <CardDescription>
-          Mark faculty members as unavailable for specific exam dates. They will
-          be excluded from all slots on those days.
+          {dutySlots.length > 0
+            ? 'Mark faculty members as unavailable for specific exam dates. They will be excluded from all slots on those days.'
+            : 'Mark faculty members as unavailable for specific dates. You can set exam dates in the next phase.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -213,6 +214,11 @@ export function AvailabilityForm({
                     selected={selectedDate || undefined}
                     onSelect={setSelectedDate}
                     disabled={(date) => {
+                      // If no dutySlots provided, allow any future date
+                      if (dutySlots.length === 0) {
+                        return date < new Date();
+                      }
+
                       const dateString = date.toISOString().split('T')[0];
                       return !examDates.includes(dateString);
                     }}

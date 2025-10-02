@@ -47,10 +47,7 @@ export function assignDuties(
   }
 
   // Step 2: Initialize faculty duty tracking
-  const facultyDutyCounts = initializeFacultyDutyCounts(
-    faculty,
-    examStructure.designationDutyCounts
-  );
+  const facultyDutyCounts = initializeFacultyDutyCounts(faculty, examStructure);
 
   // Step 3: Build unavailability map for quick lookups
   const unavailabilityMap = buildUnavailabilityMap(unavailability);
@@ -180,11 +177,15 @@ function validateAssignmentRequirements(
 
 function initializeFacultyDutyCounts(
   faculty: Faculty[],
-  designationDutyCounts: Record<string, number>
+  examStructure: ExamStructure
 ): FacultyDutyCount[] {
   return faculty.map((f) => ({
     facultyId: f.facultyId,
-    targetDuties: designationDutyCounts[f.designation] || 0,
+    targetDuties:
+      (examStructure.designationDutyCounts[f.designation] || 0) +
+      (examStructure.designationRelieverCounts?.[f.designation] || 0) +
+      (examStructure.designationSquadCounts?.[f.designation] || 0) +
+      (examStructure.designationBufferCounts?.[f.designation] || 0),
     assignedDuties: 0,
     bufferDuties: 0,
   }));

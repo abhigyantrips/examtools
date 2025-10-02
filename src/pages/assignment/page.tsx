@@ -1,61 +1,33 @@
-import { format } from 'date-fns';
 import {
+  ArrowLeft,
+  ArrowRight,
   Calendar,
-  CalendarCheck,
   CheckCircle,
-  Clock,
-  Download,
-  FileSpreadsheet,
-  Play,
   Settings,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import type { AssignmentResult } from '@/types';
-
-import { assignDuties } from '@/lib/assignment';
-import {
-  exportAssignmentsOverview,
-  exportBatchAssignments,
-  exportDaySlotAssignments,
-} from '@/lib/excel';
 import { cn } from '@/lib/utils';
 
 import { useExamData } from '@/hooks/use-exam-data';
 
-import { AssignmentResults } from '@/components/assignment-results';
-import { AvailabilityForm } from '@/components/forms/availability-form';
-import { FacultyUploadForm } from '@/components/forms/faculty-upload-form';
-import { ScheduleConfigForm } from '@/components/forms/schedule-config-form';
 import { PWAPrompt } from '@/components/pwa-prompt';
-import { ScheduleOverview } from '@/components/schedule-overview';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/sonner';
 
-type Phase = 'setup' | 'config' | 'verify' | 'assignment';
+import { AllocationPhase } from '@/pages/assignment/phases/allocation-phase';
+import { AssignmentsPhase } from '@/pages/assignment/phases/assignments-phase';
+import { ConfigurationPhase } from '@/pages/assignment/phases/configuration-phase';
+import { UploadPhase } from '@/pages/assignment/phases/upload-phase';
 
-interface StepStatus {
-  facultyUpload: boolean;
-  designationCounts: boolean;
-  scheduleConfig: boolean;
-  availability: boolean;
-}
+type Phase = 'upload' | 'allocation' | 'configuration' | 'assignments';
 
 export function AssignmentPage() {
-  const [currentPhase, setCurrentPhase] = useState<Phase>('setup');
-  const [assignmentResult, setAssignmentResult] =
-    useState<AssignmentResult | null>(null);
-  const [assigning, setAssigning] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<Phase>('upload');
 
   const {
     data,
@@ -67,138 +39,82 @@ export function AssignmentPage() {
     updateAssignments,
   } = useExamData();
 
-  // Calculate step completion status
-  const stepStatus = useMemo<StepStatus>(() => {
-    const hasDesignationCounts =
-      Object.keys(data.examStructure.designationDutyCounts).length > 0 &&
-      Object.values(data.examStructure.designationDutyCounts).some(
-        (count) => count > 0
-      );
-
-    const hasValidSchedule =
-      data.examStructure.dutySlots.length > 0 &&
-      data.examStructure.dutySlots.every(
-        (slot) =>
-          slot.date &&
-          slot.regularDuties + slot.bufferDuties > 0 &&
-          slot.rooms.length === slot.regularDuties
-      );
-
-    return {
-      facultyUpload: data.faculty.length > 0,
-      designationCounts: hasDesignationCounts,
-      scheduleConfig: hasValidSchedule,
-      availability: true, // Optional step, always considered complete
-    };
-  }, [data]);
-
-  const canProceedToConfig =
-    stepStatus.facultyUpload && stepStatus.designationCounts;
-  const canProceedToAssignment =
-    canProceedToConfig && stepStatus.scheduleConfig;
-
-  // Handle assignment generation
-  const runAssignment = useCallback(async () => {
-    setAssigning(true);
-    toast.loading('Generating duty assignments...', { id: 'assignment' });
-
-    try {
-      const result = assignDuties(
-        data.faculty,
-        data.examStructure,
-        data.unavailability
-      );
-      setAssignmentResult(result);
-
-      if (result.success) {
-        await updateAssignments(result.assignments);
-        toast.success(
-          `Successfully generated ${result.assignments.length} duty assignments.`,
-          { id: 'assignment' }
-        );
-      } else {
-        toast.error(`${result.errors[0]}`, { id: 'assignment' });
+  const getPhaseCompletion = useCallback(
+    (phase: Phase): boolean => {
+      switch (phase) {
+        case 'upload':
+          return data.faculty.length > 0;
+        case 'allocation':
+          return (
+            Object.keys(data.examStructure.designationDutyCounts).length > 0 &&
+            Object.values(data.examStructure.designationDutyCounts).some(
+              (count) => count > 0
+            )
+          );
+        case 'configuration':
+          return (
+            data.examStructure.dutySlots.length > 0 &&
+            data.examStructure.dutySlots.every(
+              (slot) =>
+                slot.date &&
+                slot.regularDuties > 0 &&
+                slot.rooms.length === slot.regularDuties
+            )
+          );
+        case 'assignments':
+          return data.assignments.length > 0;
+        default:
+          return false;
       }
-    } catch (error) {
-      setAssignmentResult({
-        success: false,
-        assignments: [],
-        errors: [
-          `Assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ],
-        warnings: [],
-      });
-      toast.error('Assignment generation failed!', { id: 'assignment' });
-    } finally {
-      setAssigning(false);
-    }
-  }, [
-    data.faculty,
-    data.examStructure,
-    data.unavailability,
-    updateAssignments,
-  ]);
-
-  // Export functions
-  const exportOverview = useCallback(() => {
-    exportAssignmentsOverview(
-      data.examStructure.dutySlots,
-      data.assignments,
-      data.faculty
-    );
-    toast.success('Overview exported successfully!');
-  }, [data.examStructure.dutySlots, data.assignments, data.faculty]);
-
-  const exportSlotAssignments = useCallback(
-    (day: number, slot: number) => {
-      const dutySlot = data.examStructure.dutySlots.find(
-        (s) => s.day === day && s.slot === slot
-      );
-      const slotAssignments = data.assignments.filter(
-        (a) => a.day === day && a.slot === slot
-      );
-
-      if (!dutySlot) return;
-
-      const exportData = slotAssignments.map((assignment, index) => {
-        const faculty = data.faculty.find(
-          (f) => f.facultyId === assignment.facultyId
-        );
-        return {
-          sNo: index + 1,
-          roomNumber: assignment.roomNumber || 'N/A',
-          role: assignment.role,
-          facultyId: assignment.facultyId,
-          facultyName: faculty?.facultyName || 'Unknown',
-          phoneNo: faculty?.phoneNo || 'N/A',
-        };
-      });
-
-      exportDaySlotAssignments(
-        dutySlot.date,
-        `${dutySlot.startTime} - ${dutySlot.endTime}`,
-        exportData
-      );
-      toast.success(`Day ${day + 1} Slot ${slot + 1} assignments exported.`);
     },
-    [data.examStructure.dutySlots, data.assignments, data.faculty]
+    [data]
   );
 
-  const exportBatchAll = useCallback(async () => {
-    try {
-      await exportBatchAssignments(
-        data.examStructure.dutySlots,
-        data.assignments,
-        data.faculty
-      );
-      toast.success('All assignments exported successfully');
-    } catch (error) {
-      toast.error(
-        'Export failed: ' +
-          (error instanceof Error ? error.message : 'Unknown error')
-      );
+  const canProceedToNext = useCallback((): boolean => {
+    return getPhaseCompletion(currentPhase);
+  }, [currentPhase, getPhaseCompletion]);
+
+  const getNextPhase = (current: Phase): Phase | null => {
+    const phases: Phase[] = [
+      'upload',
+      'allocation',
+      'configuration',
+      'assignments',
+    ];
+    const currentIndex = phases.indexOf(current);
+    return currentIndex < phases.length - 1 ? phases[currentIndex + 1] : null;
+  };
+
+  const getPreviousPhase = (current: Phase): Phase | null => {
+    const phases: Phase[] = [
+      'upload',
+      'allocation',
+      'configuration',
+      'assignments',
+    ];
+    const currentIndex = phases.indexOf(current);
+    return currentIndex > 0 ? phases[currentIndex - 1] : null;
+  };
+
+  const handleContinue = useCallback(() => {
+    if (!canProceedToNext()) {
+      toast.error('Please complete the current phase before continuing.');
+      return;
     }
-  }, [data.examStructure.dutySlots, data.assignments, data.faculty]);
+
+    const nextPhase = getNextPhase(currentPhase);
+    if (nextPhase) {
+      setCurrentPhase(nextPhase);
+      toast.success(`Proceeding to ${nextPhase} phase.`);
+    }
+  }, [currentPhase, canProceedToNext]);
+
+  const handleBack = useCallback(() => {
+    const previousPhase = getPreviousPhase(currentPhase);
+    if (previousPhase) {
+      setCurrentPhase(previousPhase);
+    }
+  }, [currentPhase]);
 
   if (loading) {
     return (
@@ -231,22 +147,30 @@ export function AssignmentPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Progress Indicator */}
+      {/* Compact Phase Navigation */}
       <div className="bg-muted/30 border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center">
             {[
-              { key: 'setup', label: 'Setup', icon: Users },
-              { key: 'config', label: 'Configuration', icon: Settings },
-              { key: 'verify', label: 'Verify', icon: CalendarCheck },
-              { key: 'assignment', label: 'Assignment', icon: Calendar },
+              { key: 'upload', label: 'Upload', icon: Users },
+              {
+                key: 'allocation',
+                label: 'Allocation',
+                icon: Settings,
+              },
+              {
+                key: 'configuration',
+                label: 'Configuration',
+                icon: Calendar,
+              },
+              {
+                key: 'assignments',
+                label: 'Assignments',
+                icon: CheckCircle,
+              },
             ].map(({ key, label, icon: Icon }, index) => {
               const isActive = currentPhase === key;
-              const isComplete =
-                (key === 'setup' && canProceedToConfig) ||
-                (key === 'config' && canProceedToAssignment) ||
-                (key === 'verify' && canProceedToAssignment) ||
-                (key === 'assignment' && assignmentResult?.success);
+              const isComplete = getPhaseCompletion(key as Phase);
 
               return (
                 <div
@@ -278,340 +202,58 @@ export function AssignmentPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {currentPhase === 'setup' && (
-          <div className="space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold">Basic Setup</h2>
-              <p className="text-muted-foreground mx-auto max-w-2xl">
-                Upload your faculty list and configure duty assignments by
-                designation.
-              </p>
-            </div>
+      {/* Navigation Controls */}
+      <div className="bg-background border-b">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentPhase === 'upload'}
+            >
+              <ArrowLeft className="mr-2 size-4" />
+              Back
+            </Button>
 
-            <div className="mx-auto grid max-w-4xl gap-8">
-              <FacultyUploadForm
-                currentFaculty={data.faculty}
-                onFacultyUploaded={updateFaculty}
-              />
-
-              {data.faculty.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Duty Counts by Designation</CardTitle>
-                    <CardDescription>
-                      Set how many duties each designation should receive during
-                      the exam period
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4">
-                      {Array.from(
-                        new Set(data.faculty.map((f) => f.designation))
-                      )
-                        .filter(Boolean)
-                        .map((designation) => {
-                          const facultyCount = data.faculty.filter(
-                            (f) => f.designation === designation
-                          ).length;
-                          const currentCount =
-                            data.examStructure.designationDutyCounts[
-                              designation
-                            ] || 0;
-
-                          return (
-                            <div
-                              key={designation}
-                              className="flex items-center justify-between rounded-lg border p-3"
-                            >
-                              <div>
-                                <div className="font-medium">{designation}</div>
-                                <div className="text-muted-foreground text-sm">
-                                  {facultyCount} faculty member
-                                  {facultyCount !== 1 ? 's' : ''}
-                                </div>
-                              </div>
-                              <input
-                                type="number"
-                                min="0"
-                                value={currentCount}
-                                onChange={(e) => {
-                                  const newCounts = {
-                                    ...data.examStructure.designationDutyCounts,
-                                    [designation]:
-                                      parseInt(e.target.value) || 0,
-                                  };
-                                  updateExamStructure({
-                                    ...data.examStructure,
-                                    designationDutyCounts: newCounts,
-                                  });
-                                }}
-                                className="w-20 rounded-md border px-3 py-2 text-center"
-                              />
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            <div className="flex justify-center">
-              <Button
-                onClick={() => setCurrentPhase('config')}
-                disabled={!canProceedToConfig}
-                size="lg"
-              >
-                Continue to Configuration
-              </Button>
-            </div>
+            <Button onClick={handleContinue} disabled={!canProceedToNext()}>
+              Continue
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
           </div>
+        </div>
+      </div>
+
+      {/* Phase Content */}
+      <main className="container mx-auto px-4 py-6">
+        {currentPhase === 'upload' && (
+          <UploadPhase
+            faculty={data.faculty}
+            onFacultyUploaded={updateFaculty}
+          />
         )}
-
-        {currentPhase === 'config' && (
-          <div className="space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold">Schedule Configuration</h2>
-              <p className="text-muted-foreground mx-auto max-w-2xl">
-                Configure your examination schedule with dates, times, and room
-                assignments.
-              </p>
-            </div>
-
-            <div className="mx-auto max-w-6xl">
-              <ScheduleConfigForm
-                faculty={data.faculty}
-                examStructure={data.examStructure}
-                onExamStructureUpdated={updateExamStructure}
-              />
-            </div>
-
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPhase('setup')}
-                size="lg"
-              >
-                Back to Setup
-              </Button>
-              <Button
-                onClick={() => setCurrentPhase('verify')}
-                disabled={!canProceedToAssignment}
-                size="lg"
-              >
-                Continue to Verify
-              </Button>
-            </div>
-          </div>
+        {currentPhase === 'allocation' && (
+          <AllocationPhase
+            faculty={data.faculty}
+            examStructure={data.examStructure}
+            unavailability={data.unavailability}
+            onExamStructureUpdated={updateExamStructure}
+            onUnavailabilityUpdated={updateUnavailability}
+          />
         )}
-
-        {currentPhase === 'assignment' && (
-          <div className="space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold">Duty Assignment</h2>
-              <p className="text-muted-foreground mx-auto max-w-2xl">
-                Generate duty assignments and export the results.
-              </p>
-            </div>
-
-            <div className="mx-auto max-w-4xl space-y-6">
-              {/* Availability Form */}
-              <AvailabilityForm
-                faculty={data.faculty}
-                dutySlots={data.examStructure.dutySlots}
-                unavailability={data.unavailability}
-                onUnavailabilityUpdated={updateUnavailability}
-              />
-
-              {/* Assignment Generation */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generate Assignments</CardTitle>
-                  <CardDescription>
-                    Run the assignment algorithm to generate duty schedules
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={runAssignment}
-                      disabled={assigning || !canProceedToAssignment}
-                      size="lg"
-                    >
-                      {assigning ? (
-                        <>
-                          <Clock className="mr-2 size-4 animate-spin" />
-                          Generating Assignments...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="mr-2 size-4" />
-                          Generate Assignments
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Assignment Results */}
-                  {assignmentResult && (
-                    <div className="space-y-4">
-                      {assignmentResult.success ? (
-                        <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/30">
-                          <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-300">
-                            <CheckCircle className="size-4" />
-                            <span className="font-medium">
-                              Assignment Successful!
-                            </span>
-                          </div>
-                          <p className="text-sm text-green-600 dark:text-green-400">
-                            Generated {assignmentResult.assignments.length} duty
-                            assignments
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/30">
-                          <h4 className="mb-2 font-medium text-red-700 dark:text-red-300">
-                            Assignment Failed
-                          </h4>
-                          <ul className="space-y-1 text-sm text-red-600 dark:text-red-400">
-                            {assignmentResult.errors.map((error, index) => (
-                              <li key={index}>• {error}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Assignment Stats */}
-                      {assignmentResult.success && (
-                        <AssignmentResults
-                          result={assignmentResult}
-                          faculty={data.faculty}
-                          dutySlots={data.examStructure.dutySlots}
-                        />
-                      )}
-
-                      {/* Export Options */}
-                      {assignmentResult.success && (
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>Export Assignments</CardTitle>
-                            <CardDescription>
-                              Download assignment documents in Excel format
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {/* Batch Export - Primary Action */}
-                            <Button
-                              onClick={exportBatchAll}
-                              className="w-full"
-                              size="lg"
-                            >
-                              <Download className="mr-2 size-4" />
-                              Export All Assignments (ZIP)
-                            </Button>
-
-                            {/* Individual Exports - Secondary Actions */}
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-2">
-                                <div className="bg-border h-px flex-1" />
-                                <span className="text-muted-foreground text-xs">
-                                  Or export individually
-                                </span>
-                                <div className="bg-border h-px flex-1" />
-                              </div>
-
-                              <Button
-                                onClick={exportOverview}
-                                variant="outline"
-                                className="w-full"
-                              >
-                                <FileSpreadsheet className="mr-2 size-4" />
-                                Export Overview Only
-                              </Button>
-
-                              <div className="space-y-2">
-                                <h4 className="text-sm font-medium">
-                                  Individual Slot Assignments:
-                                </h4>
-                                <div className="grid max-h-32 gap-2 overflow-y-auto">
-                                  {data.examStructure.dutySlots
-                                    .sort(
-                                      (a, b) => a.day - b.day || a.slot - b.slot
-                                    )
-                                    .map((slot) => (
-                                      <Button
-                                        key={`${slot.day}-${slot.slot}`}
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() =>
-                                          exportSlotAssignments(
-                                            slot.day,
-                                            slot.slot
-                                          )
-                                        }
-                                        className="justify-start text-xs"
-                                      >
-                                        <Download className="mr-2 size-3" />
-                                        Day {slot.day + 1} Slot {slot.slot + 1}{' '}
-                                        - {format(slot.date, 'MMM dd')}{' '}
-                                        {slot.startTime}
-                                      </Button>
-                                    ))}
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPhase('config')}
-                size="lg"
-              >
-                Back to Configuration
-              </Button>
-            </div>
-          </div>
+        {currentPhase === 'configuration' && (
+          <ConfigurationPhase
+            examStructure={data.examStructure}
+            onExamStructureUpdated={updateExamStructure}
+          />
         )}
-
-        {currentPhase === 'verify' && (
-          <div className="space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-3xl font-bold">Verify Schedule</h2>
-              <p className="text-muted-foreground mx-auto max-w-2xl">
-                Review the complete examination schedule before generating
-                assignments.
-              </p>
-            </div>
-            <div className="mx-auto max-w-6xl">
-              <ScheduleOverview examStructure={data.examStructure} />
-            </div>
-            <div className="flex justify-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPhase('config')}
-                size="lg"
-              >
-                Back to Configuration
-              </Button>
-              <Button
-                onClick={() => setCurrentPhase('assignment')}
-                disabled={!canProceedToAssignment}
-                size="lg"
-              >
-                Continue to Assignment
-              </Button>
-            </div>
-          </div>
+        {currentPhase === 'assignments' && (
+          <AssignmentsPhase
+            faculty={data.faculty}
+            examStructure={data.examStructure}
+            unavailability={data.unavailability}
+            assignments={data.assignments}
+            onAssignmentsUpdated={updateAssignments}
+          />
         )}
       </main>
 

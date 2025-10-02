@@ -24,7 +24,10 @@ export interface DutySlot {
 export interface ExamStructure {
   days: number;
   dutySlots: DutySlot[];
-  designationDutyCounts: Record<string, number>; // "Assistant Professor" -> 5
+  designationDutyCounts: Record<string, number>;
+  designationRelieverCounts?: Record<string, number>;
+  designationSquadCounts?: Record<string, number>;
+  designationBufferCounts?: Record<string, number>;
 }
 
 export interface UnavailableFaculty {

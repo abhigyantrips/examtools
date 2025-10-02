@@ -51,6 +51,7 @@ export function FacultyUploadForm({
           toast.success(
             `Successfully uploaded ${parseResult.data.length} faculty members.`
           );
+          // Don't clear results immediately - let the parent handle the preview
         } else if (parseResult.errors.length > 0) {
           toast.error(`Upload failed: ${parseResult.errors[0]}`);
         } else if (parseResult.warnings.length > 0) {
@@ -163,10 +164,18 @@ export function FacultyUploadForm({
           )}
         </div>
 
-        {/* Current Faculty Count */}
+        {/* Current Faculty Status */}
         {currentFaculty.length > 0 && (
-          <div className="text-muted-foreground text-sm">
-            Currently loaded: {currentFaculty.length} faculty members
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/30">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+              <CheckCircle className="size-4" />
+              <span className="text-sm font-medium">
+                {currentFaculty.length} faculty members loaded
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+              Upload a new file to replace the current faculty list.
+            </p>
           </div>
         )}
 
