@@ -1,3 +1,4 @@
+import { AvailabilityForm } from '@/pages/assignment/forms/availability-form';
 import { Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,8 +24,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-import { AvailabilityForm } from '@/pages/assignment/forms/availability-form';
 
 interface AllocationPhaseProps {
   faculty: Faculty[];
@@ -347,16 +346,16 @@ export function AllocationPhase({
                   <TableCell className="text-center">
                     {totals.faculty}
                   </TableCell>
-                  <TableCell className="text-center text-blue-700">
+                  <TableCell className="text-center text-blue-700 dark:text-blue-400">
                     {totals.regularDuties}
                   </TableCell>
-                  <TableCell className="text-center text-green-700">
+                  <TableCell className="text-center text-green-700 dark:text-green-400">
                     {totals.relieverDuties}
                   </TableCell>
-                  <TableCell className="text-center text-purple-700">
+                  <TableCell className="text-center text-purple-700 dark:text-purple-400">
                     {totals.squadDuties}
                   </TableCell>
-                  <TableCell className="text-center text-orange-700">
+                  <TableCell className="text-center text-orange-700 dark:text-orange-400">
                     {totals.bufferDuties}
                   </TableCell>
                   <TableCell className="text-center">-</TableCell>

@@ -448,15 +448,15 @@ export function AssignmentsPhase({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-24">Slot</TableHead>
+                    <TableHead className="w-24 px-6 py-4">Slot</TableHead>
                     {dayColumns.map((dayColumn) => (
                       <TableHead
                         key={dayColumn.dayIndex}
-                        className="min-w-[280px] text-center"
+                        className="min-w-[280px] px-4 py-4 text-center"
                       >
                         <div className="space-y-1">
                           <div className="font-semibold">
@@ -671,8 +671,8 @@ export function AssignmentsPhase({
                               </div>
                             ) : (
                               <div className="text-muted-foreground flex h-32 items-center justify-center">
-                                <div className="text-center text-xs">
-                                  <div className="mb-2 opacity-50">No slot</div>
+                                <div className="text-center text-sm italic">
+                                  No slot
                                 </div>
                               </div>
                             )}

@@ -1,5 +1,6 @@
+import { SlotEditDialog } from '@/pages/assignment/forms/slot-edit-dialog';
 import { format } from 'date-fns';
-import { Calendar, Clock, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Clock, Edit2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useMemo, useState } from 'react';
@@ -30,8 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-
-import { SlotEditDialog } from '@/pages/assignment/forms/slot-edit-dialog';
 
 interface ConfigurationPhaseProps {
   examStructure: ExamStructure;
@@ -266,28 +265,19 @@ export function ConfigurationPhase({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-24">Slot</TableHead>
+                    <TableHead className="w-24 px-6 py-4">Slot</TableHead>
                     {dayColumns.map((dayColumn) => (
                       <TableHead
                         key={dayColumn.dayIndex}
-                        className="min-w-[280px] text-center"
+                        className="min-w-[280px] px-4 py-4 text-center"
                       >
                         <div className="space-y-2">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-semibold">
-                              Day {dayColumn.dayIndex + 1}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => addSlot(dayColumn.dayIndex)}
-                            >
-                              <Plus className="size-3" />
-                            </Button>
+                          <div className="font-semibold">
+                            Day {dayColumn.dayIndex + 1}
                           </div>
 
                           {/* Date Picker */}
@@ -322,7 +312,7 @@ export function ConfigurationPhase({
                 <TableBody>
                   {Array.from({ length: maxSlotsPerDay }, (_, slotIndex) => (
                     <TableRow key={slotIndex}>
-                      <TableCell className="bg-muted/30 text-center font-medium">
+                      <TableCell className="bg-muted/30 px-6 py-4 text-center font-medium">
                         Slot {slotIndex + 1}
                       </TableCell>
 
@@ -380,21 +370,18 @@ export function ConfigurationPhase({
                                   </div>
                                 </div>
 
-                                {/* Total & Rooms */}
-                                <div className="space-y-1 text-center">
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {slot.regularDuties +
-                                      (slot.relieverDuties || 0) +
-                                      (slot.squadDuties || 0) +
-                                      slot.bufferDuties}{' '}
-                                    Total Duties
-                                  </Badge>
-                                  <div className="text-muted-foreground flex items-center justify-center gap-1 text-xs">
-                                    <MapPin className="size-3" />
-                                    {slot.rooms.length} rooms
+                                {/* Total Duties - spanning 2 cols */}
+                                <div className="grid grid-cols-2 gap-1">
+                                  <div className="col-span-2 rounded bg-gray-100 p-2 text-center dark:bg-gray-800">
+                                    <div className="font-semibold text-gray-800 dark:text-gray-200">
+                                      {slot.regularDuties +
+                                        (slot.relieverDuties || 0) +
+                                        (slot.squadDuties || 0) +
+                                        slot.bufferDuties}
+                                    </div>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      Total Duties
+                                    </div>
                                   </div>
                                 </div>
 
@@ -408,12 +395,12 @@ export function ConfigurationPhase({
                                   </Badge>
                                 )}
 
-                                {/* Action Buttons */}
-                                <div className="flex gap-1">
+                                {/* Edit Button */}
+                                <div className="flex justify-center">
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 flex-1 text-xs"
+                                    className="h-7 text-xs"
                                     onClick={() =>
                                       openEditDialog(
                                         dayColumn.dayIndex,
@@ -424,22 +411,12 @@ export function ConfigurationPhase({
                                     <Edit2 className="mr-1 size-3" />
                                     Edit
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-                                    onClick={() =>
-                                      deleteSlot(dayColumn.dayIndex, slotIndex)
-                                    }
-                                  >
-                                    <Trash2 className="size-3" />
-                                  </Button>
                                 </div>
                               </div>
                             ) : (
                               <div className="text-muted-foreground flex h-32 items-center justify-center">
-                                <div className="text-center text-xs">
-                                  <div className="mb-2 opacity-50">No slot</div>
+                                <div className="text-center text-sm italic">
+                                  No slot
                                 </div>
                               </div>
                             )}
@@ -448,6 +425,46 @@ export function ConfigurationPhase({
                       })}
                     </TableRow>
                   ))}
+
+                  {/* Add/Delete Buttons Row */}
+                  <TableRow>
+                    <TableCell className="bg-muted/30 px-6 py-4 text-center font-medium">
+                      Actions
+                    </TableCell>
+                    {dayColumns.map((dayColumn) => (
+                      <TableCell
+                        key={`actions-${dayColumn.dayIndex}`}
+                        className="p-2"
+                      >
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addSlot(dayColumn.dayIndex)}
+                            className="h-7 text-xs"
+                          >
+                            <Plus className="mr-1 size-3" />
+                            Add Slot
+                          </Button>
+                          {dayColumn.slots.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={() =>
+                                deleteSlot(
+                                  dayColumn.dayIndex,
+                                  dayColumn.slots.length - 1
+                                )
+                              }
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
