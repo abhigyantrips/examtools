@@ -1,4 +1,4 @@
-import { CheckCircle, FileText, Users } from 'lucide-react';
+import { CheckCircle, Users } from 'lucide-react';
 
 import { useMemo, useState } from 'react';
 
@@ -61,24 +61,10 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
   return (
     <div className="space-y-6">
       {/* Upload Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="size-5" />
-            Faculty Upload
-          </CardTitle>
-          <CardDescription>
-            Upload your faculty Excel file with columns: S No, Faculty Name,
-            Faculty ID, Designation, Department, Phone No
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FacultyUploadForm
-            currentFaculty={faculty}
-            onFacultyUploaded={handleUploadSuccess}
-          />
-        </CardContent>
-      </Card>
+      <FacultyUploadForm
+        currentFaculty={faculty}
+        onFacultyUploaded={handleUploadSuccess}
+      />
 
       {/* Faculty Preview */}
       {faculty.length > 0 && (

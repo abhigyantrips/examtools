@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, Upload, X } from 'lucide-react';
+import { AlertCircle, CheckCircle, FileText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useCallback, useState } from 'react';
@@ -105,10 +105,13 @@ export function FacultyUploadForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Faculty Upload</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="size-5" />
+          Faculty Upload
+        </CardTitle>
         <CardDescription>
-          Upload Excel file with faculty information. Required columns: S No,
-          Faculty Name, Faculty ID, Designation, Department, Phone No
+          Upload your faculty Excel file with columns: S No, Faculty Name,
+          Faculty ID, Designation, Department, Phone No
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

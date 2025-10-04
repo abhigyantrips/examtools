@@ -289,12 +289,12 @@ export function AssignmentsPhase({
             >
               {assigning ? (
                 <>
-                  <Clock className="mr-2 size-4 animate-spin" />
+                  <Clock className="size-4 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Play className="mr-2 size-4" />
+                  <Play className="size-4" />
                   Generate
                 </>
               )}
@@ -531,8 +531,8 @@ export function AssignmentsPhase({
                                 </div>
 
                                 {/* Required vs Assigned */}
-                                <div className="grid grid-cols-2 gap-1 text-xs">
-                                  <div className="rounded bg-blue-50 p-1 text-center dark:bg-blue-900/30">
+                                <div className="grid grid-cols-2 gap-1 text-sm">
+                                  <div className="rounded-lg bg-blue-50 p-2 text-center dark:bg-blue-900/30">
                                     <div className="font-medium text-blue-700 dark:text-blue-300">
                                       {
                                         slotAssignments.filter(
@@ -541,11 +541,11 @@ export function AssignmentsPhase({
                                       }
                                       /{slot.regularDuties}
                                     </div>
-                                    <div className="text-blue-600 dark:text-blue-400">
+                                    <div className="text-xs text-blue-600 dark:text-blue-400">
                                       Regular
                                     </div>
                                   </div>
-                                  <div className="rounded bg-green-50 p-1 text-center dark:bg-green-900/30">
+                                  <div className="rounded-lg bg-green-50 p-2 text-center dark:bg-green-900/30">
                                     <div className="font-medium text-green-700 dark:text-green-300">
                                       {
                                         slotAssignments.filter(
@@ -554,11 +554,11 @@ export function AssignmentsPhase({
                                       }
                                       /{slot.relieverDuties || 0}
                                     </div>
-                                    <div className="text-green-600 dark:text-green-400">
+                                    <div className="text-xs text-green-600 dark:text-green-400">
                                       Reliever
                                     </div>
                                   </div>
-                                  <div className="rounded bg-purple-50 p-1 text-center dark:bg-purple-900/30">
+                                  <div className="rounded-lg bg-purple-50 p-2 text-center dark:bg-purple-900/30">
                                     <div className="font-medium text-purple-700 dark:text-purple-300">
                                       {
                                         slotAssignments.filter(
@@ -567,11 +567,11 @@ export function AssignmentsPhase({
                                       }
                                       /{slot.squadDuties || 0}
                                     </div>
-                                    <div className="text-purple-600 dark:text-purple-400">
+                                    <div className="text-xs text-purple-600 dark:text-purple-400">
                                       Squad
                                     </div>
                                   </div>
-                                  <div className="rounded bg-orange-50 p-1 text-center dark:bg-orange-900/30">
+                                  <div className="rounded-lg bg-orange-50 p-2 text-center dark:bg-orange-900/30">
                                     <div className="font-medium text-orange-700 dark:text-orange-300">
                                       {
                                         slotAssignments.filter(
@@ -580,7 +580,7 @@ export function AssignmentsPhase({
                                       }
                                       /{slot.bufferDuties}
                                     </div>
-                                    <div className="text-orange-600 dark:text-orange-400">
+                                    <div className="text-xs text-orange-600 dark:text-orange-400">
                                       Buffer
                                     </div>
                                   </div>
@@ -673,7 +673,7 @@ export function AssignmentsPhase({
                                                         {assignment.role.toUpperCase()}
                                                       </Badge>
                                                       {assignment.roomNumber && (
-                                                        <code className="bg-muted rounded px-2 py-0.5 text-xs">
+                                                        <code className="bg-muted rounded-lg px-2 py-0.5 text-xs">
                                                           {
                                                             assignment.roomNumber
                                                           }

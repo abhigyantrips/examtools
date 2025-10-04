@@ -351,51 +351,47 @@ export function ConfigurationPhase({
                                 </div>
 
                                 {/* Duties Grid */}
-                                <div className="grid grid-cols-2 gap-1 text-xs">
-                                  <div className="rounded bg-blue-50 p-1 text-center dark:bg-blue-900/30">
+                                <div className="grid grid-cols-2 gap-1 text-sm">
+                                  <div className="rounded-lg bg-blue-50 p-2 text-center dark:bg-blue-900/30">
                                     <div className="font-medium text-blue-700 dark:text-blue-300">
                                       {slot.regularDuties}
                                     </div>
-                                    <div className="text-blue-600 dark:text-blue-400">
+                                    <div className="text-xs text-blue-600 dark:text-blue-400">
                                       Regular
                                     </div>
                                   </div>
-                                  <div className="rounded bg-green-50 p-1 text-center dark:bg-green-900/30">
+                                  <div className="rounded-lg bg-green-50 p-2 text-center dark:bg-green-900/30">
                                     <div className="font-medium text-green-700 dark:text-green-300">
                                       {slot.relieverDuties || 0}
                                     </div>
-                                    <div className="text-green-600 dark:text-green-400">
+                                    <div className="text-xs text-green-600 dark:text-green-400">
                                       Reliever
                                     </div>
                                   </div>
-                                  <div className="rounded bg-purple-50 p-1 text-center dark:bg-purple-900/30">
+                                  <div className="rounded-lg bg-purple-50 p-2 text-center dark:bg-purple-900/30">
                                     <div className="font-medium text-purple-700 dark:text-purple-300">
                                       {slot.squadDuties || 0}
                                     </div>
-                                    <div className="text-purple-600 dark:text-purple-400">
+                                    <div className="text-xs text-purple-600 dark:text-purple-400">
                                       Squad
                                     </div>
                                   </div>
-                                  <div className="rounded bg-orange-50 p-1 text-center dark:bg-orange-900/30">
+                                  <div className="rounded-lg bg-orange-50 p-2 text-center dark:bg-orange-900/30">
                                     <div className="font-medium text-orange-700 dark:text-orange-300">
                                       {slot.bufferDuties}
                                     </div>
-                                    <div className="text-orange-600 dark:text-orange-400">
+                                    <div className="text-xs text-orange-600 dark:text-orange-400">
                                       Buffer
                                     </div>
                                   </div>
-                                </div>
-
-                                {/* Total Duties */}
-                                <div className="grid grid-cols-2 gap-1">
-                                  <div className="col-span-2 rounded bg-gray-100 p-2 text-center dark:bg-gray-800">
-                                    <div className="font-semibold text-gray-800 dark:text-gray-200">
+                                  <div className="bg-muted/50 col-span-2 rounded-lg p-2 text-center">
+                                    <div className="text-foreground font-semibold">
                                       {slot.regularDuties +
                                         (slot.relieverDuties || 0) +
                                         (slot.squadDuties || 0) +
                                         slot.bufferDuties}
                                     </div>
-                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                    <div className="text-muted-foreground text-xs">
                                       Total Duties
                                     </div>
                                   </div>
