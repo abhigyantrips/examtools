@@ -1,12 +1,10 @@
 import { Calculator } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { useMemo } from 'react';
 
 import type { ExamStructure, Faculty, UnavailableFaculty } from '@/types';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -146,82 +144,19 @@ export function AllocationPhase({
     });
   };
 
-  // Preset allocation patterns
-  const applyPreset = (preset: 'balanced' | 'heavy' | 'light') => {
-    const presets = {
-      balanced: { regular: 5, reliever: 2, squad: 2, buffer: 1 },
-      heavy: { regular: 8, reliever: 3, squad: 3, buffer: 2 },
-      light: { regular: 3, reliever: 1, squad: 1, buffer: 0 },
-    };
-
-    const pattern = presets[preset];
-    const updates = { ...examStructure };
-
-    designationData.forEach(({ designation }) => {
-      updates.designationDutyCounts = {
-        ...updates.designationDutyCounts,
-        [designation]: pattern.regular,
-      };
-      updates.designationRelieverCounts = {
-        ...updates.designationRelieverCounts,
-        [designation]: pattern.reliever,
-      };
-      updates.designationSquadCounts = {
-        ...updates.designationSquadCounts,
-        [designation]: pattern.squad,
-      };
-      updates.designationBufferCounts = {
-        ...updates.designationBufferCounts,
-        [designation]: pattern.buffer,
-      };
-    });
-
-    onExamStructureUpdated(updates);
-    toast.success(`Applied ${preset} allocation preset to all designations.`);
-  };
-
   return (
     <div className="space-y-6">
       {/* Allocation Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="size-5" />
-                Duty Allocation by Designation
-              </CardTitle>
-              <CardDescription>
-                Set the number of duties each designation will receive during
-                the exam period
-              </CardDescription>
-            </div>
-
-            {/* Preset Buttons */}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => applyPreset('light')}
-              >
-                Light (3-1-1-0)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => applyPreset('balanced')}
-              >
-                Balanced (5-2-2-1)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => applyPreset('heavy')}
-              >
-                Heavy (8-3-3-2)
-              </Button>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="size-5" />
+            Duty Allocation by Designation
+          </CardTitle>
+          <CardDescription>
+            Set the number of duties each designation will receive during the
+            exam period
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
@@ -379,8 +314,8 @@ export function AllocationPhase({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-            <div className="rounded-lg bg-blue-50 p-4 text-center dark:bg-blue-900/30">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+            <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/30">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                 {totals.regularDuties}
               </div>
@@ -388,7 +323,7 @@ export function AllocationPhase({
                 Regular Duties
               </div>
             </div>
-            <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-900/30">
+            <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/30">
               <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                 {totals.relieverDuties}
               </div>
@@ -396,7 +331,7 @@ export function AllocationPhase({
                 Reliever Duties
               </div>
             </div>
-            <div className="rounded-lg bg-purple-50 p-4 text-center dark:bg-purple-900/30">
+            <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-900/30">
               <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                 {totals.squadDuties}
               </div>
@@ -404,7 +339,7 @@ export function AllocationPhase({
                 Squad Duties
               </div>
             </div>
-            <div className="rounded-lg bg-orange-50 p-4 text-center dark:bg-orange-900/30">
+            <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-900/30">
               <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                 {totals.bufferDuties}
               </div>
@@ -412,11 +347,19 @@ export function AllocationPhase({
                 Buffer Duties
               </div>
             </div>
-            <div className="rounded-lg bg-gray-100 p-4 text-center dark:bg-gray-800">
-              <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">
+            <div className="rounded-lg bg-teal-50 p-3 text-center dark:bg-teal-900/30">
+              <div className="text-2xl font-bold text-teal-700 dark:text-teal-300">
+                {totals.faculty}
+              </div>
+              <div className="text-sm text-teal-600 dark:text-teal-400">
+                Faculty
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-center">
+              <div className="text-foreground text-2xl font-bold">
                 {totals.totalDuties}
               </div>
-              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <div className="text-muted-foreground text-sm font-medium">
                 Total Duties
               </div>
             </div>

@@ -215,7 +215,10 @@ export function AssignmentPage() {
               Back
             </Button>
 
-            <Button onClick={handleContinue} disabled={!canProceedToNext()}>
+            <Button
+              onClick={handleContinue}
+              disabled={!canProceedToNext() || currentPhase === 'assignments'}
+            >
               Continue
               <ArrowRight className="ml-2 size-4" />
             </Button>

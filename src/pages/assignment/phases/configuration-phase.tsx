@@ -222,35 +222,33 @@ export function ConfigurationPhase({
     <div className="space-y-6">
       {/* Days Setup */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="size-5" />
-                Examination Schedule Configuration
-              </CardTitle>
-              <CardDescription>
-                Configure examination days and time slots. Each slot can have
-                different duty requirements.
-              </CardDescription>
-            </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="size-5" />
+              Examination Schedule Configuration
+            </CardTitle>
+            <CardDescription>
+              Configure examination days and time slots. Each slot can have
+              different duty requirements.
+            </CardDescription>
+          </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Days:</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={days}
-                  onChange={(e) =>
-                    setDays(Math.max(1, parseInt(e.target.value) || 1))
-                  }
-                  className="w-20"
-                />
-              </div>
-              <Button onClick={initializeDays}>Initialize {days} Days</Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Days:</label>
+              <Input
+                type="number"
+                min="1"
+                max="15"
+                value={days}
+                onChange={(e) =>
+                  setDays(Math.max(1, parseInt(e.target.value) || 1))
+                }
+                className="w-20"
+              />
             </div>
+            <Button onClick={initializeDays}>Initialize {days} Days</Button>
           </div>
         </CardHeader>
       </Card>
@@ -329,12 +327,14 @@ export function ConfigurationPhase({
                           >
                             {slot ? (
                               <div className="space-y-3">
-                                {/* Time Display */}
                                 <div className="flex justify-between">
+                                  {/* Time Display */}
                                   <div className="flex items-center justify-center gap-1 text-sm font-medium">
                                     <Clock className="size-4" />
                                     {slot.startTime} - {slot.endTime}
                                   </div>
+
+                                  {/* Edit Button */}
                                   <Button
                                     size="sm"
                                     className="h-7 text-xs"
@@ -386,7 +386,7 @@ export function ConfigurationPhase({
                                   </div>
                                 </div>
 
-                                {/* Total Duties - spanning 2 cols */}
+                                {/* Total Duties */}
                                 <div className="grid grid-cols-2 gap-1">
                                   <div className="col-span-2 rounded bg-gray-100 p-2 text-center dark:bg-gray-800">
                                     <div className="font-semibold text-gray-800 dark:text-gray-200">
@@ -445,7 +445,7 @@ export function ConfigurationPhase({
                           {dayColumn.slots.length > 0 && (
                             <Button
                               variant="outline"
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300"
                               onClick={() =>
                                 deleteSlot(
                                   dayColumn.dayIndex,
@@ -480,7 +480,7 @@ export function ConfigurationPhase({
           <CardContent>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
               <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/30">
-                <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {totals.regular}
                 </div>
                 <div className="text-sm text-blue-600 dark:text-blue-400">
@@ -488,7 +488,7 @@ export function ConfigurationPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/30">
-                <div className="text-xl font-bold text-green-700 dark:text-green-300">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {totals.reliever}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-400">
@@ -496,7 +496,7 @@ export function ConfigurationPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-900/30">
-                <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                   {totals.squad}
                 </div>
                 <div className="text-sm text-purple-600 dark:text-purple-400">
@@ -504,26 +504,26 @@ export function ConfigurationPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-900/30">
-                <div className="text-xl font-bold text-orange-700 dark:text-orange-300">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   {totals.buffer}
                 </div>
                 <div className="text-sm text-orange-600 dark:text-orange-400">
                   Buffer
                 </div>
               </div>
-              <div className="rounded-lg bg-gray-50 p-3 text-center dark:bg-gray-800">
-                <div className="text-xl font-bold text-gray-700 dark:text-gray-300">
+              <div className="rounded-lg bg-teal-50 p-3 text-center dark:bg-teal-900/30">
+                <div className="text-2xl font-bold text-teal-700 dark:text-teal-300">
                   {totals.rooms}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-teal-600 dark:text-teal-400">
                   Rooms
                 </div>
               </div>
-              <div className="rounded-lg bg-gray-100 p-3 text-center dark:bg-gray-900">
-                <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-foreground text-2xl font-bold">
                   {totals.total}
                 </div>
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-muted-foreground text-sm font-medium">
                   Total Duties
                 </div>
               </div>

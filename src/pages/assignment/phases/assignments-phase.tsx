@@ -2,10 +2,9 @@ import { format } from 'date-fns';
 import {
   AlertTriangle,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Clock,
   Download,
+  Expand,
   FileSpreadsheet,
   Play,
 } from 'lucide-react';
@@ -38,7 +37,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -72,7 +78,7 @@ export function AssignmentsPhase({
   const [assignmentResult, setAssignmentResult] =
     useState<AssignmentResult | null>(null);
   const [assigning, setAssigning] = useState(false);
-  const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
+  const [openDialog, setOpenDialog] = useState<string | null>(null);
 
   // Organize slots by day (same as configuration)
   const dayColumns = useMemo((): DayColumn[] => {
@@ -147,19 +153,8 @@ export function AssignmentsPhase({
     [assignments, faculty, getSlotAssignments]
   );
 
-  // Toggle slot expansion
-  const toggleSlotExpansion = (day: number, slot: number) => {
-    const key = `${day}-${slot}`;
-    setExpandedSlots((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return newSet;
-    });
-  };
+  // Get dialog key for slot
+  const getDialogKey = (day: number, slot: number) => `${day}-${slot}`;
 
   // Generate assignments
   const runAssignment = useCallback(async () => {
@@ -277,41 +272,41 @@ export function AssignmentsPhase({
       {/* Assignment Generation */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Play className="size-5" />
-            Generate Assignments
-          </CardTitle>
-          <CardDescription>
-            Generate duty assignments based on your configuration and faculty
-            availability
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Play className="size-5" />
+                Generate Assignments
+              </CardTitle>
+              <CardDescription>
+                Generate duty assignments based on your configuration and
+                faculty availability
+              </CardDescription>
+            </div>
             <Button
               onClick={runAssignment}
               disabled={assigning || examStructure.dutySlots.length === 0}
-              size="lg"
             >
               {assigning ? (
                 <>
                   <Clock className="mr-2 size-4 animate-spin" />
-                  Generating Assignments...
+                  Generating...
                 </>
               ) : (
                 <>
                   <Play className="mr-2 size-4" />
-                  Generate Assignments
+                  Generate
                 </>
               )}
             </Button>
           </div>
-
+        </CardHeader>
+        <CardContent className="space-y-4">
           {/* Assignment Statistics */}
           {assignmentStats && (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
               <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/30">
-                <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                   {assignmentStats.regular}
                 </div>
                 <div className="text-sm text-blue-600 dark:text-blue-400">
@@ -319,7 +314,7 @@ export function AssignmentsPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/30">
-                <div className="text-xl font-bold text-green-700 dark:text-green-300">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-300">
                   {assignmentStats.reliever}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-400">
@@ -327,7 +322,7 @@ export function AssignmentsPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-900/30">
-                <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
                   {assignmentStats.squad}
                 </div>
                 <div className="text-sm text-purple-600 dark:text-purple-400">
@@ -335,54 +330,64 @@ export function AssignmentsPhase({
                 </div>
               </div>
               <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-900/30">
-                <div className="text-xl font-bold text-orange-700 dark:text-orange-300">
+                <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                   {assignmentStats.buffer}
                 </div>
                 <div className="text-sm text-orange-600 dark:text-orange-400">
                   Buffer
                 </div>
               </div>
-              <div className="rounded-lg bg-gray-50 p-3 text-center dark:bg-gray-800">
-                <div className="text-xl font-bold text-gray-700 dark:text-gray-300">
+              <div className="rounded-lg bg-teal-50 p-3 text-center dark:bg-teal-900/30">
+                <div className="text-2xl font-bold text-teal-700 dark:text-teal-300">
                   {assignmentStats.totalFaculty}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-teal-600 dark:text-teal-400">
                   Faculty
                 </div>
               </div>
-              <div className="rounded-lg bg-gray-100 p-3 text-center dark:bg-gray-900">
-                <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="bg-muted/50 rounded-lg p-3 text-center">
+                <div className="text-foreground text-2xl font-bold">
                   {assignmentStats.total}
                 </div>
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-muted-foreground text-sm font-medium">
                   Total
                 </div>
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
 
-          {/* Export Options */}
-          {hasAssignments && (
-            <div className="flex flex-wrap justify-center gap-3">
+      {/* Export Options */}
+      {hasAssignments && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Export Assignments</CardTitle>
+              <CardDescription>
+                Download assignment data in various formats
+              </CardDescription>
+            </div>
+            <div className="flex gap-3">
               <Button
                 onClick={exportAllAssignments}
-                className="flex-1 md:flex-initial"
+                className="flex items-center gap-2"
               >
-                <Download className="mr-2 size-4" />
+                <Download className="size-4" />
                 Export All (ZIP)
               </Button>
               <Button
                 onClick={exportOverview}
                 variant="outline"
-                className="flex-1 md:flex-initial"
+                className="flex items-center gap-2"
               >
-                <FileSpreadsheet className="mr-2 size-4" />
+                <FileSpreadsheet className="size-4" />
                 Export Overview
               </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Assignment Errors */}
       {assignmentResult && !assignmentResult.success && (
@@ -485,15 +490,16 @@ export function AssignmentsPhase({
                         const slotAssignments = slot
                           ? getSlotAssignments(dayColumn.dayIndex, slotIndex)
                           : [];
-                        const isExpanded = expandedSlots.has(
-                          `${dayColumn.dayIndex}-${slotIndex}`
-                        );
                         const assignmentDetails = slot
                           ? getSlotAssignmentDetails(
                               dayColumn.dayIndex,
                               slotIndex
                             )
                           : [];
+                        const dialogKey = getDialogKey(
+                          dayColumn.dayIndex,
+                          slotIndex
+                        );
 
                         return (
                           <TableCell
@@ -502,14 +508,14 @@ export function AssignmentsPhase({
                           >
                             {slot ? (
                               <div className="space-y-3">
-                                {/* Time Display */}
-                                <div className="flex items-center justify-center gap-1 text-sm font-medium">
-                                  <Clock className="size-3" />
-                                  {slot.startTime} - {slot.endTime}
-                                </div>
+                                <div className="flex justify-between">
+                                  {/* Time Display */}
+                                  <div className="flex items-center justify-center gap-1 text-sm font-medium">
+                                    <Clock className="size-4" />
+                                    {slot.startTime} - {slot.endTime}
+                                  </div>
 
-                                {/* Assignment Status */}
-                                <div className="text-center">
+                                  {/* Assignment Status */}
                                   {slotAssignments.length > 0 ? (
                                     <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                       <CheckCircle className="mr-1 size-3" />
@@ -599,74 +605,90 @@ export function AssignmentsPhase({
                                       Download
                                     </Button>
 
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() =>
-                                        toggleSlotExpansion(
-                                          dayColumn.dayIndex,
-                                          slotIndex
-                                        )
-                                      }
-                                      disabled={slotAssignments.length === 0}
-                                    >
-                                      {isExpanded ? (
-                                        <ChevronUp className="size-3" />
-                                      ) : (
-                                        <ChevronDown className="size-3" />
-                                      )}
-                                    </Button>
-                                  </div>
-
-                                  {/* Expandable Faculty List */}
-                                  {slotAssignments.length > 0 && (
-                                    <Collapsible open={isExpanded}>
-                                      <CollapsibleContent className="space-y-1">
-                                        <div className="bg-muted/30 max-h-32 overflow-y-auto rounded border p-2">
-                                          <div className="space-y-1">
-                                            {assignmentDetails.map(
-                                              (
-                                                {
-                                                  assignment,
-                                                  faculty: facultyMember,
-                                                },
-                                                index
-                                              ) => (
-                                                <div
-                                                  key={index}
-                                                  className="flex items-center justify-between text-xs"
-                                                >
-                                                  <div className="min-w-0 flex-1">
-                                                    <div className="truncate font-medium">
-                                                      {facultyMember?.facultyName ||
-                                                        'Unknown'}
+                                    {/* Faculty List Dialog */}
+                                    {slotAssignments.length > 0 && (
+                                      <Dialog
+                                        open={openDialog === dialogKey}
+                                        onOpenChange={(open) =>
+                                          setOpenDialog(open ? dialogKey : null)
+                                        }
+                                      >
+                                        <DialogTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                          >
+                                            <Expand className="size-3" />
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md">
+                                          <DialogHeader>
+                                            <DialogTitle>
+                                              Faculty Assignments
+                                            </DialogTitle>
+                                            <DialogDescription>
+                                              Day {dayColumn.dayIndex + 1}, Slot{' '}
+                                              {slotIndex + 1} ({slot.startTime}{' '}
+                                              - {slot.endTime})
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <div className="max-h-96 overflow-y-auto">
+                                            <div className="space-y-3">
+                                              {assignmentDetails.map(
+                                                (
+                                                  {
+                                                    assignment,
+                                                    faculty: facultyMember,
+                                                  },
+                                                  index
+                                                ) => (
+                                                  <div
+                                                    key={index}
+                                                    className="flex items-center justify-between rounded-lg border p-3"
+                                                  >
+                                                    <div className="min-w-0 flex-1">
+                                                      <div className="font-medium">
+                                                        {facultyMember?.facultyName ||
+                                                          'Unknown'}
+                                                      </div>
+                                                      <div className="text-muted-foreground text-sm">
+                                                        {
+                                                          facultyMember?.facultyId
+                                                        }
+                                                      </div>
+                                                      {facultyMember?.phoneNo && (
+                                                        <div className="text-muted-foreground text-xs">
+                                                          {
+                                                            facultyMember.phoneNo
+                                                          }
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                    <div className="text-muted-foreground">
-                                                      {facultyMember?.facultyId}
+                                                    <div className="ml-3 flex flex-col items-end gap-1">
+                                                      <Badge
+                                                        variant="outline"
+                                                        className="text-xs"
+                                                      >
+                                                        {assignment.role.toUpperCase()}
+                                                      </Badge>
+                                                      {assignment.roomNumber && (
+                                                        <code className="bg-muted rounded px-2 py-0.5 text-xs">
+                                                          {
+                                                            assignment.roomNumber
+                                                          }
+                                                        </code>
+                                                      )}
                                                     </div>
                                                   </div>
-                                                  <div className="ml-2 flex items-center gap-1">
-                                                    <Badge
-                                                      variant="outline"
-                                                      className="px-1 py-0 text-xs"
-                                                    >
-                                                      {assignment.role.toUpperCase()}
-                                                    </Badge>
-                                                    {assignment.roomNumber && (
-                                                      <code className="bg-muted rounded px-1 text-xs">
-                                                        {assignment.roomNumber}
-                                                      </code>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              )
-                                            )}
+                                                )
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  )}
+                                        </DialogContent>
+                                      </Dialog>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             ) : (

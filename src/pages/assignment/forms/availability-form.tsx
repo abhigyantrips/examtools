@@ -131,112 +131,110 @@ export function AvailabilityForm({
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Add Unavailability */}
-        <div className="space-y-4">
-          <h4 className="font-medium">Mark Faculty Unavailable</h4>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {/* Faculty Selection */}
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Select Faculty
-              </label>
-              <Popover
-                open={facultySearchOpen}
-                onOpenChange={setFacultySearchOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={facultySearchOpen}
-                    className="w-full justify-between"
-                  >
-                    {selectedFaculty
-                      ? `${selectedFaculty.facultyName} (${selectedFaculty.facultyId})`
-                      : 'Select faculty member...'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput placeholder="Search faculty..." />
-                    <CommandEmpty>No faculty found.</CommandEmpty>
-                    <CommandList>
-                      <CommandGroup>
-                        {faculty.map((member) => (
-                          <CommandItem
-                            key={member.facultyId}
-                            value={`${member.facultyName} ${member.facultyId}`}
-                            onSelect={() => {
-                              setSelectedFaculty(member);
-                              setFacultySearchOpen(false);
-                            }}
-                          >
-                            <div>
-                              <div className="font-medium">
-                                {member.facultyName}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                {member.facultyId} • {member.designation}
-                              </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          {/* Faculty Selection */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Select Faculty
+            </label>
+            <Popover
+              open={facultySearchOpen}
+              onOpenChange={setFacultySearchOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={facultySearchOpen}
+                  className="w-full justify-between"
+                >
+                  {selectedFaculty
+                    ? `${selectedFaculty.facultyName} (${selectedFaculty.facultyId})`
+                    : 'Select faculty member...'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Search faculty..." />
+                  <CommandEmpty>No faculty found.</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      {faculty.map((member) => (
+                        <CommandItem
+                          key={member.facultyId}
+                          value={`${member.facultyName} ${member.facultyId}`}
+                          onSelect={() => {
+                            setSelectedFaculty(member);
+                            setFacultySearchOpen(false);
+                          }}
+                        >
+                          <div>
+                            <div className="font-medium">
+                              {member.facultyName}
                             </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Date Selection */}
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Select Date
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !selectedDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <Calendar className="mr-2 size-4" />
-                    {selectedDate
-                      ? format(selectedDate, 'PPP')
-                      : 'Pick exam date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate || undefined}
-                    onSelect={setSelectedDate}
-                    disabled={(date) => {
-                      // If no dutySlots provided, allow any future date
-                      if (dutySlots.length === 0) {
-                        return date < new Date();
-                      }
-
-                      const dateString = date.toISOString().split('T')[0];
-                      return !examDates.includes(dateString);
-                    }}
-                    required
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                            <div className="text-muted-foreground text-xs">
+                              {member.facultyId} • {member.designation}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <Button
-            onClick={addUnavailability}
-            disabled={!selectedFaculty || !selectedDate}
-            className="w-full md:w-auto"
-          >
-            <UserMinus className="mr-2 size-4" />
-            Mark Unavailable
-          </Button>
+          {/* Date Selection */}
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Select Date
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-full justify-start text-left font-normal',
+                    !selectedDate && 'text-muted-foreground'
+                  )}
+                >
+                  <Calendar className="mr-2 size-4" />
+                  {selectedDate
+                    ? format(selectedDate, 'PPP')
+                    : 'Pick exam date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate || undefined}
+                  onSelect={setSelectedDate}
+                  disabled={(date) => {
+                    // If no dutySlots provided, allow any future date
+                    if (dutySlots.length === 0) {
+                      return date < new Date();
+                    }
+
+                    const dateString = date.toISOString().split('T')[0];
+                    return !examDates.includes(dateString);
+                  }}
+                  required
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Mark Unavailable Button */}
+          <div>
+            <Button
+              onClick={addUnavailability}
+              disabled={!selectedFaculty || !selectedDate}
+            >
+              <UserMinus className="mr-2 size-4" />
+              Mark Unavailable
+            </Button>
+          </div>
         </div>
 
         {/* Current Unavailability */}
