@@ -1,4 +1,3 @@
-import { AvailabilityForm } from '@/pages/assignment/forms/availability-form';
 import { Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,6 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+import { AvailabilityForm } from '@/pages/assignment/forms/availability-form';
 
 interface AllocationPhaseProps {
   faculty: Faculty[];
@@ -223,8 +224,8 @@ export function AllocationPhase({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
+          <div className="overflow-x-auto rounded-lg border">
+            <Table className="px-3">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead>Designation</TableHead>

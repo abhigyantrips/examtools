@@ -1,4 +1,3 @@
-import { SlotEditDialog } from '@/pages/assignment/forms/slot-edit-dialog';
 import { format } from 'date-fns';
 import { Calendar, Clock, Edit2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+import { SlotEditDialog } from '@/pages/assignment/forms/slot-edit-dialog';
 
 interface ConfigurationPhaseProps {
   examStructure: ExamStructure;
@@ -329,9 +330,24 @@ export function ConfigurationPhase({
                             {slot ? (
                               <div className="space-y-3">
                                 {/* Time Display */}
-                                <div className="flex items-center justify-center gap-1 text-sm font-medium">
-                                  <Clock className="size-3" />
-                                  {slot.startTime} - {slot.endTime}
+                                <div className="flex justify-between">
+                                  <div className="flex items-center justify-center gap-1 text-sm font-medium">
+                                    <Clock className="size-4" />
+                                    {slot.startTime} - {slot.endTime}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() =>
+                                      openEditDialog(
+                                        dayColumn.dayIndex,
+                                        slotIndex
+                                      )
+                                    }
+                                  >
+                                    <Edit2 className="mr-1 size-3" />
+                                    Edit
+                                  </Button>
                                 </div>
 
                                 {/* Duties Grid */}
@@ -394,24 +410,6 @@ export function ConfigurationPhase({
                                     ⚠️ Room mismatch
                                   </Badge>
                                 )}
-
-                                {/* Edit Button */}
-                                <div className="flex justify-center">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={() =>
-                                      openEditDialog(
-                                        dayColumn.dayIndex,
-                                        slotIndex
-                                      )
-                                    }
-                                  >
-                                    <Edit2 className="mr-1 size-3" />
-                                    Edit
-                                  </Button>
-                                </div>
                               </div>
                             ) : (
                               <div className="text-muted-foreground flex h-32 items-center justify-center">
@@ -439,18 +437,15 @@ export function ConfigurationPhase({
                         <div className="flex justify-center gap-1">
                           <Button
                             variant="outline"
-                            size="sm"
                             onClick={() => addSlot(dayColumn.dayIndex)}
-                            className="h-7 text-xs"
                           >
-                            <Plus className="mr-1 size-3" />
+                            <Plus />
                             Add Slot
                           </Button>
                           {dayColumn.slots.length > 0 && (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                              variant="outline"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
                               onClick={() =>
                                 deleteSlot(
                                   dayColumn.dayIndex,
@@ -458,7 +453,8 @@ export function ConfigurationPhase({
                                 )
                               }
                             >
-                              <Trash2 className="size-3" />
+                              <Trash2 />
+                              Delete Last
                             </Button>
                           )}
                         </div>
