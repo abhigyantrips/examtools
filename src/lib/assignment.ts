@@ -1,10 +1,11 @@
 import type {
   Assignment,
   AssignmentResult,
-  DutySlot,
   ExamStructure,
   Faculty,
+  FacultyDutyOverview,
   UnavailableFaculty,
+  Violation,
 } from '@/types';
 
 interface FacultyDutyCount {
@@ -14,16 +15,18 @@ interface FacultyDutyCount {
   bufferDuties: number;
 }
 
-interface SlotAssignmentContext {
+interface SlotCtx {
   day: number;
   slot: number;
-  date: string;
+  dateISO: string;
+  roomsSorted: string[];
+  need: {
+    regular: number;
+    reliever: number;
+    squad: number;
+    buffer: number;
+  };
   availableFaculty: Faculty[];
-  availableRooms: string[];
-  regularDutiesNeeded: number;
-  relieverDutiesNeeded: number;
-  squadDutiesNeeded: number;
-  bufferDutiesNeeded: number;
 }
 
 export function assignDuties(
@@ -32,80 +35,167 @@ export function assignDuties(
   unavailability: UnavailableFaculty[]
 ): AssignmentResult {
   const warnings: string[] = [];
+  const violations: Violation[] = [];
   const assignments: Assignment[] = [];
-  const incompleteSlots: AssignmentResult['incompleteSlots'] = [];
+  const incompleteSlots: NonNullable<AssignmentResult['incompleteSlots']> = [];
 
-  // Step 1: Validate requirements
-  const validation = validateAssignmentRequirements(faculty, examStructure);
-  if (!validation.valid) {
+  // 1) Validation upfront
+  const v = validateInputs(faculty, examStructure);
+  if (!v.valid) {
     return {
       success: false,
       assignments: [],
-      errors: validation.errors,
-      warnings: validation.warnings,
+      errors: v.errors,
+      warnings: v.warnings,
+      violations: [],
+      dutyOverview: [],
     };
   }
+  warnings.push(...v.warnings);
 
-  // Step 2: Initialize faculty duty tracking
-  const facultyDutyCounts = initializeFacultyDutyCounts(faculty, examStructure);
+  // 2) Setup trackers
+  const dutyCounts = initializeCounts(faculty, examStructure);
+  const unavailByDate = buildUnavailability(unavailability);
 
-  // Step 3: Build unavailability map for quick lookups
-  const unavailabilityMap = buildUnavailabilityMap(unavailability);
+  // 3) Process slots deterministically by (day, slot)
+  const sortedSlots = [...examStructure.dutySlots].sort((a, b) =>
+    a.day === b.day ? a.slot - b.slot : a.day - b.day
+  );
 
-  // Step 4: Process each duty slot
-  try {
-    for (const dutySlot of examStructure.dutySlots) {
-      const slotResult = assignSlotDuties(
-        dutySlot,
-        faculty,
-        facultyDutyCounts,
-        unavailabilityMap,
-        assignments,
-        examStructure
-      );
-
-      assignments.push(...slotResult.assignments);
-      warnings.push(...slotResult.warnings);
-
-      if (slotResult.incomplete) {
-        incompleteSlots.push(slotResult.incomplete);
-      }
-
-      // Don't break on errors anymore - always continue
-      if (slotResult.errors.length > 0) {
-        warnings.push(...slotResult.errors); // Convert errors to warnings
-      }
+  for (const slot of sortedSlots) {
+    // Hard stop per-slot if room mismatch (still record violation, but continue overall)
+    if (slot.rooms.length !== slot.regularDuties) {
+      violations.push({
+        id: 'ROOM_MISMATCH',
+        message: `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${slot.regularDuties} regular duties required`,
+        day: slot.day,
+        slot: slot.slot,
+        role: 'regular',
+      });
+      // mark slot as incomplete (all roles) and skip making assignments in this slot
+      incompleteSlots.push({
+        day: slot.day,
+        slot: slot.slot,
+        regular: { needed: slot.regularDuties, assigned: 0 },
+        reliever: { needed: slot.relieverDuties || 0, assigned: 0 },
+        squad: { needed: slot.squadDuties || 0, assigned: 0 },
+        buffer: { needed: slot.bufferDuties, assigned: 0 },
+      });
+      continue;
     }
 
-    // Final validation
-    const finalValidation = validateFinalAssignments(
-      assignments,
-      facultyDutyCounts
+    const dateISO = slot.date.toISOString().split('T')[0];
+    const unavailable = unavailByDate.get(dateISO) || new Set<string>();
+    const availableFaculty = faculty.filter(
+      (f) => !unavailable.has(f.facultyId)
     );
-    warnings.push(...finalValidation.warnings);
 
-    return {
-      success: true, // Always succeed
+    const ctx: SlotCtx = {
+      day: slot.day,
+      slot: slot.slot,
+      dateISO,
+      roomsSorted: [...slot.rooms].sort((a, b) => a.localeCompare(b)),
+      need: {
+        regular: slot.regularDuties,
+        reliever: slot.relieverDuties || 0,
+        squad: slot.squadDuties || 0,
+        buffer: slot.bufferDuties,
+      },
+      availableFaculty,
+    };
+
+    // Per-slot assigned list to enforce slot uniqueness
+    const slotAssigned: Assignment[] = [];
+
+    // Phase A: Regular (mandatory, rooms)
+    const aReg = assignRegular(ctx, dutyCounts, assignments, slotAssigned);
+    assignments.push(...aReg.assigned);
+    violations.push(...aReg.violations);
+    warnings.push(...aReg.warnings);
+
+    // Phase B: Reliever (mandatory, coverage groups)
+    const aRel = assignCoverage(
+      ctx,
+      dutyCounts,
       assignments,
-      errors: [],
-      warnings,
-      incompleteSlots: incompleteSlots.length > 0 ? incompleteSlots : undefined,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      assignments: [],
-      errors: [
-        `Assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      ],
-      warnings,
-    };
+      slotAssigned,
+      'reliever'
+    );
+    assignments.push(...aRel.assigned);
+    violations.push(...aRel.violations);
+    warnings.push(...aRel.warnings);
+
+    // Phase C: Squad (mandatory, coverage groups)
+    const aSq = assignCoverage(
+      ctx,
+      dutyCounts,
+      assignments,
+      slotAssigned,
+      'squad'
+    );
+    assignments.push(...aSq.assigned);
+    violations.push(...aSq.violations);
+    warnings.push(...aSq.warnings);
+
+    // Phase D: Buffer (optional, no rooms)
+    const aBuf = assignBuffer(
+      ctx,
+      dutyCounts,
+      assignments,
+      slotAssigned,
+      examStructure
+    );
+    assignments.push(...aBuf.assigned);
+    violations.push(...aBuf.violations);
+    warnings.push(...aBuf.warnings);
+
+    // Completion accounting
+    const regAssigned = slotAssigned.filter((x) => x.role === 'regular').length;
+    const relAssigned = slotAssigned.filter(
+      (x) => x.role === 'reliever'
+    ).length;
+    const sqAssigned = slotAssigned.filter((x) => x.role === 'squad').length;
+    const bufAssigned = slotAssigned.filter((x) => x.role === 'buffer').length;
+
+    const incomplete =
+      regAssigned < ctx.need.regular ||
+      relAssigned < ctx.need.reliever ||
+      sqAssigned < ctx.need.squad ||
+      bufAssigned < ctx.need.buffer;
+
+    if (incomplete) {
+      incompleteSlots.push({
+        day: slot.day,
+        slot: slot.slot,
+        regular: { needed: ctx.need.regular, assigned: regAssigned },
+        reliever: { needed: ctx.need.reliever, assigned: relAssigned },
+        squad: { needed: ctx.need.squad, assigned: sqAssigned },
+        buffer: { needed: ctx.need.buffer, assigned: bufAssigned },
+      });
+    }
   }
+
+  // 4) Final passive checks and overview
+  const overview = buildDutyOverview(assignments, faculty);
+  const postWarnings = checkSoftViolations(assignments);
+  warnings.push(...postWarnings);
+
+  return {
+    success: true,
+    assignments,
+    errors: [],
+    warnings,
+    violations,
+    incompleteSlots: incompleteSlots.length ? incompleteSlots : undefined,
+    dutyOverview: overview,
+  };
 }
 
-function validateAssignmentRequirements(
+/* ========== Validation and setup ========== */
+
+function validateInputs(
   faculty: Faculty[],
-  examStructure: ExamStructure
+  structure: ExamStructure
 ): { valid: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -114,785 +204,582 @@ function validateAssignmentRequirements(
     errors.push('No faculty members available for assignment');
     return { valid: false, errors, warnings };
   }
-
-  if (examStructure.dutySlots.length === 0) {
+  if (structure.dutySlots.length === 0) {
     errors.push('No duty slots configured');
     return { valid: false, errors, warnings };
   }
 
-  // Calculate total duties needed
-  const totalRegularDuties = examStructure.dutySlots.reduce(
-    (sum, slot) => sum + slot.regularDuties,
-    0
+  // Total mandatory duties vs total capacity (regular+reliever+squad targets)
+  const totalRegular = sum(structure.dutySlots.map((s) => s.regularDuties));
+  const totalReliever = sum(
+    structure.dutySlots.map((s) => s.relieverDuties || 0)
   );
-  const totalRelieverDuties = examStructure.dutySlots.reduce(
-    (sum, slot) => sum + (slot.relieverDuties || 0),
-    0
-  );
-  const totalSquadDuties = examStructure.dutySlots.reduce(
-    (sum, slot) => sum + (slot.squadDuties || 0),
-    0
-  );
-  const totalBufferDuties = examStructure.dutySlots.reduce(
-    (sum, slot) => sum + slot.bufferDuties,
-    0
-  );
+  const totalSquad = sum(structure.dutySlots.map((s) => s.squadDuties || 0));
+  const totalMandatory = totalRegular + totalReliever + totalSquad;
 
-  const totalMandatoryDuties =
-    totalRegularDuties + totalRelieverDuties + totalSquadDuties;
-
-  // Calculate total faculty capacity for ALL mandatory duty types
-  const totalFacultyCapacity = faculty.reduce((sum, f) => {
-    const regularCapacity =
-      examStructure.designationDutyCounts[f.designation] || 0;
-    const relieverCapacity =
-      examStructure.designationRelieverCounts?.[f.designation] || 0;
-    const squadCapacity =
-      examStructure.designationSquadCounts?.[f.designation] || 0;
-    return sum + regularCapacity + relieverCapacity + squadCapacity;
+  const totalCapacity = faculty.reduce((acc, f) => {
+    const r = structure.designationDutyCounts[f.designation] || 0;
+    const re = structure.designationRelieverCounts?.[f.designation] || 0;
+    const sq = structure.designationSquadCounts?.[f.designation] || 0;
+    return acc + r + re + sq;
   }, 0);
 
-  if (totalFacultyCapacity < totalMandatoryDuties) {
+  if (totalCapacity < totalMandatory) {
     errors.push(
-      `Insufficient faculty capacity for mandatory duties. Need ${totalMandatoryDuties} (${totalRegularDuties} regular + ${totalRelieverDuties} reliever + ${totalSquadDuties} squad), but faculty can only handle ${totalFacultyCapacity}`
+      `Insufficient faculty capacity for mandatory duties. Need ${totalMandatory} (${totalRegular} regular + ${totalReliever} reliever + ${totalSquad} squad), capacity ${totalCapacity}`
     );
   }
 
-  // Validate room counts match duty requirements
-  for (const slot of examStructure.dutySlots) {
-    if (slot.rooms.length !== slot.regularDuties) {
-      errors.push(
-        `Day ${slot.day + 1} Slot ${slot.slot + 1}: ${slot.rooms.length} rooms provided but ${slot.regularDuties} regular duties needed`
+  // Buffer eligibility sanity
+  const totalBuffer = sum(structure.dutySlots.map((s) => s.bufferDuties));
+  if (totalBuffer > 0) {
+    const eligible = faculty.filter(
+      (f) => structure.designationBufferEligibility?.[f.designation] === true
+    );
+    if (eligible.length === 0) {
+      warnings.push(
+        `${totalBuffer} buffer duties configured but no eligible designations are enabled.`
       );
     }
-  }
-
-  // Check buffer duty eligibility
-  const bufferEligibleFaculty = faculty.filter(
-    (f) => examStructure.designationBufferEligibility?.[f.designation]
-  );
-
-  if (totalBufferDuties > 0 && bufferEligibleFaculty.length === 0) {
-    warnings.push(
-      `${totalBufferDuties} buffer duties needed but no designations are enabled for buffer duties.`
-    );
-  } else if (totalBufferDuties > bufferEligibleFaculty.length) {
-    warnings.push(
-      `${totalBufferDuties} buffer duties needed but only ${bufferEligibleFaculty.length} faculty from eligible designations available.`
-    );
   }
 
   return { valid: errors.length === 0, errors, warnings };
 }
 
-function initializeFacultyDutyCounts(
+function initializeCounts(
   faculty: Faculty[],
-  examStructure: ExamStructure
+  structure: ExamStructure
 ): FacultyDutyCount[] {
-  return faculty.map((f) => ({
-    facultyId: f.facultyId,
-    targetDuties:
-      (examStructure.designationDutyCounts[f.designation] || 0) +
-      (examStructure.designationRelieverCounts?.[f.designation] || 0) +
-      (examStructure.designationSquadCounts?.[f.designation] || 0),
-    assignedDuties: 0,
-    bufferDuties: 0,
-  }));
+  return (
+    faculty
+      .map((f) => ({
+        facultyId: f.facultyId,
+        targetDuties:
+          (structure.designationDutyCounts[f.designation] || 0) +
+          (structure.designationRelieverCounts?.[f.designation] || 0) +
+          (structure.designationSquadCounts?.[f.designation] || 0),
+        assignedDuties: 0,
+        bufferDuties: 0,
+      }))
+      // Stable initial order by facultyId for determinism downstream tie-breaks
+      .sort((a, b) => a.facultyId.localeCompare(b.facultyId))
+  );
 }
 
-function buildUnavailabilityMap(
+function buildUnavailability(
   unavailability: UnavailableFaculty[]
 ): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
-
-  for (const unavail of unavailability) {
-    if (!map.has(unavail.date)) {
-      map.set(unavail.date, new Set());
-    }
-    map.get(unavail.date)!.add(unavail.facultyId);
+  for (const u of unavailability) {
+    if (!map.has(u.date)) map.set(u.date, new Set());
+    map.get(u.date)!.add(u.facultyId);
   }
-
   return map;
 }
 
-function assignSlotDuties(
-  dutySlot: DutySlot,
-  allFaculty: Faculty[],
-  facultyDutyCounts: FacultyDutyCount[],
-  unavailabilityMap: Map<string, Set<string>>,
-  existingAssignments: Assignment[],
-  examStructure: ExamStructure
-): {
-  assignments: Assignment[];
-  errors: string[];
-  warnings: string[];
-  incomplete?: {
-    day: number;
-    slot: number;
-    regular: { needed: number; assigned: number };
-    reliever: { needed: number; assigned: number };
-    squad: { needed: number; assigned: number };
-    buffer: { needed: number; assigned: number };
-  };
-} {
-  const assignments: Assignment[] = [];
-  const errors: string[] = [];
+/* ========== Assignment phases ========== */
+
+function assignRegular(
+  ctx: SlotCtx,
+  dutyCounts: FacultyDutyCount[],
+  globalAssignments: Assignment[],
+  slotAssignments: Assignment[]
+): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
+  const assigned: Assignment[] = [];
+  const violations: Violation[] = [];
   const warnings: string[] = [];
 
-  const dateString = dutySlot.date.toISOString().split('T')[0];
-  const unavailableToday = unavailabilityMap.get(dateString) || new Set();
+  for (let i = 0; i < ctx.need.regular; i++) {
+    const room = ctx.roomsSorted[i]; // roomsSorted length guaranteed equals need.regular by earlier check
 
-  // Get faculty available for this slot
-  const availableFaculty = allFaculty.filter(
-    (f) => !unavailableToday.has(f.facultyId)
-  );
-
-  if (availableFaculty.length === 0) {
-    errors.push(
-      `Day ${dutySlot.day + 1} Slot ${dutySlot.slot + 1}: No faculty available`
-    );
-    return { assignments, errors, warnings };
-  }
-
-  const context: SlotAssignmentContext = {
-    day: dutySlot.day,
-    slot: dutySlot.slot,
-    date: dateString,
-    availableFaculty,
-    availableRooms: [...dutySlot.rooms], // Copy for mutation
-    regularDutiesNeeded: dutySlot.regularDuties,
-    relieverDutiesNeeded: dutySlot.relieverDuties || 0,
-    squadDutiesNeeded: dutySlot.squadDuties || 0,
-    bufferDutiesNeeded: dutySlot.bufferDuties,
-  };
-
-  // Track slot-level assignments to prevent duplicates
-  const slotAssignments: Assignment[] = [];
-
-  // Phase 1: Regular duties (with rooms) - MANDATORY
-  const regularResult = assignRegularDuties(context, facultyDutyCounts, [
-    ...existingAssignments,
-    ...slotAssignments,
-  ]);
-  slotAssignments.push(...regularResult.assignments);
-  assignments.push(...regularResult.assignments);
-  warnings.push(...regularResult.warnings);
-  if (regularResult.errors.length > 0) {
-    errors.push(...regularResult.errors);
-    return { assignments, errors, warnings };
-  }
-
-  // Phase 2: Reliever duties (no rooms) - MANDATORY
-  const relieverResult = assignRelieverDuties(context, facultyDutyCounts, [
-    ...existingAssignments,
-    ...slotAssignments,
-  ]);
-  slotAssignments.push(...relieverResult.assignments);
-  assignments.push(...relieverResult.assignments);
-  warnings.push(...relieverResult.warnings);
-  if (relieverResult.errors.length > 0) {
-    errors.push(...relieverResult.errors);
-    return { assignments, errors, warnings }; // STOP on error since mandatory
-  }
-
-  // Phase 3: Squad duties (no rooms) - MANDATORY
-  const squadResult = assignSquadDuties(context, facultyDutyCounts, [
-    ...existingAssignments,
-    ...slotAssignments,
-  ]);
-  slotAssignments.push(...squadResult.assignments);
-  assignments.push(...squadResult.assignments);
-  warnings.push(...squadResult.warnings);
-  if (squadResult.errors.length > 0) {
-    errors.push(...squadResult.errors);
-    return { assignments, errors, warnings }; // STOP on error since mandatory
-  }
-
-  // Phase 4: Buffer duties (no rooms) - OPTIONAL (don't stop on errors)
-  const bufferResult = assignBufferDuties(
-    context,
-    facultyDutyCounts,
-    [...existingAssignments, ...slotAssignments],
-    examStructure
-  );
-  slotAssignments.push(...bufferResult.assignments);
-  assignments.push(...bufferResult.assignments);
-  warnings.push(...bufferResult.warnings);
-  errors.push(...bufferResult.errors); // Continue even with buffer errors
-
-  // After all phases, check if slot is complete
-  const regularAssigned = slotAssignments.filter(
-    (a) => a.role === 'regular'
-  ).length;
-  const relieverAssigned = slotAssignments.filter(
-    (a) => a.role === 'reliever'
-  ).length;
-  const squadAssigned = slotAssignments.filter(
-    (a) => a.role === 'squad'
-  ).length;
-  const bufferAssigned = slotAssignments.filter(
-    (a) => a.role === 'buffer'
-  ).length;
-
-  const isIncomplete =
-    regularAssigned < context.regularDutiesNeeded ||
-    relieverAssigned < context.relieverDutiesNeeded ||
-    squadAssigned < context.squadDutiesNeeded ||
-    bufferAssigned < context.bufferDutiesNeeded;
-
-  return {
-    assignments,
-    errors: [],
-    warnings,
-    incomplete: isIncomplete
-      ? {
-          day: dutySlot.day,
-          slot: dutySlot.slot,
-          regular: {
-            needed: context.regularDutiesNeeded,
-            assigned: regularAssigned,
-          },
-          reliever: {
-            needed: context.relieverDutiesNeeded,
-            assigned: relieverAssigned,
-          },
-          squad: { needed: context.squadDutiesNeeded, assigned: squadAssigned },
-          buffer: {
-            needed: context.bufferDutiesNeeded,
-            assigned: bufferAssigned,
-          },
-        }
-      : undefined,
-  };
-}
-
-function assignRegularDuties(
-  context: SlotAssignmentContext,
-  facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[]
-): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
-  const assignments: Assignment[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  const { availableRooms } = context;
-
-  for (let i = 0; i < context.regularDutiesNeeded; i++) {
-    if (availableRooms.length === 0) {
-      errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No more rooms available for regular duties`
-      );
-      break;
-    }
-
-    // Try without consecutive slots first
-    let eligibleFaculty = getEligibleFaculty(
-      context,
-      facultyDutyCounts,
-      [...existingAssignments, ...assignments],
+    // Pass 1: no consecutive
+    let eligible = filterEligible(
+      ctx,
+      dutyCounts,
+      globalAssignments,
+      slotAssignments,
       'regular',
-      false // Don't allow consecutive
+      {
+        allowConsecutive: false,
+        allowTargetOverflow: false,
+        respectBufferLimit: true,
+      }
     );
 
-    // If no one available, relax consecutive slot constraint
-    if (eligibleFaculty.length === 0) {
-      eligibleFaculty = getEligibleFaculty(
-        context,
-        facultyDutyCounts,
-        [...existingAssignments, ...assignments],
+    // Pass 2 (relax back-to-back)
+    if (eligible.length === 0) {
+      eligible = filterEligible(
+        ctx,
+        dutyCounts,
+        globalAssignments,
+        slotAssignments,
         'regular',
-        true // Allow consecutive
+        {
+          allowConsecutive: true,
+          allowTargetOverflow: false,
+          respectBufferLimit: true,
+        }
       );
-
-      if (eligibleFaculty.length > 0) {
+      if (eligible.length > 0) {
         warnings.push(
-          `Day ${context.day + 1} Slot ${context.slot + 1}: Assigned faculty to consecutive slots due to insufficient alternatives for regular duty ${i + 1}`
+          `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: Back-to-back regular assignment allowed due to low availability (duty ${i + 1})`
         );
       }
     }
 
-    if (eligibleFaculty.length === 0) {
-      errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for regular duty ${i + 1}`
-      );
-      continue; // Continue trying to fill other duties
+    if (eligible.length === 0) {
+      // leave empty (hard requirement unmet)
+      violations.push({
+        id: 'NO_ELIGIBLE_RELIEVER', // reuse severity ordering bucket; specific to role not necessary for export empties
+        message: `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: No eligible faculty for regular duty ${i + 1}`,
+        day: ctx.day,
+        slot: ctx.slot,
+        role: 'regular',
+      });
+      continue;
     }
 
-    // Select faculty using weighted random (favor those with fewer duties)
-    const selectedFaculty = selectFacultyDeterministic(
-      eligibleFaculty,
-      facultyDutyCounts
-    );
-    const room = availableRooms.shift()!;
-
-    // Create assignment
-    const assignment: Assignment = {
-      day: context.day,
-      slot: context.slot,
-      facultyId: selectedFaculty.facultyId,
+    const chosen = selectDeterministic(eligible, dutyCounts);
+    assigned.push({
+      day: ctx.day,
+      slot: ctx.slot,
+      facultyId: chosen.facultyId,
       roomNumber: room,
       role: 'regular',
-    };
-
-    assignments.push(assignment);
-
-    // Update faculty duty count
-    const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId
-    )!;
-    facultyDutyCount.assignedDuties++;
-  }
-
-  return { assignments, errors, warnings };
-}
-
-function assignRelieverDuties(
-  context: SlotAssignmentContext,
-  facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[]
-): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
-  const assignments: Assignment[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  for (let i = 0; i < context.relieverDutiesNeeded; i++) {
-    // First pass: Try with all constraints (no consecutive slots)
-    let eligibleFaculty = getEligibleFaculty(
-      context,
-      facultyDutyCounts,
-      [...existingAssignments, ...assignments],
-      'reliever',
-      false // Don't allow consecutive
-    );
-
-    // Second pass: Relax consecutive slot constraint if needed
-    if (eligibleFaculty.length === 0) {
-      eligibleFaculty = getEligibleFaculty(
-        context,
-        facultyDutyCounts,
-        [...existingAssignments, ...assignments],
-        'reliever',
-        true // Allow consecutive
-      );
-
-      if (eligibleFaculty.length > 0) {
-        warnings.push(
-          `Day ${context.day + 1} Slot ${context.slot + 1}: Assigned faculty to consecutive slots due to insufficient alternatives for reliever duty ${i + 1}`
-        );
-      }
-    }
-
-    // If still no one available, log error and continue
-    if (eligibleFaculty.length === 0) {
-      errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for reliever duty ${i + 1}`
-      );
-      continue; // Continue trying to fill other reliever duties
-    }
-
-    const selectedFaculty = selectFacultyDeterministic(
-      eligibleFaculty,
-      facultyDutyCounts
-    );
-
-    // Create assignment
-    const assignment: Assignment = {
-      day: context.day,
-      slot: context.slot,
-      facultyId: selectedFaculty.facultyId,
-      roomNumber: undefined, // No rooms for relievers
-      role: 'reliever',
-    };
-
-    assignments.push(assignment);
-
-    // Update faculty duty count
-    const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId
-    )!;
-    facultyDutyCount.assignedDuties++;
-  }
-
-  return { assignments, errors, warnings };
-}
-
-function assignSquadDuties(
-  context: SlotAssignmentContext,
-  facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[]
-): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
-  const assignments: Assignment[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  for (let i = 0; i < context.squadDutiesNeeded; i++) {
-    // First pass: Try with all constraints (no consecutive slots)
-    let eligibleFaculty = getEligibleFaculty(
-      context,
-      facultyDutyCounts,
-      [...existingAssignments, ...assignments],
-      'squad',
-      false // Don't allow consecutive
-    );
-
-    // Second pass: Relax consecutive slot constraint if needed
-    if (eligibleFaculty.length === 0) {
-      eligibleFaculty = getEligibleFaculty(
-        context,
-        facultyDutyCounts,
-        [...existingAssignments, ...assignments],
-        'squad',
-        true // Allow consecutive
-      );
-
-      if (eligibleFaculty.length > 0) {
-        warnings.push(
-          `Day ${context.day + 1} Slot ${context.slot + 1}: Assigned faculty to consecutive slots due to insufficient alternatives for squad duty ${i + 1}`
-        );
-      }
-    }
-
-    // If still no one available, log error and continue
-    if (eligibleFaculty.length === 0) {
-      errors.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for squad duty ${i + 1}`
-      );
-      continue; // Continue trying to fill other squad duties
-    }
-
-    const selectedFaculty = selectFacultyDeterministic(
-      eligibleFaculty,
-      facultyDutyCounts
-    );
-
-    const assignment: Assignment = {
-      day: context.day,
-      slot: context.slot,
-      facultyId: selectedFaculty.facultyId,
-      roomNumber: undefined, // No rooms for squad
-      role: 'squad',
-    };
-
-    assignments.push(assignment);
-
-    const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId
-    )!;
-    facultyDutyCount.assignedDuties++;
-  }
-
-  return { assignments, errors, warnings };
-}
-
-function assignBufferDuties(
-  context: SlotAssignmentContext,
-  facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[],
-  examStructure: ExamStructure
-): { assignments: Assignment[]; errors: string[]; warnings: string[] } {
-  const assignments: Assignment[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  for (let i = 0; i < context.bufferDutiesNeeded; i++) {
-    // First pass: Try with all constraints (no consecutive slots)
-    let eligibleFaculty = getEligibleFaculty(
-      context,
-      facultyDutyCounts,
-      [...existingAssignments, ...assignments],
-      'buffer',
-      false // Don't allow consecutive
-    ).filter((faculty) => {
-      // Filter by buffer eligibility switches
-      return (
-        examStructure.designationBufferEligibility?.[faculty.designation] ===
-        true
-      );
     });
+    slotAssignments.push(assigned[assigned.length - 1]);
 
-    // Second pass: Relax consecutive slot constraint if needed
-    if (eligibleFaculty.length === 0) {
-      eligibleFaculty = getEligibleFaculty(
-        context,
-        facultyDutyCounts,
-        [...existingAssignments, ...assignments],
-        'buffer',
-        true // Allow consecutive
-      ).filter((faculty) => {
-        return (
-          examStructure.designationBufferEligibility?.[faculty.designation] ===
-          true
-        );
-      });
+    const dc = dutyCounts.find((x) => x.facultyId === chosen.facultyId)!;
+    dc.assignedDuties++;
+  }
 
-      if (eligibleFaculty.length > 0) {
+  return { assigned, violations, warnings };
+}
+
+function assignCoverage(
+  ctx: SlotCtx,
+  dutyCounts: FacultyDutyCount[],
+  globalAssignments: Assignment[],
+  slotAssignments: Assignment[],
+  role: 'reliever' | 'squad'
+): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
+  const assigned: Assignment[] = [];
+  const violations: Violation[] = [];
+  const warnings: string[] = [];
+
+  const totalNeeded = role === 'reliever' ? ctx.need.reliever : ctx.need.squad;
+  if (totalNeeded <= 0) return { assigned, violations, warnings };
+
+  // Build coverage chunks: floor division, last can be smaller
+  const groups = buildRoomChunks(ctx.roomsSorted, totalNeeded);
+
+  for (let i = 0; i < totalNeeded; i++) {
+    // Pass 1: strict availability (no consecutive)
+    let eligible = filterEligible(
+      ctx,
+      dutyCounts,
+      globalAssignments,
+      slotAssignments,
+      role,
+      {
+        allowConsecutive: false,
+        allowTargetOverflow: false,
+        respectBufferLimit: true,
+      }
+    );
+
+    // Pass 2: relax reliever/squad availability (still no consecutive)
+    if (eligible.length === 0) {
+      eligible = filterEligible(
+        ctx,
+        dutyCounts,
+        globalAssignments,
+        slotAssignments,
+        role,
+        {
+          allowConsecutive: false,
+          allowTargetOverflow: true, // allow over target if capacity pressure
+          respectBufferLimit: true,
+        }
+      );
+    }
+
+    // Pass 3: relax back-to-back as last resort
+    if (eligible.length === 0) {
+      eligible = filterEligible(
+        ctx,
+        dutyCounts,
+        globalAssignments,
+        slotAssignments,
+        role,
+        {
+          allowConsecutive: true,
+          allowTargetOverflow: true,
+          respectBufferLimit: true,
+        }
+      );
+      if (eligible.length > 0) {
         warnings.push(
-          `Day ${context.day + 1} Slot ${context.slot + 1}: Assigned faculty to consecutive slots due to insufficient alternatives for buffer duty ${i + 1}`
+          `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: Back-to-back ${role} assignment allowed due to low availability (duty ${i + 1})`
         );
       }
     }
 
-    // If still no one available, log warning and continue
-    if (eligibleFaculty.length === 0) {
-      warnings.push(
-        `Day ${context.day + 1} Slot ${context.slot + 1}: No eligible faculty for buffer duty ${i + 1}`
-      );
-      continue; // Continue trying to fill other buffer duties
+    if (eligible.length === 0) {
+      violations.push({
+        id: role === 'reliever' ? 'NO_ELIGIBLE_RELIEVER' : 'NO_ELIGIBLE_SQUAD',
+        message: `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: No eligible faculty for ${role} duty ${i + 1}`,
+        day: ctx.day,
+        slot: ctx.slot,
+        role,
+      });
+      // leave this coverage empty (export: empty rows with background)
+      continue;
     }
 
-    // Select faculty using deterministic selection
-    const selectedFaculty = selectFacultyDeterministic(
-      eligibleFaculty,
-      facultyDutyCounts
-    );
+    const chosen = selectDeterministic(eligible, dutyCounts);
+    const rooms = groups[i] || []; // may be empty if more people than rooms
 
-    // Create assignment
-    const assignment: Assignment = {
-      day: context.day,
-      slot: context.slot,
-      facultyId: selectedFaculty.facultyId,
-      roomNumber: undefined,
-      role: 'buffer',
-    };
+    assigned.push({
+      day: ctx.day,
+      slot: ctx.slot,
+      facultyId: chosen.facultyId,
+      role,
+      rooms,
+    });
+    slotAssignments.push(assigned[assigned.length - 1]);
 
-    assignments.push(assignment);
-
-    // Update faculty duty counts
-    const facultyDutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === selectedFaculty.facultyId
-    )!;
-    facultyDutyCount.assignedDuties++;
-    facultyDutyCount.bufferDuties++;
+    const dc = dutyCounts.find((x) => x.facultyId === chosen.facultyId)!;
+    dc.assignedDuties++;
   }
 
-  return { assignments, errors, warnings };
+  return { assigned, violations, warnings };
 }
 
-function getEligibleFaculty(
-  context: SlotAssignmentContext,
-  facultyDutyCounts: FacultyDutyCount[],
-  existingAssignments: Assignment[],
-  role: 'regular' | 'reliever' | 'squad' | 'buffer',
-  allowConsecutive: boolean = false
-): Faculty[] {
-  // Get faculty already assigned in this specific slot
-  const slotAssignments = existingAssignments.filter(
-    (a) => a.day === context.day && a.slot === context.slot
-  );
-  const alreadyAssignedInSlot = new Set(
-    slotAssignments.map((a) => a.facultyId)
-  );
+function assignBuffer(
+  ctx: SlotCtx,
+  dutyCounts: FacultyDutyCount[],
+  globalAssignments: Assignment[],
+  slotAssignments: Assignment[],
+  structure: ExamStructure
+): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
+  const assigned: Assignment[] = [];
+  const violations: Violation[] = [];
+  const warnings: string[] = [];
 
-  // Count faculty with remaining capacity (only for non-buffer roles)
-  const facultyWithRemainingCapacity =
+  const totalNeeded = ctx.need.buffer;
+  if (totalNeeded <= 0) return { assigned, violations, warnings };
+
+  for (let i = 0; i < totalNeeded; i++) {
+    // Pass 1: strict — eligible designation, no consecutive, buffer limit
+    let eligible = filterEligible(
+      ctx,
+      dutyCounts,
+      globalAssignments,
+      slotAssignments,
+      'buffer',
+      {
+        allowConsecutive: false,
+        allowTargetOverflow: true, // buffer doesn't count toward target; we still pick by deficit first
+        respectBufferLimit: true,
+      }
+    ).filter(
+      (f) => structure.designationBufferEligibility?.[f.designation] === true
+    );
+
+    // Pass 2: relax designation availability (still no consecutive)
+    if (eligible.length === 0) {
+      eligible = filterEligible(
+        ctx,
+        dutyCounts,
+        globalAssignments,
+        slotAssignments,
+        'buffer',
+        {
+          allowConsecutive: false,
+          allowTargetOverflow: true,
+          respectBufferLimit: false, // relax buffer limit last? We were asked to keep 1 buffer max; do not relax this. Keep true.
+        }
+      ).filter(
+        (f) => structure.designationBufferEligibility?.[f.designation] === true
+      );
+    }
+
+    // Pass 3: relax back-to-back
+    if (eligible.length === 0) {
+      eligible = filterEligible(
+        ctx,
+        dutyCounts,
+        globalAssignments,
+        slotAssignments,
+        'buffer',
+        {
+          allowConsecutive: true,
+          allowTargetOverflow: true,
+          respectBufferLimit: true,
+        }
+      ).filter(
+        (f) => structure.designationBufferEligibility?.[f.designation] === true
+      );
+      if (eligible.length > 0) {
+        warnings.push(
+          `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: Back-to-back buffer assignment allowed due to low availability (duty ${i + 1})`
+        );
+      }
+    }
+
+    if (eligible.length === 0) {
+      // record violation, leave empty
+      violations.push({
+        id: 'NO_ELIGIBLE_BUFFER',
+        message: `Day ${ctx.day + 1} Slot ${ctx.slot + 1}: No eligible faculty for buffer duty ${i + 1}`,
+        day: ctx.day,
+        slot: ctx.slot,
+        role: 'buffer',
+      });
+      continue;
+    }
+
+    const chosen = selectDeterministic(eligible, dutyCounts);
+    assigned.push({
+      day: ctx.day,
+      slot: ctx.slot,
+      facultyId: chosen.facultyId,
+      role: 'buffer',
+    });
+    slotAssignments.push(assigned[assigned.length - 1]);
+
+    const dc = dutyCounts.find((x) => x.facultyId === chosen.facultyId)!;
+    dc.assignedDuties++;
+    dc.bufferDuties++;
+  }
+
+  return { assigned, violations, warnings };
+}
+
+/* ========== Eligibility and selection ========== */
+
+function filterEligible(
+  ctx: SlotCtx,
+  dutyCounts: FacultyDutyCount[],
+  globalAssignments: Assignment[],
+  slotAssignments: Assignment[],
+  role: 'regular' | 'reliever' | 'squad' | 'buffer',
+  opts: {
+    allowConsecutive: boolean;
+    allowTargetOverflow: boolean;
+    respectBufferLimit: boolean;
+  }
+): Faculty[] {
+  // Enforce one-role-per-slot
+  const alreadyInSlot = new Set(slotAssignments.map((a) => a.facultyId));
+  // Track per-day assignments with role for role-aware consecutive + daily-regular-limit
+  const byFacultyDay = new Map<
+    string,
+    {
+      slots: Array<{ slot: number; role: Assignment['role'] }>;
+      regularCount: number;
+    }
+  >();
+
+  for (const a of globalAssignments) {
+    if (a.day !== ctx.day) continue;
+    if (!byFacultyDay.has(a.facultyId)) {
+      byFacultyDay.set(a.facultyId, { slots: [], regularCount: 0 });
+    }
+    const entry = byFacultyDay.get(a.facultyId)!;
+    entry.slots.push({ slot: a.slot, role: a.role });
+    if (a.role === 'regular') entry.regularCount++;
+  }
+  for (const entry of byFacultyDay.values()) {
+    entry.slots.sort((x, y) => x.slot - y.slot);
+  }
+
+  // Compute remaining capacity count (for stricter filtering)
+  const remainingPool =
     role !== 'buffer'
-      ? facultyDutyCounts.filter((f) => f.assignedDuties < f.targetDuties)
-          .length
+      ? dutyCounts.filter((d) => d.assignedDuties < d.targetDuties).length
       : 0;
 
-  return context.availableFaculty.filter((faculty) => {
-    // Prevent duplicate assignments in same slot (HARD CONSTRAINT)
-    if (alreadyAssignedInSlot.has(faculty.facultyId)) {
+  return ctx.availableFaculty.filter((f) => {
+    if (alreadyInSlot.has(f.facultyId)) return false;
+
+    const dc = dutyCounts.find((d) => d.facultyId === f.facultyId)!;
+
+    if (role === 'buffer' && opts.respectBufferLimit && dc.bufferDuties >= 1) {
       return false;
     }
 
-    const dutyCount = facultyDutyCounts.find(
-      (f) => f.facultyId === faculty.facultyId
-    )!;
-
-    // Buffer duty limit (HARD CONSTRAINT - max 1 per faculty across entire exam)
-    if (role === 'buffer' && dutyCount.bufferDuties >= 1) {
-      return false;
+    // Back-to-back enforcement: ONLY block consecutive REGULAR->REGULAR in same day
+    if (!opts.allowConsecutive && role === 'regular') {
+      const dayRec = byFacultyDay.get(f.facultyId);
+      const hasRR =
+        dayRec?.slots.some(
+          (rec) => rec.role === 'regular' && Math.abs(rec.slot - ctx.slot) === 1
+        ) ?? false;
+      if (hasRR) return false;
     }
 
-    // Consecutive slots constraint (SOFT - only enforce if allowConsecutive=false)
-    if (
-      !allowConsecutive &&
-      hasConsecutiveSlotConflict(
-        faculty.facultyId,
-        context,
-        existingAssignments
-      )
-    ) {
-      return false;
+    // Prefer at most one REGULAR per day per faculty (soft preference).
+    // Enforce only when we still have many alternatives in pool.
+    if (role === 'regular') {
+      const dayRec = byFacultyDay.get(f.facultyId);
+      const hasRegularToday = (dayRec?.regularCount || 0) >= 1;
+      if (hasRegularToday && remainingPool > 5 && !opts.allowTargetOverflow) {
+        return false;
+      }
     }
 
-    // Target enforcement logic - SKIP FOR BUFFER DUTIES
     if (role !== 'buffer') {
-      // For mandatory roles (regular, reliever, squad): enforce targets
+      // enforce target unless starved
       if (
-        dutyCount.assignedDuties >= dutyCount.targetDuties &&
-        facultyWithRemainingCapacity > 5
+        !opts.allowTargetOverflow &&
+        dc.assignedDuties >= dc.targetDuties &&
+        remainingPool > 5
       ) {
         return false;
       }
     }
-    // Buffer duties ignore target limits entirely - they're bonus duties on top of targets
 
     return true;
   });
 }
 
-function hasConsecutiveSlotConflict(
-  facultyId: string,
-  context: SlotAssignmentContext,
-  existingAssignments: Assignment[]
-): boolean {
-  // Check if faculty is already assigned to adjacent slots on the same day
-  const dayAssignments = existingAssignments.filter(
-    (a) => a.facultyId === facultyId && a.day === context.day
-  );
-
-  for (const assignment of dayAssignments) {
-    // Check if this slot is consecutive to any existing assignment
-    if (Math.abs(assignment.slot - context.slot) === 1) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function selectFacultyDeterministic(
-  eligibleFaculty: Faculty[],
-  facultyDutyCounts: FacultyDutyCount[]
+function selectDeterministic(
+  eligible: Faculty[],
+  dutyCounts: FacultyDutyCount[]
 ): Faculty {
-  // Sort by: 1) furthest behind target, 2) lowest total duties assigned, 3) faculty ID for consistency
-  const sorted = eligibleFaculty
-    .map((faculty) => {
-      const dutyCount = facultyDutyCounts.find(
-        (f) => f.facultyId === faculty.facultyId
-      )!;
+  const byId = new Map(dutyCounts.map((d) => [d.facultyId, d]));
+  return [...eligible]
+    .map((f) => {
+      const d = byId.get(f.facultyId)!;
       return {
-        faculty,
-        dutyCount,
-        deficit: dutyCount.targetDuties - dutyCount.assignedDuties, // How far behind target
-        totalAssigned: dutyCount.assignedDuties,
+        f,
+        deficit: d.targetDuties - d.assignedDuties,
+        totalAssigned: d.assignedDuties,
       };
     })
     .sort((a, b) => {
-      // Primary: Highest deficit (furthest behind target)
-      if (a.deficit !== b.deficit) {
-        return b.deficit - a.deficit;
-      }
-      // Secondary: Lowest total duties assigned
-      if (a.totalAssigned !== b.totalAssigned) {
+      if (a.deficit !== b.deficit) return b.deficit - a.deficit; // furthest behind
+      if (a.totalAssigned !== b.totalAssigned)
         return a.totalAssigned - b.totalAssigned;
-      }
-      // Tertiary: Consistent tie-breaking by faculty ID
-      return a.faculty.facultyId.localeCompare(b.faculty.facultyId);
-    });
-
-  return sorted[0].faculty;
+      return a.f.facultyId.localeCompare(b.f.facultyId);
+    })[0].f;
 }
 
-function validateFinalAssignments(
+/* ========== Helpers ========== */
+
+function buildRoomChunks(rooms: string[], people: number): string[][] {
+  const list = [...rooms];
+  if (people <= 0) return [];
+  if (list.length === 0) return Array.from({ length: people }, () => []);
+  const per = Math.floor(list.length / people) || 0;
+  const rem = list.length % people;
+
+  // We want last people possibly getting fewer rooms, not ceil for first
+  // Distribute using floor, then spread remainder 1 per person from the start until rem exhausted.
+  // But requirement says “last person may get fewer”; simplest: chunk size = floor, and put extra rooms into earlier chunks.
+  const chunks: string[][] = [];
+  let idx = 0;
+  for (let i = 0; i < people; i++) {
+    let size = per;
+    if (i < rem) size += 1; // earlier relievers get +1 until remainder consumed
+    const group = list.slice(idx, idx + size);
+    chunks.push(group);
+    idx += size;
+  }
+  return chunks;
+}
+
+function buildDutyOverview(
   assignments: Assignment[],
-  facultyDutyCounts: FacultyDutyCount[]
-): { warnings: string[] } {
+  faculty: Faculty[]
+): FacultyDutyOverview[] {
+  const byId = new Map<string, Faculty>();
+  faculty.forEach((f) => byId.set(f.facultyId, f));
+
+  const map = new Map<string, FacultyDutyOverview>();
+  for (const a of assignments) {
+    const key = a.facultyId;
+    if (!map.has(key)) {
+      const f = byId.get(key);
+      map.set(key, {
+        facultyId: key,
+        facultyName: f?.facultyName || 'Unknown',
+        designation: f?.designation || 'Unknown',
+        totals: { regular: 0, reliever: 0, squad: 0, buffer: 0, total: 0 },
+        coverage: {},
+      });
+    }
+    const o = map.get(key)!;
+    o.totals[a.role]++;
+    o.totals.total++;
+    if (
+      (a.role === 'reliever' || a.role === 'squad') &&
+      a.rooms &&
+      a.rooms.length > 0
+    ) {
+      const slotKey = `d${a.day}-s${a.slot}`;
+      o.coverage![slotKey] = a.rooms;
+    }
+  }
+
+  // include all faculty even if zero duties (so overview is complete)
+  for (const f of faculty) {
+    if (!map.has(f.facultyId)) {
+      map.set(f.facultyId, {
+        facultyId: f.facultyId,
+        facultyName: f.facultyName,
+        designation: f.designation,
+        totals: { regular: 0, reliever: 0, squad: 0, buffer: 0, total: 0 },
+        coverage: {},
+      });
+    }
+  }
+
+  return [...map.values()].sort((a, b) =>
+    a.facultyId.localeCompare(b.facultyId)
+  );
+}
+
+function checkSoftViolations(assignments: Assignment[]): string[] {
   const warnings: string[] = [];
 
-  // Check if any faculty didn't meet their target duties
-  for (const dutyCount of facultyDutyCounts) {
-    if (dutyCount.assignedDuties < dutyCount.targetDuties) {
-      warnings.push(
-        `Faculty ${dutyCount.facultyId} assigned ${dutyCount.assignedDuties}/${dutyCount.targetDuties} duties`
-      );
-    }
+  // Back-to-back checker (post):
+  // - Warn only when BOTH adjacent roles are regular (your amended rule).
+  const byFacultyDay = new Map<
+    string,
+    Map<number, Array<{ slot: number; role: Assignment['role'] }>>
+  >();
+
+  for (const a of assignments) {
+    if (!byFacultyDay.has(a.facultyId))
+      byFacultyDay.set(a.facultyId, new Map());
+    const m = byFacultyDay.get(a.facultyId)!;
+    if (!m.has(a.day)) m.set(a.day, []);
+    m.get(a.day)!.push({ slot: a.slot, role: a.role });
   }
-
-  // Check for any constraint violations (should not happen if algorithm is correct)
-  const violationCheck = checkConstraintViolations(assignments);
-  warnings.push(...violationCheck);
-
-  return { warnings };
-}
-
-function checkConstraintViolations(assignments: Assignment[]): string[] {
-  const violations: string[] = [];
-
-  // Group assignments by faculty and day
-  const facultyDaySlots = new Map<string, Map<number, number[]>>();
-
-  for (const assignment of assignments) {
-    if (!facultyDaySlots.has(assignment.facultyId)) {
-      facultyDaySlots.set(assignment.facultyId, new Map());
-    }
-
-    const facultyDays = facultyDaySlots.get(assignment.facultyId)!;
-    if (!facultyDays.has(assignment.day)) {
-      facultyDays.set(assignment.day, []);
-    }
-
-    facultyDays.get(assignment.day)!.push(assignment.slot);
-  }
-
-  // Check for consecutive slot violations
-  for (const [facultyId, daySlots] of facultyDaySlots) {
-    for (const [day, slots] of daySlots) {
-      slots.sort((a, b) => a - b);
-
-      for (let i = 0; i < slots.length - 1; i++) {
-        if (slots[i + 1] - slots[i] === 1) {
-          violations.push(
-            `Faculty ${facultyId} has consecutive slots ${slots[i]} and ${slots[i + 1]} on day ${day}`
-          );
+  for (const [fid, days] of byFacultyDay) {
+    for (const [day, entries] of days) {
+      entries.sort((a, b) => a.slot - b.slot);
+      for (let i = 0; i < entries.length - 1; i++) {
+        const cur = entries[i];
+        const nxt = entries[i + 1];
+        if (nxt.slot - cur.slot === 1) {
+          const bothRegular = cur.role === 'regular' && nxt.role === 'regular';
+          if (bothRegular) {
+            warnings.push(
+              `Faculty ${fid} has consecutive REGULAR duties on day ${day + 1} (slots ${cur.slot + 1} & ${nxt.slot + 1})`
+            );
+          }
         }
       }
     }
   }
 
-  // Check buffer duty violations
-  const bufferCounts = new Map<string, number>();
-  for (const assignment of assignments) {
-    if (assignment.role === 'buffer') {
-      bufferCounts.set(
-        assignment.facultyId,
-        (bufferCounts.get(assignment.facultyId) || 0) + 1
-      );
-    }
-  }
-
-  for (const [facultyId, count] of bufferCounts) {
-    if (count > 1) {
-      violations.push(
-        `Faculty ${facultyId} has ${count} buffer duties (max 1 allowed)`
-      );
-    }
-  }
-
-  return violations;
+  return warnings;
 }
 
-// Utility function for testing/debugging
-export function getAssignmentStats(
-  assignments: Assignment[],
-  faculty: Faculty[]
-): Record<string, { regular: number; buffer: number; total: number }> {
-  const stats: Record<
-    string,
-    { regular: number; buffer: number; total: number }
-  > = {};
-
-  // Initialize all faculty
-  for (const f of faculty) {
-    stats[f.facultyId] = { regular: 0, buffer: 0, total: 0 };
-  }
-
-  // Count assignments
-  for (const assignment of assignments) {
-    if (!stats[assignment.facultyId]) {
-      stats[assignment.facultyId] = { regular: 0, buffer: 0, total: 0 };
-    }
-
-    const stat = stats[assignment.facultyId];
-    if (assignment.role === 'buffer') {
-      stat.buffer++;
-    } else {
-      stat.regular++;
-    }
-    stat.total++;
-  }
-
-  return stats;
+function sum(nums: number[]): number {
+  return nums.reduce((a, b) => a + b, 0);
 }

@@ -41,6 +41,39 @@ export interface Assignment {
   facultyId: string;
   roomNumber?: string; // undefined for buffer duties
   role: 'regular' | 'reliever' | 'squad' | 'buffer';
+  // For reliever/squad, the set of rooms this faculty covers in this slot
+  rooms?: string[];
+}
+
+export interface Violation {
+  id:
+    | 'ROOM_MISMATCH'
+    | 'NO_ELIGIBLE_BUFFER'
+    | 'NO_ELIGIBLE_RELIEVER'
+    | 'NO_ELIGIBLE_SQUAD'
+    | 'BACK_TO_BACK'
+    | 'SLOT_UNIQUENESS'
+    | 'BUFFER_LIMIT';
+  message: string;
+  day: number;
+  slot: number;
+  facultyIds?: string[];
+  role?: 'regular' | 'reliever' | 'squad' | 'buffer';
+}
+
+export interface FacultyDutyOverview {
+  facultyId: string;
+  facultyName: string;
+  designation: string;
+  totals: {
+    regular: number;
+    reliever: number;
+    squad: number;
+    buffer: number;
+    total: number;
+  };
+  // coverage map: key like "d{day}-s{slot}"
+  coverage?: Record<string, string[]>; // rooms for reliever/squad per slot
 }
 
 export interface ExamData {
@@ -64,6 +97,8 @@ export interface AssignmentResult {
     squad: { needed: number; assigned: number };
     buffer: { needed: number; assigned: number };
   }>;
+  violations: Violation[];
+  dutyOverview: FacultyDutyOverview[];
 }
 
 // Excel upload helpers

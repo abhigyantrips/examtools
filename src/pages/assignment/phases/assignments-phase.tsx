@@ -184,6 +184,8 @@ export function AssignmentsPhase({
           `Assignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         ],
         warnings: [],
+        violations: [],
+        dutyOverview: [],
       };
       setAssignmentResult(errorResult);
       toast.error('Assignment generation failed!', { id: 'assignment' });
@@ -198,33 +200,11 @@ export function AssignmentsPhase({
       const dutySlot = examStructure.dutySlots.find(
         (s) => s.day === day && s.slot === slot
       );
-      const slotAssignments = getSlotAssignments(day, slot);
-
       if (!dutySlot) return;
-
-      const exportData = slotAssignments.map((assignment, index) => {
-        const facultyMember = faculty.find(
-          (f) => f.facultyId === assignment.facultyId
-        );
-        return {
-          sNo: index + 1,
-          roomNumber: assignment.roomNumber || assignment.role.toUpperCase(),
-          facultyId: assignment.facultyId,
-          facultyName: facultyMember?.facultyName || 'Unknown',
-          phoneNo: facultyMember?.phoneNo || 'N/A',
-          role: assignment.role,
-        };
-      });
-
-      exportDaySlotAssignments(
-        dutySlot.date,
-        `${dutySlot.startTime} - ${dutySlot.endTime}`,
-        exportData,
-        dutySlot
-      );
+      exportDaySlotAssignments(dutySlot, assignments, faculty);
       toast.success(`Day ${day + 1} Slot ${slot + 1} assignments exported.`);
     },
-    [examStructure.dutySlots, faculty, getSlotAssignments]
+    [examStructure.dutySlots, assignments, faculty]
   );
 
   const exportAllAssignments = useCallback(async () => {

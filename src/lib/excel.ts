@@ -193,33 +193,535 @@ export async function exportAssignmentsOverview(
   faculty: Faculty[]
 ): Promise<void> {
   const workbook = createOverviewWorkbook(dutySlots, assignments, faculty);
+  // Add consolidated faculty overview with merged rows per duty
+  createFacultyOverviewSheet(workbook, dutySlots, assignments, faculty);
   await downloadWorkbook(workbook, 'exam-duty-overview.xlsx');
 }
 
 export async function exportDaySlotAssignments(
-  date: Date,
-  timeSlot: string,
-  assignments: {
-    sNo: number;
-    roomNumber: string;
-    facultyId: string;
-    facultyName: string;
-    phoneNo: string;
-    role: string;
-  }[],
-  dutySlot?: DutySlot
+  dutySlot: DutySlot,
+  assignments: Assignment[],
+  faculty: Faculty[]
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  createSlotAssignmentWorksheet(
+  const timeSlot = `${dutySlot.startTime} - ${dutySlot.endTime}`;
+  // Build four sheets
+  createRegularSheet(workbook, dutySlot, assignments, faculty, timeSlot);
+  createRelieverOrSquadSheet(
     workbook,
-    date,
-    timeSlot,
+    dutySlot,
     assignments,
-    dutySlot
+    faculty,
+    timeSlot,
+    'reliever'
+  );
+  createRelieverOrSquadSheet(
+    workbook,
+    dutySlot,
+    assignments,
+    faculty,
+    timeSlot,
+    'squad'
+  );
+  createBufferSheet(workbook, dutySlot, assignments, faculty, timeSlot);
+
+  const filename = `day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${
+    dutySlot.date.toISOString().split('T')[0]
+  }.xlsx`;
+  await downloadWorkbook(workbook, filename);
+}
+
+// Helper functions for multi-sheet export
+function headerBlock(ws: ExcelJS.Worksheet, subtitle: string) {
+  ws.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  ws.mergeCells('A1:F1');
+  const titleCell = ws.getCell('A1');
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.font = { bold: true, size: 14 };
+  ws.addRow([subtitle]);
+  ws.mergeCells('A2:F2');
+  const subCell = ws.getCell('A2');
+  subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  subCell.font = { bold: true };
+  ws.addRow([]);
+}
+
+function createRegularSheet(
+  workbook: ExcelJS.Workbook,
+  slot: DutySlot,
+  allAssignments: Assignment[],
+  faculty: Faculty[],
+  timeSlot: string
+): ExcelJS.Worksheet {
+  const ws = workbook.addWorksheet('Regular');
+  headerBlock(ws, `${slot.date.toLocaleDateString()} ${timeSlot}`);
+  ws.addRow([
+    'S No',
+    'Role',
+    'Room Number',
+    'Faculty ID',
+    'Faculty Name',
+    'Phone Number',
+  ]).font = {
+    bold: true,
+  };
+
+  const regs = allAssignments
+    .filter(
+      (a) => a.day === slot.day && a.slot === slot.slot && a.role === 'regular'
+    )
+    .sort((a, b) => (a.roomNumber || '').localeCompare(b.roomNumber || ''));
+
+  const facById = new Map(faculty.map((f) => [f.facultyId, f]));
+  const rows: Array<[number, string, string, string, string, string]> = [];
+
+  // Create a map of room -> assignment for quick lookup, but we're fine with sequential
+  let sNo = 1;
+  for (const a of regs) {
+    const f = facById.get(a.facultyId);
+    rows.push([
+      sNo++,
+      'REGULAR',
+      a.roomNumber || '',
+      a.facultyId,
+      f?.facultyName || 'Unknown',
+      f?.phoneNo || 'N/A',
+    ]);
+  }
+
+  // Add empties for unfilled rooms (left empty with light red bg)
+  const missing = Math.max(0, slot.regularDuties - regs.length);
+  for (let i = 0; i < missing; i++) {
+    rows.push([sNo++, 'REGULAR', '', '', '', '']);
+  }
+
+  for (const r of rows) ws.addRow(r);
+
+  // highlight empty rows (no facultyId)
+  highlightEmptyRows(ws, 4);
+  autoFitColumns(ws);
+  setWidths(ws);
+  return ws;
+}
+
+function createRelieverOrSquadSheet(
+  workbook: ExcelJS.Workbook,
+  slot: DutySlot,
+  allAssignments: Assignment[],
+  faculty: Faculty[],
+  timeSlot: string,
+  role: 'reliever' | 'squad'
+): ExcelJS.Worksheet {
+  const name = role === 'reliever' ? 'Reliever' : 'Squad';
+  const ws = workbook.addWorksheet(name);
+  headerBlock(ws, `${slot.date.toLocaleDateString()} ${timeSlot}`);
+  ws.addRow([
+    'S No',
+    'Role',
+    'Room Number',
+    'Faculty ID',
+    'Faculty Name',
+    'Phone Number',
+  ]).font = {
+    bold: true,
+  };
+
+  const facById = new Map(faculty.map((f) => [f.facultyId, f]));
+
+  // Collect assignments for the slot
+  const asg = allAssignments
+    .filter(
+      (a) => a.day === slot.day && a.slot === slot.slot && a.role === role
+    )
+    .map((a) => ({
+      ...a,
+      rooms: [...(a.rooms || [])].sort((x, y) => x.localeCompare(y)),
+    }));
+
+  // We need to also account for unassigned positions => empty groups with zero rooms
+  const needed =
+    role === 'reliever' ? slot.relieverDuties || 0 : slot.squadDuties || 0;
+  const empties = Math.max(0, needed - asg.length);
+  const groups = [
+    ...asg,
+    ...Array.from({ length: empties }, () => ({ rooms: [] as string[] })),
+  ];
+
+  let sNo = 1;
+
+  for (const grp of groups) {
+    const isAssigned = 'facultyId' in grp && !!grp.facultyId;
+    const rooms = (grp.rooms || []) as string[];
+    const minRows = Math.max(1, rooms.length);
+    const startRow = ws.rowCount + 1;
+
+    if (minRows === 0) {
+      // render one empty row placeholder
+      ws.addRow([sNo++, name.toUpperCase(), '', '', '', '']);
+    } else {
+      for (let i = 0; i < minRows; i++) {
+        const room = rooms[i] || '';
+        if (i === 0) {
+          const f = isAssigned
+            ? facById.get((grp as Assignment).facultyId)
+            : undefined;
+          ws.addRow([
+            sNo,
+            name.toUpperCase(),
+            room,
+            isAssigned ? (grp as Assignment).facultyId : '',
+            isAssigned ? f?.facultyName || 'Unknown' : '',
+            isAssigned ? f?.phoneNo || 'N/A' : '',
+          ]);
+        } else {
+          ws.addRow(['', name.toUpperCase(), room, '', '', '']);
+        }
+      }
+      sNo++;
+    }
+
+    const endRow = ws.rowCount;
+    // Merge S No, Faculty ID, Faculty Name, Phone vertically across the block
+    // Columns: 1=S No, 4=Faculty ID, 5=Faculty Name, 6=Phone
+    if (endRow > startRow) {
+      ws.mergeCells(startRow, 1, endRow, 1);
+      ws.mergeCells(startRow, 4, endRow, 4);
+      ws.mergeCells(startRow, 5, endRow, 5);
+      ws.mergeCells(startRow, 6, endRow, 6);
+      // Center merged cells vertically
+      ws.getCell(startRow, 1).alignment = {
+        vertical: 'middle',
+        horizontal: 'center',
+      };
+      ws.getCell(startRow, 4).alignment = { vertical: 'middle' };
+      ws.getCell(startRow, 5).alignment = { vertical: 'middle' };
+      ws.getCell(startRow, 6).alignment = { vertical: 'middle' };
+    }
+  }
+
+  // highlight empty blocks (no facultyId)
+  highlightEmptyRows(ws, 4);
+  autoFitColumns(ws);
+  setWidths(ws);
+  return ws;
+}
+
+function createBufferSheet(
+  workbook: ExcelJS.Workbook,
+  slot: DutySlot,
+  allAssignments: Assignment[],
+  faculty: Faculty[],
+  timeSlot: string
+): ExcelJS.Worksheet {
+  const ws = workbook.addWorksheet('Buffer');
+  headerBlock(ws, `${slot.date.toLocaleDateString()} ${timeSlot}`);
+  ws.addRow([
+    'S No',
+    'Role',
+    'Room Number',
+    'Faculty ID',
+    'Faculty Name',
+    'Phone Number',
+  ]).font = {
+    bold: true,
+  };
+
+  const facById = new Map(faculty.map((f) => [f.facultyId, f]));
+  const bufs = allAssignments.filter(
+    (a) => a.day === slot.day && a.slot === slot.slot && a.role === 'buffer'
   );
 
-  const filename = `duty-${date.toISOString().split('T')[0]}-slot.xlsx`;
-  await downloadWorkbook(workbook, filename);
+  let sNo = 1;
+  for (const a of bufs) {
+    const f = facById.get(a.facultyId);
+    ws.addRow([
+      sNo++,
+      'BUFFER',
+      '',
+      a.facultyId,
+      f?.facultyName || 'Unknown',
+      f?.phoneNo || 'N/A',
+    ]);
+  }
+
+  // Empty rows for missing buffers
+  const missing = Math.max(0, slot.bufferDuties - bufs.length);
+  for (let i = 0; i < missing; i++) {
+    ws.addRow([sNo++, 'BUFFER', '', '', '', '']);
+  }
+
+  highlightEmptyRows(ws, 4);
+  autoFitColumns(ws);
+  setWidths(ws);
+  return ws;
+}
+
+function highlightEmptyRows(ws: ExcelJS.Worksheet, facultyIdCol: number) {
+  const headerRow = 4; // 1:title,2:subtitle,3:blank,4:header
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const idCell = ws.getCell(r, facultyIdCol);
+    if (!idCell.value) {
+      for (let c = 1; c <= 6; c++) {
+        const cell = ws.getCell(r, c);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFEBEE' }, // light red
+        };
+      }
+    }
+  }
+}
+
+function setWidths(ws: ExcelJS.Worksheet) {
+  ws.getColumn(1).width = 6;
+  ws.getColumn(2).width = 12;
+  ws.getColumn(3).width = 15;
+  ws.getColumn(4).width = 14;
+  ws.getColumn(5).width = 28;
+  ws.getColumn(6).width = 15;
+}
+
+function createFacultyOverviewSheet(
+  workbook: ExcelJS.Workbook,
+  dutySlots: DutySlot[],
+  assignments: Assignment[],
+  faculty: Faculty[]
+): ExcelJS.Worksheet {
+  const ws = workbook.addWorksheet('Faculty Overview');
+
+  // Title
+  ws.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  ws.mergeCells('A1:I1');
+  ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.addRow(['CONSOLIDATED FACULTY DUTY OVERVIEW']);
+  ws.mergeCells('A2:I2');
+  ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+  ws.getCell('A2').font = { bold: true };
+  ws.addRow([]);
+
+  // Header
+  ws.addRow([
+    'S No',
+    'Date',
+    'Time Slot',
+    'Role',
+    'Room Number',
+    'Faculty ID',
+    'Faculty Name',
+    'Designation',
+    'Phone',
+  ]).font = { bold: true };
+
+  const facById = new Map(faculty.map((f) => [f.facultyId, f]));
+  const slotMap = new Map<string, DutySlot>();
+  const slotKey = (d: number, s: number) => `d${d}-s${s}`;
+  for (const ds of dutySlots) slotMap.set(slotKey(ds.day, ds.slot), ds);
+
+  // Group by faculty
+  const byFaculty = new Map<string, Assignment[]>();
+  for (const a of assignments) {
+    if (!byFaculty.has(a.facultyId)) byFaculty.set(a.facultyId, []);
+    byFaculty.get(a.facultyId)!.push(a);
+  }
+  // Include zero-duty faculty
+  for (const f of faculty)
+    if (!byFaculty.has(f.facultyId)) byFaculty.set(f.facultyId, []);
+
+  // Deterministic faculty order
+  const facultyIds = [...byFaculty.keys()].sort((a, b) => a.localeCompare(b));
+  let sNo = 1;
+
+  for (const fid of facultyIds) {
+    const f = facById.get(fid);
+    const list = [...(byFaculty.get(fid) || [])];
+
+    // Sort duties by date, slot, role
+    list.sort((a, b) => {
+      if (a.day !== b.day) return a.day - b.day;
+      if (a.slot !== b.slot) return a.slot - b.slot;
+      return a.role.localeCompare(b.role);
+    });
+
+    // Group by (day, slot, role) so reliever/squad rooms are a single duty
+    const groups = new Map<string, Assignment[]>();
+    for (const d of list) {
+      const key = `${d.day}|${d.slot}|${d.role}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(d);
+    }
+
+    // For a well-formed solver, we only expect one assignment per (day,slot,role) per faculty.
+    // But if duplicates exist, we'll fold rooms together.
+    const grouped = [...groups.entries()]
+      .map(([key, arr]) => {
+        const [dayStr, slotStr, role] = key.split('|');
+        const day = Number(dayStr);
+        const slot = Number(slotStr);
+        const ds = slotMap.get(slotKey(day, slot));
+        const dateStr = ds ? ds.date.toLocaleDateString() : '';
+        const timeStr = ds ? `${ds.startTime} - ${ds.endTime}` : '';
+        // Collect rooms for reliever/squad; for regular include roomNumber; buffer has no rooms
+        const allRooms = arr.flatMap((a) => {
+          if (role === 'reliever' || role === 'squad') {
+            return (a.rooms || []).map((r) => r);
+          }
+          if (role === 'regular' && a.roomNumber) {
+            return [a.roomNumber];
+          }
+          return [];
+        });
+        const rooms = [...new Set(allRooms)].sort((x, y) => x.localeCompare(y));
+        return {
+          day,
+          slot,
+          dateStr,
+          timeStr,
+          role: role.toUpperCase() as
+            | 'REGULAR'
+            | 'RELIEVER'
+            | 'SQUAD'
+            | 'BUFFER',
+          rooms,
+        };
+      })
+      .sort((a, b) => {
+        if (a.day !== b.day) return a.day - b.day;
+        if (a.slot !== b.slot) return a.slot - b.slot;
+        return a.role.localeCompare(b.role);
+      });
+
+    // If no duties, render a single blank row for this faculty
+    if (grouped.length === 0) {
+      const startRow = ws.rowCount + 1;
+      ws.addRow([
+        sNo,
+        '',
+        '',
+        '',
+        '',
+        fid,
+        f?.facultyName || 'Unknown',
+        f?.designation || 'Unknown',
+        f?.phoneNo || 'N/A',
+      ]);
+      const endRow = ws.rowCount;
+      ws.mergeCells(startRow, 1, endRow, 1);
+      ws.mergeCells(startRow, 6, endRow, 6);
+      ws.mergeCells(startRow, 7, endRow, 7);
+      ws.mergeCells(startRow, 8, endRow, 8);
+      ws.mergeCells(startRow, 9, endRow, 9);
+      ws.getCell(startRow, 1).alignment = {
+        vertical: 'middle',
+        horizontal: 'center',
+      };
+      ws.getCell(startRow, 6).alignment = { vertical: 'middle' };
+      ws.getCell(startRow, 7).alignment = { vertical: 'middle' };
+      ws.getCell(startRow, 8).alignment = { vertical: 'middle' };
+      ws.getCell(startRow, 9).alignment = { vertical: 'middle' };
+      sNo++;
+      continue;
+    }
+
+    // Emit all grouped duties for this faculty, but remember we need:
+    // - faculty columns merged across ALL their rows
+    // - date/time/role merged within each duty group
+    const facultyStart = ws.rowCount + 1;
+
+    for (const g of grouped) {
+      const span = Math.max(1, g.rooms.length);
+      const groupStart = ws.rowCount + 1;
+
+      if (span === 1) {
+        // One row duty (regular with 1 room or buffer)
+        const room = g.role === 'REGULAR' ? g.rooms[0] || '' : '';
+        ws.addRow([
+          sNo, // temp; will merge later
+          g.dateStr,
+          g.timeStr,
+          g.role,
+          room,
+          fid,
+          f?.facultyName || 'Unknown',
+          f?.designation || 'Unknown',
+          f?.phoneNo || 'N/A',
+        ]);
+      } else {
+        // Reliever/Squad with multiple rooms: N rows, merge Date/Time/Role across N rows
+        for (let i = 0; i < span; i++) {
+          const room = g.rooms[i] || '';
+          if (i === 0) {
+            ws.addRow([
+              sNo, // temp; will merge later
+              g.dateStr,
+              g.timeStr,
+              g.role,
+              room,
+              fid,
+              f?.facultyName || 'Unknown',
+              f?.designation || 'Unknown',
+              f?.phoneNo || 'N/A',
+            ]);
+          } else {
+            ws.addRow([
+              '', // SNo merged
+              g.dateStr,
+              g.timeStr,
+              g.role,
+              room,
+              '', // Faculty cols merged
+              '',
+              '',
+              '',
+            ]);
+          }
+        }
+        // Merge Date (col 2), Time Slot (3), Role (4) within this duty group
+        const groupEnd = ws.rowCount;
+        ws.mergeCells(groupStart, 2, groupEnd, 2);
+        ws.mergeCells(groupStart, 3, groupEnd, 3);
+        ws.mergeCells(groupStart, 4, groupEnd, 4);
+        ws.getCell(groupStart, 2).alignment = { vertical: 'middle' };
+        ws.getCell(groupStart, 3).alignment = { vertical: 'middle' };
+        ws.getCell(groupStart, 4).alignment = { vertical: 'middle' };
+      }
+
+      sNo++;
+    }
+
+    // Merge faculty columns across ALL rows for this faculty block
+    const facultyEnd = ws.rowCount;
+    if (facultyEnd > facultyStart) {
+      ws.mergeCells(facultyStart, 1, facultyEnd, 1); // S No
+      ws.mergeCells(facultyStart, 6, facultyEnd, 6); // Faculty ID
+      ws.mergeCells(facultyStart, 7, facultyEnd, 7); // Name
+      ws.mergeCells(facultyStart, 8, facultyEnd, 8); // Designation
+      ws.mergeCells(facultyStart, 9, facultyEnd, 9); // Phone
+
+      ws.getCell(facultyStart, 1).alignment = {
+        vertical: 'middle',
+        horizontal: 'center',
+      };
+      ws.getCell(facultyStart, 6).alignment = { vertical: 'middle' };
+      ws.getCell(facultyStart, 7).alignment = { vertical: 'middle' };
+      ws.getCell(facultyStart, 8).alignment = { vertical: 'middle' };
+      ws.getCell(facultyStart, 9).alignment = { vertical: 'middle' };
+    }
+  }
+
+  autoFitColumns(ws);
+  ws.getColumn(1).width = 6; // S No
+  ws.getColumn(2).width = 14; // Date
+  ws.getColumn(3).width = 18; // Time Slot
+  ws.getColumn(4).width = 12; // Role
+  ws.getColumn(5).width = 16; // Room
+  ws.getColumn(6).width = 14; // Faculty ID
+  ws.getColumn(7).width = 28; // Name
+  ws.getColumn(8).width = 18; // Designation
+  ws.getColumn(9).width = 16; // Phone
+
+  return ws;
 }
 
 function getRoleDisplay(role: string): string {
