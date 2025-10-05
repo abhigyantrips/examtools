@@ -206,10 +206,17 @@ export async function exportDaySlotAssignments(
     facultyName: string;
     phoneNo: string;
     role: string;
-  }[]
+  }[],
+  dutySlot?: DutySlot
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  createSlotAssignmentWorksheet(workbook, date, timeSlot, assignments);
+  createSlotAssignmentWorksheet(
+    workbook,
+    date,
+    timeSlot,
+    assignments,
+    dutySlot
+  );
 
   const filename = `duty-${date.toISOString().split('T')[0]}-slot.xlsx`;
   await downloadWorkbook(workbook, filename);
@@ -273,7 +280,8 @@ export async function exportBatchAssignments(
       slotWorkbook,
       dutySlot.date,
       timeSlot,
-      formattedAssignments
+      formattedAssignments,
+      dutySlot
     );
 
     const buffer = await slotWorkbook.xlsx.writeBuffer();
@@ -501,7 +509,8 @@ function createSlotAssignmentWorksheet(
     facultyName: string;
     phoneNo: string;
     role: string;
-  }[]
+  }[],
+  dutySlot?: DutySlot
 ): ExcelJS.Worksheet {
   const worksheet = workbook.addWorksheet('Assignments');
 
@@ -544,6 +553,40 @@ function createSlotAssignmentWorksheet(
       assignment.phoneNo,
     ]);
   });
+
+  // Check if slot is incomplete and add warning
+  if (dutySlot) {
+    const expectedTotal =
+      dutySlot.regularDuties +
+      (dutySlot.relieverDuties || 0) +
+      (dutySlot.squadDuties || 0) +
+      dutySlot.bufferDuties;
+
+    if (assignments.length < expectedTotal) {
+      worksheet.addRow([]); // Empty row
+
+      const warningRow = worksheet.addRow([
+        '⚠️ WARNING: This slot has incomplete assignments. Some duties could not be filled.',
+      ]);
+      worksheet.mergeCells(`A${warningRow.number}:F${warningRow.number}`);
+      const warningCell = worksheet.getCell(`A${warningRow.number}`);
+      warningCell.font = { bold: true, color: { argb: 'FFD32F2F' } };
+      warningCell.alignment = { horizontal: 'center' };
+      warningCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFF59D' },
+      };
+
+      const detailRow = worksheet.addRow([
+        `Assigned: ${assignments.length} / ${expectedTotal} duties`,
+      ]);
+      worksheet.mergeCells(`A${detailRow.number}:F${detailRow.number}`);
+      const detailCell = worksheet.getCell(`A${detailRow.number}`);
+      detailCell.alignment = { horizontal: 'center' };
+      detailCell.font = { italic: true };
+    }
+  }
 
   // Auto-fit columns and set specific column widths for better appearance
   autoFitColumns(worksheet);

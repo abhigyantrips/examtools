@@ -219,7 +219,8 @@ export function AssignmentsPhase({
       exportDaySlotAssignments(
         dutySlot.date,
         `${dutySlot.startTime} - ${dutySlot.endTime}`,
-        exportData
+        exportData,
+        dutySlot
       );
       toast.success(`Day ${day + 1} Slot ${slot + 1} assignments exported.`);
     },
@@ -434,6 +435,54 @@ export function AssignmentsPhase({
                   >
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                     <span className="text-sm">{warning}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+      {/* Incomplete Slots Warning */}
+      {assignmentResult &&
+        assignmentResult.incompleteSlots &&
+        assignmentResult.incompleteSlots.length > 0 && (
+          <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+                <AlertTriangle className="size-5" />
+                Incomplete Slot Assignments (
+                {assignmentResult.incompleteSlots.length})
+              </CardTitle>
+              <CardDescription>
+                The following slots could not be completely filled. Exports will
+                include only the assigned duties.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {assignmentResult.incompleteSlots.map((slot, index) => (
+                  <div
+                    key={index}
+                    className="rounded border border-yellow-300 bg-yellow-100 p-3 dark:border-yellow-700 dark:bg-yellow-900/50"
+                  >
+                    <div className="font-medium text-yellow-900 dark:text-yellow-100">
+                      Day {slot.day + 1}, Slot {slot.slot + 1}
+                    </div>
+                    <div className="mt-2 grid grid-cols-4 gap-2 text-sm text-yellow-800 dark:text-yellow-200">
+                      <div>
+                        Regular: {slot.regular.assigned}/{slot.regular.needed}
+                      </div>
+                      <div>
+                        Reliever: {slot.reliever.assigned}/
+                        {slot.reliever.needed}
+                      </div>
+                      <div>
+                        Squad: {slot.squad.assigned}/{slot.squad.needed}
+                      </div>
+                      <div>
+                        Buffer: {slot.buffer.assigned}/{slot.buffer.needed}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

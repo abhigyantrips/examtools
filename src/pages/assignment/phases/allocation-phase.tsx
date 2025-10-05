@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -64,7 +65,8 @@ export function AllocationPhase({
         relieverDuties:
           examStructure.designationRelieverCounts?.[designation] || 0,
         squadDuties: examStructure.designationSquadCounts?.[designation] || 0,
-        bufferDuties: examStructure.designationBufferCounts?.[designation] || 0,
+        bufferEligible:
+          examStructure.designationBufferEligibility?.[designation] || false,
       }))
       .sort((a, b) => b.facultyCount - a.facultyCount);
   }, [faculty, examStructure]);
@@ -76,20 +78,16 @@ export function AllocationPhase({
         const facultyRegular = curr.regularDuties * curr.facultyCount;
         const facultyReliever = curr.relieverDuties * curr.facultyCount;
         const facultySquad = curr.squadDuties * curr.facultyCount;
-        const facultyBuffer = curr.bufferDuties * curr.facultyCount;
+        const bufferEligibleCount = curr.bufferEligible ? 1 : 0;
 
         return {
           faculty: acc.faculty + curr.facultyCount,
           regularDuties: acc.regularDuties + facultyRegular,
           relieverDuties: acc.relieverDuties + facultyReliever,
           squadDuties: acc.squadDuties + facultySquad,
-          bufferDuties: acc.bufferDuties + facultyBuffer,
+          bufferEligible: acc.bufferEligible + bufferEligibleCount,
           totalDuties:
-            acc.totalDuties +
-            facultyRegular +
-            facultyReliever +
-            facultySquad +
-            facultyBuffer,
+            acc.totalDuties + facultyRegular + facultyReliever + facultySquad,
         };
       },
       {
@@ -97,7 +95,7 @@ export function AllocationPhase({
         regularDuties: 0,
         relieverDuties: 0,
         squadDuties: 0,
-        bufferDuties: 0,
+        bufferEligible: 0,
         totalDuties: 0,
       }
     );
@@ -106,7 +104,7 @@ export function AllocationPhase({
   // Update designation counts
   const updateDesignationCount = (
     designation: string,
-    type: 'regular' | 'reliever' | 'squad' | 'buffer',
+    type: 'regular' | 'reliever' | 'squad',
     value: number
   ) => {
     const updates: Partial<ExamStructure> = {};
@@ -130,17 +128,24 @@ export function AllocationPhase({
           [designation]: value,
         };
         break;
-      case 'buffer':
-        updates.designationBufferCounts = {
-          ...examStructure.designationBufferCounts,
-          [designation]: value,
-        };
-        break;
     }
 
     onExamStructureUpdated({
       ...examStructure,
       ...updates,
+    });
+  };
+
+  const updateDesignationEligibility = (
+    designation: string,
+    enabled: boolean
+  ) => {
+    onExamStructureUpdated({
+      ...examStructure,
+      designationBufferEligibility: {
+        ...examStructure.designationBufferEligibility,
+        [designation]: enabled,
+      },
     });
   };
 
@@ -168,7 +173,7 @@ export function AllocationPhase({
                   <TableHead className="text-center">Regular Duties</TableHead>
                   <TableHead className="text-center">Reliever Duties</TableHead>
                   <TableHead className="text-center">Squad Duties</TableHead>
-                  <TableHead className="text-center">Buffer Duties</TableHead>
+                  <TableHead className="text-center">Buffer Eligible</TableHead>
                   <TableHead className="text-center">
                     Total per Faculty
                   </TableHead>
@@ -183,13 +188,10 @@ export function AllocationPhase({
                     regularDuties,
                     relieverDuties,
                     squadDuties,
-                    bufferDuties,
+                    bufferEligible,
                   }) => {
                     const totalPerFaculty =
-                      regularDuties +
-                      relieverDuties +
-                      squadDuties +
-                      bufferDuties;
+                      regularDuties + relieverDuties + squadDuties;
                     const grandTotal = totalPerFaculty * facultyCount;
 
                     return (
@@ -251,19 +253,17 @@ export function AllocationPhase({
                           />
                         </TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={bufferDuties}
-                            onChange={(e) =>
-                              updateDesignationCount(
-                                designation,
-                                'buffer',
-                                parseInt(e.target.value) || 0
-                              )
-                            }
-                            className="w-20 text-center"
-                          />
+                          <div className="flex justify-center">
+                            <Switch
+                              checked={bufferEligible}
+                              onCheckedChange={(checked) =>
+                                updateDesignationEligibility(
+                                  designation,
+                                  checked
+                                )
+                              }
+                            />
+                          </div>
                         </TableCell>
                         <TableCell className="text-center font-medium">
                           {totalPerFaculty}
@@ -292,7 +292,7 @@ export function AllocationPhase({
                     {totals.squadDuties}
                   </TableCell>
                   <TableCell className="text-center text-orange-700 dark:text-orange-400">
-                    {totals.bufferDuties}
+                    {totals.bufferEligible} Designations
                   </TableCell>
                   <TableCell className="text-center">-</TableCell>
                   <TableCell className="text-center text-lg font-bold">
@@ -341,10 +341,10 @@ export function AllocationPhase({
             </div>
             <div className="rounded-lg bg-orange-50 p-3 text-center dark:bg-orange-900/30">
               <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                {totals.bufferDuties}
+                {totals.bufferEligible}
               </div>
               <div className="text-sm text-orange-600 dark:text-orange-400">
-                Buffer Duties
+                Buffer Designations
               </div>
             </div>
             <div className="rounded-lg bg-teal-50 p-3 text-center dark:bg-teal-900/30">

@@ -27,7 +27,7 @@ export interface ExamStructure {
   designationDutyCounts: Record<string, number>;
   designationRelieverCounts?: Record<string, number>;
   designationSquadCounts?: Record<string, number>;
-  designationBufferCounts?: Record<string, number>;
+  designationBufferEligibility?: Record<string, boolean>;
 }
 
 export interface UnavailableFaculty {
@@ -56,6 +56,14 @@ export interface AssignmentResult {
   assignments: Assignment[];
   errors: string[];
   warnings: string[];
+  incompleteSlots?: Array<{
+    day: number;
+    slot: number;
+    regular: { needed: number; assigned: number };
+    reliever: { needed: number; assigned: number };
+    squad: { needed: number; assigned: number };
+    buffer: { needed: number; assigned: number };
+  }>;
 }
 
 // Excel upload helpers
