@@ -264,22 +264,37 @@ export function AssignmentsPhase({
                 faculty availability
               </CardDescription>
             </div>
-            <Button
-              onClick={runAssignment}
-              disabled={assigning || examStructure.dutySlots.length === 0}
-            >
-              {assigning ? (
-                <>
-                  <Clock className="size-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Play className="size-4" />
-                  Generate
-                </>
+            <div className="flex gap-2">
+              {/* Reset Button: visible if assignmentResult exists */}
+              {examStructure.dutySlots.length != 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAssignmentResult(null);
+                    onAssignmentsUpdated([]);
+                  }}
+                  disabled={assigning}
+                >
+                  Reset
+                </Button>
               )}
-            </Button>
+              <Button
+                onClick={runAssignment}
+                disabled={assigning || examStructure.dutySlots.length === 0}
+              >
+                {assigning ? (
+                  <>
+                    <Clock className="size-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-4" />
+                    Generate
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
