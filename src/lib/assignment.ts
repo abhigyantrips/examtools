@@ -9,7 +9,7 @@ import type {
 } from '@/types';
 
 // Set this to the facultyId you want to debug
-const focusedFacultyId = 'BROKEN_ID_WAS_HERE';
+// const focusedFacultyId = 'BROKEN_ID_WAS_HERE';
 
 interface FacultyDutyCount {
   facultyId: string;
@@ -354,11 +354,11 @@ function assignRegular(
     }
 
     const chosen = selectDeterministic(eligible, dutyCounts);
-    if (chosen.facultyId === focusedFacultyId) {
-      console.log(
-        `[assignRegular] Assigning REGULAR to faculty ${chosen.facultyId} on day ${ctx.day} slot ${ctx.slot}. assignedDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.assignedDuties}, targetDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.targetDuties}`
-      );
-    }
+    // if (chosen.facultyId === focusedFacultyId) {
+    //   console.log(
+    //     `[assignRegular] Assigning REGULAR to faculty ${chosen.facultyId} on day ${ctx.day} slot ${ctx.slot}. assignedDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.assignedDuties}, targetDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.targetDuties}`
+    //   );
+    // }
     assigned.push({
       day: ctx.day,
       slot: ctx.slot,
@@ -370,11 +370,11 @@ function assignRegular(
 
     const dc = dutyCounts.find((x) => x.facultyId === chosen.facultyId)!;
     dc.assignedDuties++;
-    if (chosen.facultyId === focusedFacultyId) {
-      console.log(
-        `[assignRegular] Faculty ${chosen.facultyId} assignedDuties incremented to ${dc.assignedDuties}`
-      );
-    }
+    // if (chosen.facultyId === focusedFacultyId) {
+    //   console.log(
+    //     `[assignRegular] Faculty ${chosen.facultyId} assignedDuties incremented to ${dc.assignedDuties}`
+    //   );
+    // }
   }
 
   return { assigned, violations, warnings };
@@ -669,11 +669,11 @@ function filterEligible(
       assignedRegular >= regularTarget &&
       remainingPool > 5
     ) {
-      if (f.facultyId === focusedFacultyId) {
-        console.log(
-          `[fEli] Faculty ${f.facultyId} assignedRegular (${assignedRegular}) >= regularTarget (${regularTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
-        );
-      }
+      // if (f.facultyId === focusedFacultyId) {
+      //   console.log(
+      //     `[fEli] Faculty ${f.facultyId} assignedRegular (${assignedRegular}) >= regularTarget (${regularTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
+      //   );
+      // }
       return false;
     }
     if (
@@ -693,11 +693,11 @@ function filterEligible(
       assignedSquad >= squadTarget &&
       remainingPool > 5
     ) {
-      if (f.facultyId === focusedFacultyId) {
-        console.log(
-          `[fEli] Faculty ${f.facultyId} assignedSquad (${assignedSquad}) >= squadTarget (${squadTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
-        );
-      }
+      // if (f.facultyId === focusedFacultyId) {
+      //   console.log(
+      //     `[fEli] Faculty ${f.facultyId} assignedSquad (${assignedSquad}) >= squadTarget (${squadTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
+      //   );
+      // }
       return false;
     }
 
@@ -736,11 +736,11 @@ function filterEligible(
       }
     }
 
-    if (f.facultyId === focusedFacultyId) {
-      console.log(
-        `[fEli] Faculty ${f.facultyId} eligible for role ${role} on day ${ctx.day} slot ${ctx.slot}. allowTargetOverflow=${opts.allowTargetOverflow}, assignedDuties=${dc.assignedDuties}, targetDuties=${dc.targetDuties}, assignedRegular=${assignedRegular}, assignedReliever=${assignedReliever}, assignedSquad=${assignedSquad}`
-      );
-    }
+    // if (f.facultyId === focusedFacultyId) {
+    //   console.log(
+    //     `[fEli] Faculty ${f.facultyId} eligible for role ${role} on day ${ctx.day} slot ${ctx.slot}. allowTargetOverflow=${opts.allowTargetOverflow}, assignedDuties=${dc.assignedDuties}, targetDuties=${dc.targetDuties}, assignedRegular=${assignedRegular}, assignedReliever=${assignedReliever}, assignedSquad=${assignedSquad}`
+    //   );
+    // }
     return true;
   });
 }
