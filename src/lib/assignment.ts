@@ -8,6 +8,9 @@ import type {
   Violation,
 } from '@/types';
 
+// Set this to the facultyId you want to debug
+const focusedFacultyId = 'BROKEN_ID_WAS_HERE';
+
 interface FacultyDutyCount {
   facultyId: string;
   targetDuties: number;
@@ -108,7 +111,13 @@ export function assignDuties(
     const slotAssigned: Assignment[] = [];
 
     // Phase A: Regular (mandatory, rooms)
-    const aReg = assignRegular(ctx, dutyCounts, assignments, slotAssigned);
+    const aReg = assignRegular(
+      ctx,
+      dutyCounts,
+      assignments,
+      slotAssigned,
+      examStructure
+    );
     assignments.push(...aReg.assigned);
     violations.push(...aReg.violations);
     warnings.push(...aReg.warnings);
@@ -119,7 +128,8 @@ export function assignDuties(
       dutyCounts,
       assignments,
       slotAssigned,
-      'reliever'
+      'reliever',
+      examStructure
     );
     assignments.push(...aRel.assigned);
     violations.push(...aRel.violations);
@@ -131,7 +141,8 @@ export function assignDuties(
       dutyCounts,
       assignments,
       slotAssigned,
-      'squad'
+      'squad',
+      examStructure
     );
     assignments.push(...aSq.assigned);
     violations.push(...aSq.violations);
@@ -283,7 +294,8 @@ function assignRegular(
   ctx: SlotCtx,
   dutyCounts: FacultyDutyCount[],
   globalAssignments: Assignment[],
-  slotAssignments: Assignment[]
+  slotAssignments: Assignment[],
+  examStructure: ExamStructure
 ): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
   const assigned: Assignment[] = [];
   const violations: Violation[] = [];
@@ -303,7 +315,8 @@ function assignRegular(
         allowConsecutive: false,
         allowTargetOverflow: false,
         respectBufferLimit: true,
-      }
+      },
+      examStructure
     );
 
     // Pass 2 (relax back-to-back)
@@ -318,7 +331,8 @@ function assignRegular(
           allowConsecutive: true,
           allowTargetOverflow: false,
           respectBufferLimit: true,
-        }
+        },
+        examStructure
       );
       if (eligible.length > 0) {
         warnings.push(
@@ -340,6 +354,11 @@ function assignRegular(
     }
 
     const chosen = selectDeterministic(eligible, dutyCounts);
+    if (chosen.facultyId === focusedFacultyId) {
+      console.log(
+        `[assignRegular] Assigning REGULAR to faculty ${chosen.facultyId} on day ${ctx.day} slot ${ctx.slot}. assignedDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.assignedDuties}, targetDuties=${dutyCounts.find((x) => x.facultyId === chosen.facultyId)?.targetDuties}`
+      );
+    }
     assigned.push({
       day: ctx.day,
       slot: ctx.slot,
@@ -351,6 +370,11 @@ function assignRegular(
 
     const dc = dutyCounts.find((x) => x.facultyId === chosen.facultyId)!;
     dc.assignedDuties++;
+    if (chosen.facultyId === focusedFacultyId) {
+      console.log(
+        `[assignRegular] Faculty ${chosen.facultyId} assignedDuties incremented to ${dc.assignedDuties}`
+      );
+    }
   }
 
   return { assigned, violations, warnings };
@@ -361,7 +385,8 @@ function assignCoverage(
   dutyCounts: FacultyDutyCount[],
   globalAssignments: Assignment[],
   slotAssignments: Assignment[],
-  role: 'reliever' | 'squad'
+  role: 'reliever' | 'squad',
+  examStructure: ExamStructure
 ): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
   const assigned: Assignment[] = [];
   const violations: Violation[] = [];
@@ -385,7 +410,8 @@ function assignCoverage(
         allowConsecutive: false,
         allowTargetOverflow: false,
         respectBufferLimit: true,
-      }
+      },
+      examStructure
     );
 
     // Pass 2: relax reliever/squad availability (still no consecutive)
@@ -400,7 +426,8 @@ function assignCoverage(
           allowConsecutive: false,
           allowTargetOverflow: true, // allow over target if capacity pressure
           respectBufferLimit: true,
-        }
+        },
+        examStructure
       );
     }
 
@@ -416,7 +443,8 @@ function assignCoverage(
           allowConsecutive: true,
           allowTargetOverflow: true,
           respectBufferLimit: true,
-        }
+        },
+        examStructure
       );
       if (eligible.length > 0) {
         warnings.push(
@@ -482,7 +510,8 @@ function assignBuffer(
         allowConsecutive: false,
         allowTargetOverflow: true, // buffer doesn't count toward target; we still pick by deficit first
         respectBufferLimit: true,
-      }
+      },
+      structure
     ).filter(
       (f) => structure.designationBufferEligibility?.[f.designation] === true
     );
@@ -499,7 +528,8 @@ function assignBuffer(
           allowConsecutive: false,
           allowTargetOverflow: true,
           respectBufferLimit: false, // relax buffer limit last? We were asked to keep 1 buffer max; do not relax this. Keep true.
-        }
+        },
+        structure
       ).filter(
         (f) => structure.designationBufferEligibility?.[f.designation] === true
       );
@@ -517,7 +547,8 @@ function assignBuffer(
           allowConsecutive: true,
           allowTargetOverflow: true,
           respectBufferLimit: true,
-        }
+        },
+        structure
       ).filter(
         (f) => structure.designationBufferEligibility?.[f.designation] === true
       );
@@ -569,7 +600,8 @@ function filterEligible(
     allowConsecutive: boolean;
     allowTargetOverflow: boolean;
     respectBufferLimit: boolean;
-  }
+  },
+  examStructure: ExamStructure
 ): Faculty[] {
   // Enforce one-role-per-slot
   const alreadyInSlot = new Set(slotAssignments.map((a) => a.facultyId));
@@ -602,11 +634,77 @@ function filterEligible(
       : 0;
 
   return ctx.availableFaculty.filter((f) => {
-    if (alreadyInSlot.has(f.facultyId)) return false;
+    if (alreadyInSlot.has(f.facultyId)) {
+      // if (f.facultyId === focusedFacultyId) {
+      //   console.log(`[fEli] Faculty ${f.facultyId} already assigned in slot ${ctx.day}-${ctx.slot}`);
+      // }
+      return false;
+    }
 
     const dc = dutyCounts.find((d) => d.facultyId === f.facultyId)!;
 
+    // Count assigned duties by type for this faculty
+    const assignedRegular = globalAssignments.filter(
+      (a) => a.facultyId === f.facultyId && a.role === 'regular'
+    ).length;
+    const assignedReliever = globalAssignments.filter(
+      (a) => a.facultyId === f.facultyId && a.role === 'reliever'
+    ).length;
+    const assignedSquad = globalAssignments.filter(
+      (a) => a.facultyId === f.facultyId && a.role === 'squad'
+    ).length;
+
+    // Get target duties by type for this faculty based on Role
+    const regularTarget =
+      examStructure.designationDutyCounts[f.designation] || 0;
+    const relieverTarget =
+      examStructure.designationRelieverCounts?.[f.designation] || 0;
+    const squadTarget =
+      examStructure.designationSquadCounts?.[f.designation] || 0;
+
+    // Enforce per-role limits
+    if (
+      role === 'regular' &&
+      !opts.allowTargetOverflow &&
+      assignedRegular >= regularTarget &&
+      remainingPool > 5
+    ) {
+      if (f.facultyId === focusedFacultyId) {
+        console.log(
+          `[fEli] Faculty ${f.facultyId} assignedRegular (${assignedRegular}) >= regularTarget (${regularTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
+        );
+      }
+      return false;
+    }
+    if (
+      role === 'reliever' &&
+      !opts.allowTargetOverflow &&
+      assignedReliever >= relieverTarget &&
+      remainingPool > 5
+    ) {
+      // if (f.facultyId === focusedFacultyId) {
+      //   console.log(`[fEli] Faculty ${f.facultyId} assignedReliever (${assignedReliever}) >= relieverTarget (${relieverTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`);
+      // }
+      return false;
+    }
+    if (
+      role === 'squad' &&
+      !opts.allowTargetOverflow &&
+      assignedSquad >= squadTarget &&
+      remainingPool > 5
+    ) {
+      if (f.facultyId === focusedFacultyId) {
+        console.log(
+          `[fEli] Faculty ${f.facultyId} assignedSquad (${assignedSquad}) >= squadTarget (${squadTarget}), remainingPool=${remainingPool}, allowTargetOverflow=${opts.allowTargetOverflow}`
+        );
+      }
+      return false;
+    }
+
     if (role === 'buffer' && opts.respectBufferLimit && dc.bufferDuties >= 1) {
+      // if (f.facultyId === focusedFacultyId) {
+      //   console.log(`[fEli] Faculty ${f.facultyId} buffer limit reached.`);
+      // }
       return false;
     }
 
@@ -617,7 +715,12 @@ function filterEligible(
         dayRec?.slots.some(
           (rec) => rec.role === 'regular' && Math.abs(rec.slot - ctx.slot) === 1
         ) ?? false;
-      if (hasRR) return false;
+      if (hasRR) {
+        // if (f.facultyId === focusedFacultyId) {
+        //   console.log(`[fEli] Faculty ${f.facultyId} blocked for consecutive regular duties on day ${ctx.day}.`);
+        // }
+        return false;
+      }
     }
 
     // Prefer at most one REGULAR per day per faculty (soft preference).
@@ -626,21 +729,18 @@ function filterEligible(
       const dayRec = byFacultyDay.get(f.facultyId);
       const hasRegularToday = (dayRec?.regularCount || 0) >= 1;
       if (hasRegularToday && remainingPool > 5 && !opts.allowTargetOverflow) {
+        // if (f.facultyId === focusedFacultyId) {
+        //   console.log(`[fEli] Faculty ${f.facultyId} already has regular today. remainingPool=${remainingPool}`);
+        // }
         return false;
       }
     }
 
-    if (role !== 'buffer') {
-      // enforce target unless starved
-      if (
-        !opts.allowTargetOverflow &&
-        dc.assignedDuties >= dc.targetDuties &&
-        remainingPool > 5
-      ) {
-        return false;
-      }
+    if (f.facultyId === focusedFacultyId) {
+      console.log(
+        `[fEli] Faculty ${f.facultyId} eligible for role ${role} on day ${ctx.day} slot ${ctx.slot}. allowTargetOverflow=${opts.allowTargetOverflow}, assignedDuties=${dc.assignedDuties}, targetDuties=${dc.targetDuties}, assignedRegular=${assignedRegular}, assignedReliever=${assignedReliever}, assignedSquad=${assignedSquad}`
+      );
     }
-
     return true;
   });
 }
