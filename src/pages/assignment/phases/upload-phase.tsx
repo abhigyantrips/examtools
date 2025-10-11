@@ -124,7 +124,7 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
                 <Table>
                   <TableHeader className="bg-muted/50 sticky top-0">
                     <TableRow>
-                      <TableHead className="w-16">S No</TableHead>
+                      <TableHead className="w-16">S. No.</TableHead>
                       <TableHead>Faculty Name</TableHead>
                       <TableHead>Faculty ID</TableHead>
                       <TableHead>Designation</TableHead>
@@ -133,9 +133,11 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedFaculty.map((f) => (
+                    {sortedFaculty.map((f, index) => (
                       <TableRow key={f.facultyId}>
-                        <TableCell className="font-medium">{f.sNo}</TableCell>
+                        <TableCell className="font-medium">
+                          {index + 1}
+                        </TableCell>
                         <TableCell className="font-medium">
                           {f.facultyName}
                         </TableCell>
