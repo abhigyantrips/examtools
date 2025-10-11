@@ -27,6 +27,7 @@ import {
   exportBatchAssignments,
   exportDaySlotAssignments,
 } from '@/lib/excel';
+import { facultyCompare } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,9 +146,8 @@ export function AssignmentsPhase({
             );
           }
 
-          return (a.faculty?.facultyName || '').localeCompare(
-            b.faculty?.facultyName || ''
-          );
+          // For non-regular roles: designation → name → id
+          return facultyCompare(a.faculty, b.faculty);
         });
     },
     [assignments, faculty, getSlotAssignments]

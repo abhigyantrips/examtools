@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 
 import type { Faculty } from '@/types';
 
+import { facultyCompare } from '@/lib/utils';
+
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -57,6 +59,11 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
     onFacultyUploaded(newFaculty);
     setUploadSuccess(true);
   };
+
+  const sortedFaculty = useMemo(
+    () => [...faculty].sort((a, b) => facultyCompare(a, b)),
+    [faculty]
+  );
 
   return (
     <div className="space-y-6">
@@ -126,7 +133,7 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {faculty.map((f) => (
+                    {sortedFaculty.map((f) => (
                       <TableRow key={f.facultyId}>
                         <TableCell className="font-medium">{f.sNo}</TableCell>
                         <TableCell className="font-medium">

@@ -10,6 +10,8 @@ import type {
   UnavailableFaculty,
 } from '@/types';
 
+import { facultyCompare } from '@/lib/utils';
+
 interface ExamToolsDB extends DBSchema {
   examData: {
     key: 'current';
@@ -100,7 +102,9 @@ export function useExamData() {
   // Specific update functions
   const updateFaculty = useCallback(
     (faculty: Faculty[]) => {
-      saveData({ faculty });
+      // Normalize order once at intake for consistency across the app
+      const sorted = [...faculty].sort((a, b) => facultyCompare(a, b));
+      saveData({ faculty: sorted });
     },
     [saveData]
   );

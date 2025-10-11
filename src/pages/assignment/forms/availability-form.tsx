@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { DutySlot, Faculty, UnavailableFaculty } from '@/types';
 
-import { cn } from '@/lib/utils';
+import { cn, facultyCompare } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -46,6 +46,11 @@ export function AvailabilityForm({
   const [selectedFaculty, setSelectedFaculty] = useState<Faculty | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [facultySearchOpen, setFacultySearchOpen] = useState(false);
+
+  const sortedFaculty = useMemo(
+    () => [...faculty].sort((a, b) => facultyCompare(a, b)),
+    [faculty]
+  );
 
   // Get unique exam dates from duty slots
   const examDates = useMemo(() => {
@@ -159,7 +164,7 @@ export function AvailabilityForm({
                   <CommandEmpty>No faculty found.</CommandEmpty>
                   <CommandList>
                     <CommandGroup>
-                      {faculty.map((member) => (
+                      {sortedFaculty.map((member) => (
                         <CommandItem
                           key={member.facultyId}
                           value={`${member.facultyName} ${member.facultyId}`}
@@ -250,8 +255,9 @@ export function AvailabilityForm({
             </div>
           ) : (
             <div className="space-y-3">
-              {Object.values(unavailabilityByFaculty).map(
-                ({ faculty: facultyMember, dates }) => (
+              {Object.values(unavailabilityByFaculty)
+                .sort((a, b) => facultyCompare(a.faculty, b.faculty))
+                .map(({ faculty: facultyMember, dates }) => (
                   <div
                     key={facultyMember.facultyId}
                     className="flex items-start justify-between rounded-lg border p-3"
@@ -286,8 +292,7 @@ export function AvailabilityForm({
                       </div>
                     </div>
                   </div>
-                )
-              )}
+                ))}
             </div>
           )}
         </div>
