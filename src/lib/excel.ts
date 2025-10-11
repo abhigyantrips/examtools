@@ -209,8 +209,8 @@ export async function exportDaySlotAssignments(
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
   const timeSlot = `${dutySlot.startTime} - ${dutySlot.endTime}`;
-  // Build four sheets
-  createRegularSheet(workbook, dutySlot, assignments, faculty, timeSlot);
+  // Build the sheets
+  createRegularSheet(workbook, dutySlot, assignments, faculty, timeSlot, true);
   createRelieverOrSquadSheet(
     workbook,
     dutySlot,
@@ -227,7 +227,6 @@ export async function exportDaySlotAssignments(
     timeSlot,
     'squad'
   );
-  createBufferSheet(workbook, dutySlot, assignments, faculty, timeSlot);
 
   const filename = `day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${
     dutySlot.date.toISOString().split('T')[0]
@@ -283,7 +282,8 @@ function createRegularSheet(
   slot: DutySlot,
   allAssignments: Assignment[],
   faculty: Faculty[],
-  timeSlot: string
+  timeSlot: string,
+  appendBuffer?: boolean
 ): ExcelJS.Worksheet {
   const ws = workbook.addWorksheet('Regular');
   headerBlock(ws, `${slot.date.toLocaleDateString()} ${timeSlot}`);
@@ -327,6 +327,32 @@ function createRegularSheet(
   const missing = Math.max(0, slot.regularDuties - regs.length);
   for (let i = 0; i < missing; i++) {
     rows.push([sNo++, 'REGULAR', '', '', '', '']);
+  }
+
+  // Append buffer duties if requested
+  if (appendBuffer) {
+    const bufs = allAssignments.filter(
+      (a) => a.day === slot.day && a.slot === slot.slot && a.role === 'buffer'
+    );
+    // Sort buffers by designation → name
+    const bufsSorted = [...bufs].sort((a, b) =>
+      facultyCompare(facById.get(a.facultyId), facById.get(b.facultyId))
+    );
+    for (const a of bufsSorted) {
+      const f = facById.get(a.facultyId);
+      rows.push([
+        sNo++,
+        'BUFFER',
+        '',
+        a.facultyId,
+        f?.facultyName || 'Unknown',
+        f?.phoneNo || 'N/A',
+      ]);
+    }
+    const missingBuf = Math.max(0, slot.bufferDuties - bufs.length);
+    for (let i = 0; i < missingBuf; i++) {
+      rows.push([sNo++, 'BUFFER', '', '', '', '']);
+    }
   }
 
   for (const r of rows) {
@@ -456,72 +482,6 @@ function createRelieverOrSquadSheet(
         applyBorders(cell);
       });
     }
-  }
-
-  highlightEmptyRows(ws, 4);
-  autoFitColumns(ws);
-  setWidths(ws);
-  setRowHeights(ws, 4);
-  return ws;
-}
-
-function createBufferSheet(
-  workbook: ExcelJS.Workbook,
-  slot: DutySlot,
-  allAssignments: Assignment[],
-  faculty: Faculty[],
-  timeSlot: string
-): ExcelJS.Worksheet {
-  const ws = workbook.addWorksheet('Buffer');
-  headerBlock(ws, `${slot.date.toLocaleDateString()} ${timeSlot}`);
-
-  const headerRow = ws.addRow([
-    'S No',
-    'Role',
-    'Room Number',
-    'Faculty ID',
-    'Faculty Name',
-    'Phone Number',
-  ]);
-  headerRow.font = { bold: true };
-  headerRow.eachCell((cell) => {
-    applyBorders(cell);
-    applyPadding(cell);
-  });
-
-  const facById = new Map(faculty.map((f) => [f.facultyId, f]));
-  const bufs = allAssignments.filter(
-    (a) => a.day === slot.day && a.slot === slot.slot && a.role === 'buffer'
-  );
-  // Sort buffers by designation → name
-  const bufsSorted = [...bufs].sort((a, b) =>
-    facultyCompare(facById.get(a.facultyId), facById.get(b.facultyId))
-  );
-
-  let sNo = 1;
-  for (const a of bufsSorted) {
-    const f = facById.get(a.facultyId);
-    const row = ws.addRow([
-      sNo++,
-      'BUFFER',
-      '',
-      a.facultyId,
-      f?.facultyName || 'Unknown',
-      f?.phoneNo || 'N/A',
-    ]);
-    row.eachCell((cell) => {
-      applyBorders(cell);
-      applyPadding(cell);
-    });
-  }
-
-  const missing = Math.max(0, slot.bufferDuties - bufs.length);
-  for (let i = 0; i < missing; i++) {
-    const row = ws.addRow([sNo++, 'BUFFER', '', '', '', '']);
-    row.eachCell((cell) => {
-      applyBorders(cell);
-      applyPadding(cell);
-    });
   }
 
   highlightEmptyRows(ws, 4);
