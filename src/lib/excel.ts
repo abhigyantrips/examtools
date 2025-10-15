@@ -234,6 +234,96 @@ export async function exportDaySlotAssignments(
   await downloadWorkbook(workbook, filename);
 }
 
+export async function exportSignatureSheet(
+  dutySlots: DutySlot[],
+  assignments: Assignment[],
+  faculty: Faculty[]
+): Promise<void> {
+  // Create workbook and sheet
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Signature Sheet');
+
+  // Add title row (merged across 6 columns)
+  worksheet.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);
+  worksheet.mergeCells('A1:F1');
+  const titleCell = worksheet.getCell('A1');
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.font = { bold: true, size: 14 };
+  applyBorders(titleCell);
+
+  // Sort slots by day and then slot
+  const sortedSlots = [...dutySlots].sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day;
+    return a.slot - b.slot;
+  });
+
+  for (const slot of sortedSlots) {
+    // Add empty row
+    worksheet.addRow([]);
+    // Add date/time row (merged across 6 columns)
+    worksheet.addRow([
+      `${slot.date.toLocaleDateString()} ${slot.startTime} - ${slot.endTime}`,
+    ]);
+    worksheet.mergeCells(`A${worksheet.rowCount}:F${worksheet.rowCount}`);
+    const dateCell = worksheet.getCell(`A${worksheet.rowCount}`);
+    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    dateCell.font = { bold: true };
+    applyBorders(dateCell);
+    // Add Heading row
+    const headerRow = worksheet.addRow([
+      'S No',
+      'Faculty ID',
+      'Faculty Name',
+      'Role',
+      'Location',
+      'Signature',
+    ]);
+    // Format header row
+    headerRow.font = { bold: true };
+    headerRow.eachCell((cell) => {
+      applyBorders(cell);
+      applyPadding(cell);
+    });
+
+    // Get assignments for this slot
+    const slotAssignments = assignments.filter(
+      (a) => a.day === slot.day && a.slot === slot.slot
+    );
+
+    // Add data
+    const facById = new Map(faculty.map((f) => [f.facultyId, f]));
+    let sNo = 1;
+    for (const a of slotAssignments) {
+      const f = facById.get(a.facultyId);
+      const row = worksheet.addRow([
+        sNo++,
+        a.facultyId,
+        f?.facultyName || 'Unknown',
+        getRoleDisplay(a.role),
+        a.role === 'regular' ? a.roomNumber || '' : '',
+        '', // Signature column left blank
+      ]);
+      row.eachCell((cell) => {
+        applyBorders(cell);
+        applyPadding(cell);
+      });
+    }
+  }
+
+  // Fit Columns
+  worksheet.getColumn(1).width = 8; // S No
+  worksheet.getColumn(2).width = 16; // Faculty ID
+  worksheet.getColumn(3).width = 30; // Faculty Name
+  worksheet.getColumn(4).width = 10; // Role
+  worksheet.getColumn(5).width = 10; // Location
+  worksheet.getColumn(6).width = 16; // Signature
+
+  // Set row heights starting from header row
+  setRowHeights(worksheet, 3);
+  // Download
+  await downloadWorkbook(workbook, 'exam-duty-signature-sheet.xlsx');
+}
+
 // Helper functions for multi-sheet export
 function headerBlock(ws: ExcelJS.Worksheet, subtitle: string) {
   ws.addRow(['MANIPAL INSTITUTE OF TECHNOLOGY, BENGALURU']);

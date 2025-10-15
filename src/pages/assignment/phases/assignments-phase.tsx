@@ -26,6 +26,7 @@ import {
   exportAssignmentsOverview,
   exportBatchAssignments,
   exportDaySlotAssignments,
+  exportSignatureSheet,
 } from '@/lib/excel';
 import { facultyCompare } from '@/lib/utils';
 
@@ -228,6 +229,11 @@ export function AssignmentsPhase({
     toast.success('Overview exported successfully!');
   }, [examStructure.dutySlots, assignments, faculty]);
 
+  const exportAttendanceSheet = useCallback(() => {
+    exportSignatureSheet(examStructure.dutySlots, assignments, faculty);
+    toast.success('Overview exported successfully!');
+  }, [examStructure.dutySlots, assignments, faculty]);
+
   // Calculate assignment statistics
   const assignmentStats = useMemo(() => {
     if (assignments.length === 0) return null;
@@ -379,6 +385,14 @@ export function AssignmentsPhase({
               >
                 <FileSpreadsheet className="size-4" />
                 Export Overview
+              </Button>
+              <Button
+                onClick={exportAttendanceSheet}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <FileSpreadsheet className="size-4" />
+                Export Attendance Sheet
               </Button>
             </div>
           </CardHeader>
