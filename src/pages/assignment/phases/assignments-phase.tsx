@@ -213,7 +213,8 @@ export function AssignmentsPhase({
       await exportBatchAssignments(
         examStructure.dutySlots,
         assignments,
-        faculty
+        faculty,
+        unavailability
       );
       toast.success('All assignments exported successfully');
     } catch (error) {

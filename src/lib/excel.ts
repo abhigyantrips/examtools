@@ -1,7 +1,13 @@
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 
-import type { Assignment, DutySlot, ExcelParseResult, Faculty } from '@/types';
+import type {
+  Assignment,
+  DutySlot,
+  ExcelParseResult,
+  Faculty,
+  UnavailableFaculty,
+} from '@/types';
 
 import { facultyCompare } from '@/lib/utils';
 
@@ -915,7 +921,8 @@ function getRoleDisplay(role: string): string {
 export async function exportBatchAssignments(
   dutySlots: DutySlot[],
   assignments: Assignment[],
-  faculty: Faculty[]
+  faculty: Faculty[],
+  unavailability: UnavailableFaculty[] = []
 ): Promise<void> {
   const zip = new JSZip();
 
@@ -962,6 +969,67 @@ export async function exportBatchAssignments(
     const filename = `${String(dutySlot.day + 1).padStart(2, '0')}-${String(dutySlot.slot + 1).padStart(2, '0')}-day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${dutySlot.date.toISOString().split('T')[0]}.xlsx`;
 
     zip.file(filename, buffer);
+  }
+
+  // 2.5 Add metadata.json and assignment.json
+  try {
+    const metadata = {
+      generatedAt: new Date().toISOString(),
+      slots: dutySlots.map((ds) => ({
+        day: ds.day,
+        slot: ds.slot,
+        date: ds.date instanceof Date ? ds.date.toISOString() : String(ds.date),
+        startTime: ds.startTime,
+        endTime: ds.endTime,
+        rooms: ds.rooms || [],
+        regularDuties: ds.regularDuties,
+        relieverDuties: ds.relieverDuties,
+        squadDuties: ds.squadDuties,
+        bufferDuties: ds.bufferDuties,
+      })),
+      unavailable: (unavailability || []).map((u) => ({
+        facultyId: u.facultyId,
+        date: u.date,
+      })),
+      faculty: faculty.map((f) => ({
+        facultyId: f.facultyId,
+        facultyName: f.facultyName,
+        designation: f.designation,
+        department: f.department,
+        phoneNo: f.phoneNo,
+      })),
+    };
+
+    const assignmentExport = assignments.map((a) => {
+      const ds = dutySlots.find((d) => d.day === a.day && d.slot === a.slot);
+      return {
+        day: a.day,
+        slot: a.slot,
+        date:
+          ds && ds.date instanceof Date
+            ? ds.date.toISOString()
+            : (ds?.date ?? null),
+        time: ds ? `${ds.startTime} - ${ds.endTime}` : null,
+        facultyId: a.facultyId,
+        role: a.role,
+        roomNumber: a.roomNumber || null,
+        rooms: a.rooms || null,
+      };
+    });
+
+    zip.file('metadata.json', JSON.stringify(metadata, null, 2));
+    zip.file('assignment.json', JSON.stringify(assignmentExport, null, 2));
+  } catch (err) {
+    // If JSON serialization fails for some reason, still continue with ZIP generation
+    // but include a simple error file to aid debugging.
+    try {
+      zip.file(
+        'metadata-error.txt',
+        String(err instanceof Error ? err.message : err)
+      );
+    } catch {
+      // swallow
+    }
   }
 
   // 3. Generate and download ZIP
