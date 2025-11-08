@@ -7,7 +7,6 @@ import type { ExcelParseResult, Faculty } from '@/types';
 
 import { parseFacultyExcel } from '@/lib/excel';
 
-import { useExamData } from '@/hooks/use-exam-data';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,13 +20,14 @@ import {
 interface FacultyUploadFormProps {
   onFacultyUploaded: (faculty: Faculty[]) => void;
   currentFaculty: Faculty[];
+  importMetadata?: (file: File) => Promise<void>;
 }
 
 export function FacultyUploadForm({
   onFacultyUploaded,
   currentFaculty,
+  importMetadata,
 }: FacultyUploadFormProps) {
-  const { importMetadata } = useExamData();
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ExcelParseResult<Faculty> | null>(null);

@@ -28,9 +28,10 @@ import { FacultyUploadForm } from '@/pages/assignment/forms/faculty-upload-form'
 interface UploadPhaseProps {
   faculty: Faculty[];
   onFacultyUploaded: (faculty: Faculty[]) => void;
+  importMetadata?: (file: File) => Promise<void>;
 }
 
-export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
+export function UploadPhase({ faculty, onFacultyUploaded, importMetadata }: UploadPhaseProps) {
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   // Group faculty by designation for summary
@@ -71,6 +72,7 @@ export function UploadPhase({ faculty, onFacultyUploaded }: UploadPhaseProps) {
       <FacultyUploadForm
         currentFaculty={faculty}
         onFacultyUploaded={handleUploadSuccess}
+        importMetadata={importMetadata}
       />
 
       {/* Faculty Preview */}
