@@ -59,6 +59,15 @@ export function assignDuties(
   const dutyCounts = initializeCounts(faculty, examStructure);
   const unavailByDate = buildUnavailability(unavailability);
 
+  // Build unavailability count map for prioritization
+  const unavailabilityCountMap = new Map<string, number>();
+  for (const u of unavailability) {
+    unavailabilityCountMap.set(
+      u.facultyId,
+      (unavailabilityCountMap.get(u.facultyId) || 0) + 1
+    );
+  }
+
   // 3) Process slots deterministically by (day, slot)
   const sortedSlots = [...examStructure.dutySlots].sort((a, b) =>
     a.day === b.day ? a.slot - b.slot : a.day - b.day
@@ -127,7 +136,8 @@ export function assignDuties(
       dutyCounts,
       assignments,
       slotAssigned,
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     assignments.push(...aReg.assigned);
     violations.push(...aReg.violations);
@@ -140,7 +150,8 @@ export function assignDuties(
       assignments,
       slotAssigned,
       'reliever',
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     assignments.push(...aRel.assigned);
     violations.push(...aRel.violations);
@@ -153,7 +164,8 @@ export function assignDuties(
       assignments,
       slotAssigned,
       'squad',
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     assignments.push(...aSq.assigned);
     violations.push(...aSq.violations);
@@ -165,7 +177,8 @@ export function assignDuties(
       dutyCounts,
       assignments,
       slotAssigned,
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     assignments.push(...aBuf.assigned);
     violations.push(...aBuf.violations);
@@ -337,7 +350,8 @@ function assignRegular(
   dutyCounts: FacultyDutyCount[],
   globalAssignments: Assignment[],
   slotAssignments: Assignment[],
-  examStructure: ExamStructure
+  examStructure: ExamStructure,
+  unavailabilityCountMap: Map<string, number>
 ): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
   const assigned: Assignment[] = [];
   const violations: Violation[] = [];
@@ -413,7 +427,8 @@ function assignRegular(
       dutyCounts,
       globalAssignments,
       'regular',
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     assigned.push({
       day: ctx.day,
@@ -437,7 +452,8 @@ function assignCoverage(
   globalAssignments: Assignment[],
   slotAssignments: Assignment[],
   role: 'reliever' | 'squad',
-  examStructure: ExamStructure
+  examStructure: ExamStructure,
+  unavailabilityCountMap: Map<string, number>
 ): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
   const assigned: Assignment[] = [];
   const violations: Violation[] = [];
@@ -517,7 +533,8 @@ function assignCoverage(
       dutyCounts,
       globalAssignments,
       role,
-      examStructure
+      examStructure,
+      unavailabilityCountMap
     );
     const rooms = groups[i] || [];
 
@@ -542,7 +559,8 @@ function assignBuffer(
   dutyCounts: FacultyDutyCount[],
   globalAssignments: Assignment[],
   slotAssignments: Assignment[],
-  structure: ExamStructure
+  structure: ExamStructure,
+  unavailabilityCountMap: Map<string, number>
 ): { assigned: Assignment[]; violations: Violation[]; warnings: string[] } {
   const assigned: Assignment[] = [];
   const violations: Violation[] = [];
@@ -607,7 +625,8 @@ function assignBuffer(
       dutyCounts,
       globalAssignments,
       'buffer',
-      structure
+      structure,
+      unavailabilityCountMap
     );
     assigned.push({
       day: ctx.day,
@@ -749,7 +768,8 @@ function selectDeterministic(
   dutyCounts: FacultyDutyCount[],
   globalAssignments: Assignment[],
   role: 'regular' | 'reliever' | 'squad' | 'buffer',
-  examStructure: ExamStructure
+  examStructure: ExamStructure,
+  unavailabilityCountMap: Map<string, number>
 ): Faculty {
   const byId = new Map(dutyCounts.map((d) => [d.facultyId, d]));
 
@@ -783,19 +803,28 @@ function selectDeterministic(
         roleAssigned = d.assignedDuties;
       }
 
+      // Get unavailability count for this faculty
+      const unavailableDaysCount = unavailabilityCountMap.get(f.facultyId) || 0;
+
       return {
         f,
         deficit: roleTarget - roleAssigned, // Per-role deficit
         totalAssigned: d.assignedDuties, // Overall for tie-breaking
+        unavailableDaysCount, // Number of unavailable days
       };
     })
     .sort((a, b) => {
-      // Primary: highest per-role deficit
+      // PRIMARY: HIGHEST unavailability count (most unavailable = highest priority)
+      // This ensures faculty with unavailability get duties on available dates FIRST
+      if (a.unavailableDaysCount !== b.unavailableDaysCount) {
+        return b.unavailableDaysCount - a.unavailableDaysCount;
+      }
+      // Secondary: highest per-role deficit
       if (a.deficit !== b.deficit) return b.deficit - a.deficit;
-      // Secondary: fewest total duties overall
+      // Tertiary: fewest total duties overall
       if (a.totalAssigned !== b.totalAssigned)
         return a.totalAssigned - b.totalAssigned;
-      // Tertiary: alphabetical by ID
+      // Quaternary: alphabetical by ID
       return a.f.facultyId.localeCompare(b.f.facultyId);
     })[0].f;
 }
