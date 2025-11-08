@@ -1,6 +1,7 @@
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
 
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import type {
   Assignment,
@@ -105,26 +106,41 @@ export function useExamData() {
 
   // Specific update functions
   const updateFaculty = useCallback(
-    (faculty: Faculty[]) => {
+    async (faculty: Faculty[]) => {
       // Normalize order once at intake for consistency across the app
       const sorted = [...faculty].sort((a, b) => facultyCompare(a, b));
-      saveData({ faculty: sorted });
+      const hadAssignments = (data.assignments || []).length > 0;
+      // Changing faculty affects assignments; reset assignments
+      await saveData({ faculty: sorted, assignments: [] });
+      if (hadAssignments) {
+        toast.success('Assignments were reset because the faculty list changed');
+      }
     },
-    [saveData]
+    [saveData, data]
   );
 
   const updateExamStructure = useCallback(
-    (examStructure: ExamStructure) => {
-      saveData({ examStructure });
+    async (examStructure: ExamStructure) => {
+      const hadAssignments = (data.assignments || []).length > 0;
+      // Changing exam structure affects assignments; reset assignments
+      await saveData({ examStructure, assignments: [] });
+      if (hadAssignments) {
+        toast.success('Assignments were reset because the exam configuration changed');
+      }
     },
-    [saveData]
+    [saveData, data]
   );
 
   const updateUnavailability = useCallback(
-    (unavailability: UnavailableFaculty[]) => {
-      saveData({ unavailability });
+    async (unavailability: UnavailableFaculty[]) => {
+      const hadAssignments = (data.assignments || []).length > 0;
+      // Changing unavailability affects assignments; reset assignments
+      await saveData({ unavailability, assignments: [] });
+      if (hadAssignments) {
+        toast.success('Assignments were reset because faculty unavailability changed');
+      }
     },
-    [saveData]
+    [saveData, data]
   );
 
   const updateAssignments = useCallback(
@@ -136,6 +152,7 @@ export function useExamData() {
 
   const clearAllData = useCallback(async () => {
     try {
+      const hadAssignments = (data.assignments || []).length > 0;
       const db = await initDB();
       await db.delete('examData', STORE_KEY);
       setData({
@@ -149,10 +166,11 @@ export function useExamData() {
         assignments: [],
         lastUpdated: new Date(),
       });
+      if (hadAssignments) toast('All data cleared; assignments have been reset');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear data');
     }
-  }, [initDB]);
+  }, [initDB, data]);
 
   // Import metadata (either a metadata.json file or a ZIP containing internal/metadata.json)
   const importMetadata = useCallback(
@@ -172,12 +190,14 @@ export function useExamData() {
 
         const updatedExamStructure = imported.examStructure;
 
+        const hadAssignments = (data.assignments || []).length > 0;
         await saveData({
           faculty: sortedFaculty,
           examStructure: updatedExamStructure,
           unavailability: imported.unavailability,
           assignments: [],
         });
+        if (hadAssignments) toast.success('Metadata imported; assignments have been reset');
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to import metadata'
