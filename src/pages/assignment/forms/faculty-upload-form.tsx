@@ -2,6 +2,7 @@ import { AlertCircle, CheckCircle, FileText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useCallback, useState } from 'react';
+import { useExamData } from '@/hooks/use-exam-data';
 
 import type { ExcelParseResult, Faculty } from '@/types';
 
@@ -25,6 +26,7 @@ export function FacultyUploadForm({
   onFacultyUploaded,
   currentFaculty,
 }: FacultyUploadFormProps) {
+  const { importMetadata } = useExamData();
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ExcelParseResult<Faculty> | null>(null);
@@ -96,6 +98,20 @@ export function FacultyUploadForm({
       }
     },
     [handleFileUpload]
+  );
+
+  const handleImportSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !importMetadata) return;
+      try {
+        await importMetadata(file);
+        toast.success('Metadata imported successfully');
+      } catch (err) {
+        toast.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [importMetadata]
   );
 
   const clearResults = useCallback(() => {
@@ -263,6 +279,23 @@ export function FacultyUploadForm({
             )}
           </div>
         )}
+
+        {/* Import metadata (JSON or ZIP) */}
+        <div className="pt-2">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="file"
+              accept=".json,.zip"
+              onChange={handleImportSelect}
+              className="hidden"
+            />
+            <Button asChild variant="outline" size="sm">
+              <span>
+                <FileText className="mr-2 inline-block" /> Import metadata (JSON / ZIP)
+              </span>
+            </Button>
+          </label>
+        </div>
       </CardContent>
     </Card>
   );

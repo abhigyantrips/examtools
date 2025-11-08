@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 
 import { facultyCompare } from '@/lib/utils';
+import { importMetadataFromJsonFile, importMetadataFromZipFile } from '@/lib/excel';
 
 interface ExamToolsDB extends DBSchema {
   examData: {
@@ -150,6 +151,37 @@ export function useExamData() {
     }
   }, [initDB]);
 
+  // Import metadata (either a metadata.json file or a ZIP containing internal/metadata.json)
+  const importMetadata = useCallback(
+    async (file: File) => {
+      try {
+        setLoading(true);
+        const isZip = file.name.toLowerCase().endsWith('.zip');
+        const imported = isZip
+          ? await importMetadataFromZipFile(file)
+          : await importMetadataFromJsonFile(file);
+
+        // Save imported pieces into the DB
+        // Faculty (normalized order)
+        const sortedFaculty = [...imported.faculty].sort((a, b) => facultyCompare(a, b));
+
+        const updatedExamStructure = imported.examStructure;
+
+        await saveData({
+          faculty: sortedFaculty,
+          examStructure: updatedExamStructure,
+          unavailability: imported.unavailability,
+          assignments: [],
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to import metadata');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [saveData]
+  );
+
   // Load data on mount
   useEffect(() => {
     loadData();
@@ -166,5 +198,6 @@ export function useExamData() {
     saveData,
     clearAllData,
     reload: loadData,
+    importMetadata,
   };
 }

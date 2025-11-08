@@ -1051,6 +1051,85 @@ export async function exportBatchAssignments(
   window.URL.revokeObjectURL(url);
 }
 
+// -------------------------
+// Metadata import helpers
+// -------------------------
+export interface ImportedMetadata {
+  faculty: Faculty[];
+  examStructure: { days: number; dutySlots: DutySlot[]; designationDutyCounts: Record<string, number> };
+  unavailability: UnavailableFaculty[];
+}
+
+function buildExamStructureFromSlots(slots: any[]): { days: number; dutySlots: DutySlot[]; designationDutyCounts: Record<string, number> } {
+  const dutySlots: DutySlot[] = (slots || []).map((s: any) => ({
+    day: Number(s.day),
+    slot: Number(s.slot),
+    date: s.date ? new Date(s.date) : new Date(),
+    startTime: s.startTime || '',
+    endTime: s.endTime || '',
+    regularDuties: Number(s.regularDuties || 0),
+    relieverDuties: Number(s.relieverDuties || 0) || 0,
+    squadDuties: Number(s.squadDuties || 0) || 0,
+    bufferDuties: Number(s.bufferDuties || 0) || 0,
+    rooms: Array.isArray(s.rooms) ? s.rooms.slice() : [],
+  }));
+
+  const maxDay = dutySlots.reduce((acc, ds) => Math.max(acc, ds.day), 0);
+  return {
+    days: maxDay >= 0 ? maxDay + 1 : 0,
+    dutySlots,
+    designationDutyCounts: {},
+  };
+}
+
+function parseMetadataObject(obj: any): ImportedMetadata {
+  const faculty: Faculty[] = Array.isArray(obj.faculty)
+    ? obj.faculty.map((f: any, idx: number) => ({
+        sNo: Number(f.sNo ?? idx + 1),
+        facultyName: String(f.facultyName ?? f.name ?? ''),
+        facultyId: String(f.facultyId ?? f.id ?? '').trim(),
+        designation: String(f.designation ?? f.designation ?? ''),
+        department: String(f.department ?? ''),
+        phoneNo: String(f.phoneNo ?? ''),
+      }))
+    : [];
+
+  const unavailability: UnavailableFaculty[] = Array.isArray(obj.unavailable)
+    ? obj.unavailable.map((u: any) => ({
+        facultyId: String(u.facultyId || u.id || ''),
+        date: String(u.date),
+      }))
+    : [];
+
+  const examStructure = buildExamStructureFromSlots(Array.isArray(obj.slots) ? obj.slots : []);
+
+  return { faculty, examStructure, unavailability };
+}
+
+export async function importMetadataFromJsonFile(file: File): Promise<ImportedMetadata> {
+  const text = await file.text();
+  const obj = JSON.parse(text);
+  return parseMetadataObject(obj);
+}
+
+export async function importMetadataFromZipFile(file: File): Promise<ImportedMetadata> {
+  const buffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buffer);
+  // Prefer internal/metadata.json, fallback to metadata.json at root
+  const candidates = ['internal/metadata.json', 'metadata.json'];
+  let content: string | null = null;
+  for (const p of candidates) {
+    const f = zip.file(p);
+    if (f) {
+      content = await f.async('string');
+      break;
+    }
+  }
+  if (!content) throw new Error('metadata.json not found in ZIP (searched internal/metadata.json and metadata.json)');
+  const obj = JSON.parse(content);
+  return parseMetadataObject(obj);
+}
+
 // Helper functions for worksheet creation
 function createSlotsWorksheet(
   workbook: ExcelJS.Workbook,
