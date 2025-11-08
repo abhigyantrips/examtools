@@ -1017,8 +1017,9 @@ export async function exportBatchAssignments(
       };
     });
 
-    zip.file('metadata.json', JSON.stringify(metadata, null, 2));
-    zip.file('assignment.json', JSON.stringify(assignmentExport, null, 2));
+    // Place JSON files inside an internal folder to keep them separate from user-facing files
+    zip.file('internal/metadata.json', JSON.stringify(metadata, null, 2));
+    zip.file('internal/assignment.json', JSON.stringify(assignmentExport, null, 2));
   } catch (err) {
     // If JSON serialization fails for some reason, still continue with ZIP generation
     // but include a simple error file to aid debugging.
@@ -1033,6 +1034,12 @@ export async function exportBatchAssignments(
   }
 
   // 3. Generate and download ZIP
+  // Add a last_modified.txt at the root with the current timestamp
+  try {
+    zip.file('last_modified.txt', new Date().toISOString());
+  } catch {
+    // ignore
+  }
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   const url = window.URL.createObjectURL(zipBlob);
   const link = document.createElement('a');
