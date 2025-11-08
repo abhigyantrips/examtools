@@ -85,11 +85,24 @@ export function assignDuties(
       continue;
     }
 
-    const dateISO = slot.date.toISOString().split('T')[0];
+    // FIX: Use local date string to match unavailability format
+    const year = slot.date.getFullYear();
+    const month = String(slot.date.getMonth() + 1).padStart(2, '0');
+    const day = String(slot.date.getDate()).padStart(2, '0');
+    const dateISO = `${year}-${month}-${day}`;
+
     const unavailable = unavailByDate.get(dateISO) || new Set<string>();
     const availableFaculty = faculty.filter(
       (f) => !unavailable.has(f.facultyId)
     );
+
+    // Validation: Verify unavailable faculty are actually excluded
+    const unavailableCount = faculty.length - availableFaculty.length;
+    if (unavailableCount > 0) {
+      console.log(
+        `Slot ${slot.day + 1}-${slot.slot + 1} (${dateISO}): Excluded ${unavailableCount} unavailable faculty`
+      );
+    }
 
     const ctx: SlotCtx = {
       day: slot.day,
@@ -182,6 +195,38 @@ export function assignDuties(
         buffer: { needed: ctx.need.buffer, assigned: bufAssigned },
       });
     }
+  }
+
+  // Critical validation: Check for unavailability violations
+  const unavailabilityViolations: string[] = [];
+  for (const assignment of assignments) {
+    const slot = sortedSlots.find(
+      (s) => s.day === assignment.day && s.slot === assignment.slot
+    );
+    if (!slot) continue;
+
+    const year = slot.date.getFullYear();
+    const month = String(slot.date.getMonth() + 1).padStart(2, '0');
+    const day = String(slot.date.getDate()).padStart(2, '0');
+    const dateISO = `${year}-${month}-${day}`;
+
+    const unavailableOnDate = unavailByDate.get(dateISO);
+    if (unavailableOnDate?.has(assignment.facultyId)) {
+      const facultyMember = faculty.find(
+        (f) => f.facultyId === assignment.facultyId
+      );
+      unavailabilityViolations.push(
+        `CRITICAL: ${facultyMember?.facultyName || assignment.facultyId} assigned on unavailable date ${dateISO} (Day ${assignment.day + 1}, Slot ${assignment.slot + 1}, Role: ${assignment.role})`
+      );
+    }
+  }
+
+  if (unavailabilityViolations.length > 0) {
+    console.error(
+      'UNAVAILABILITY VIOLATIONS DETECTED:',
+      unavailabilityViolations
+    );
+    warnings.push(...unavailabilityViolations);
   }
 
   // 4) Final passive checks and overview
