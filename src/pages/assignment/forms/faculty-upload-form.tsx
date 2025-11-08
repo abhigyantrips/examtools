@@ -2,11 +2,12 @@ import { AlertCircle, CheckCircle, FileText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useCallback, useState } from 'react';
-import { useExamData } from '@/hooks/use-exam-data';
 
 import type { ExcelParseResult, Faculty } from '@/types';
 
 import { parseFacultyExcel } from '@/lib/excel';
+
+import { useExamData } from '@/hooks/use-exam-data';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -108,7 +109,9 @@ export function FacultyUploadForm({
         await importMetadata(file);
         toast.success('Metadata imported successfully');
       } catch (err) {
-        toast.error(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+        toast.error(
+          `Import failed: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
     },
     [importMetadata]
@@ -291,7 +294,8 @@ export function FacultyUploadForm({
             />
             <Button asChild variant="outline" size="sm">
               <span>
-                <FileText className="mr-2 inline-block" /> Import metadata (JSON / ZIP)
+                <FileText className="mr-2 inline-block" /> Import metadata (JSON
+                / ZIP)
               </span>
             </Button>
           </label>

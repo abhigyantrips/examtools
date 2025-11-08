@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import type {
   Assignment,
   DutySlot,
+  ExamStructure,
   ExcelParseResult,
   Faculty,
   UnavailableFaculty,
@@ -919,12 +920,14 @@ function getRoleDisplay(role: string): string {
 }
 
 export async function exportBatchAssignments(
-  dutySlots: DutySlot[],
+  examStructure: ExamStructure,
   assignments: Assignment[],
   faculty: Faculty[],
   unavailability: UnavailableFaculty[] = []
 ): Promise<void> {
   const zip = new JSZip();
+
+  const dutySlots = examStructure.dutySlots || [];
 
   // 1. Create overview workbook and add to ZIP
   const overviewWorkbook = createOverviewWorkbook(
@@ -987,6 +990,12 @@ export async function exportBatchAssignments(
         squadDuties: ds.squadDuties,
         bufferDuties: ds.bufferDuties,
       })),
+      designationDutyCounts: examStructure.designationDutyCounts || {},
+      designationRelieverCounts:
+        examStructure.designationRelieverCounts || undefined,
+      designationSquadCounts: examStructure.designationSquadCounts || undefined,
+      designationBufferEligibility:
+        examStructure.designationBufferEligibility || undefined,
       unavailable: (unavailability || []).map((u) => ({
         facultyId: u.facultyId,
         date: u.date,
@@ -1019,7 +1028,10 @@ export async function exportBatchAssignments(
 
     // Place JSON files inside an internal folder to keep them separate from user-facing files
     zip.file('internal/metadata.json', JSON.stringify(metadata, null, 2));
-    zip.file('internal/assignment.json', JSON.stringify(assignmentExport, null, 2));
+    zip.file(
+      'internal/assignment.json',
+      JSON.stringify(assignmentExport, null, 2)
+    );
   } catch (err) {
     // If JSON serialization fails for some reason, still continue with ZIP generation
     // but include a simple error file to aid debugging.
@@ -1056,11 +1068,19 @@ export async function exportBatchAssignments(
 // -------------------------
 export interface ImportedMetadata {
   faculty: Faculty[];
-  examStructure: { days: number; dutySlots: DutySlot[]; designationDutyCounts: Record<string, number> };
+  examStructure: {
+    days: number;
+    dutySlots: DutySlot[];
+    designationDutyCounts: Record<string, number>;
+  };
   unavailability: UnavailableFaculty[];
 }
 
-function buildExamStructureFromSlots(slots: any[]): { days: number; dutySlots: DutySlot[]; designationDutyCounts: Record<string, number> } {
+function buildExamStructureFromSlots(slots: any[]): {
+  days: number;
+  dutySlots: DutySlot[];
+  designationDutyCounts: Record<string, number>;
+} {
   const dutySlots: DutySlot[] = (slots || []).map((s: any) => ({
     day: Number(s.day),
     slot: Number(s.slot),
@@ -1101,18 +1121,57 @@ function parseMetadataObject(obj: any): ImportedMetadata {
       }))
     : [];
 
-  const examStructure = buildExamStructureFromSlots(Array.isArray(obj.slots) ? obj.slots : []);
+  const examStructure = buildExamStructureFromSlots(
+    Array.isArray(obj.slots) ? obj.slots : []
+  );
+  // Copy designation-related maps if present
+  if (
+    obj.designationDutyCounts &&
+    typeof obj.designationDutyCounts === 'object'
+  ) {
+    examStructure.designationDutyCounts = {
+      ...(obj.designationDutyCounts || {}),
+    };
+  }
+  if (
+    obj.designationRelieverCounts &&
+    typeof obj.designationRelieverCounts === 'object'
+  ) {
+    (examStructure as any).designationRelieverCounts = {
+      ...(obj.designationRelieverCounts || {}),
+    };
+  }
+  if (
+    obj.designationSquadCounts &&
+    typeof obj.designationSquadCounts === 'object'
+  ) {
+    (examStructure as any).designationSquadCounts = {
+      ...(obj.designationSquadCounts || {}),
+    };
+  }
+  if (
+    obj.designationBufferEligibility &&
+    typeof obj.designationBufferEligibility === 'object'
+  ) {
+    (examStructure as any).designationBufferEligibility = {
+      ...(obj.designationBufferEligibility || {}),
+    };
+  }
 
   return { faculty, examStructure, unavailability };
 }
 
-export async function importMetadataFromJsonFile(file: File): Promise<ImportedMetadata> {
+export async function importMetadataFromJsonFile(
+  file: File
+): Promise<ImportedMetadata> {
   const text = await file.text();
   const obj = JSON.parse(text);
   return parseMetadataObject(obj);
 }
 
-export async function importMetadataFromZipFile(file: File): Promise<ImportedMetadata> {
+export async function importMetadataFromZipFile(
+  file: File
+): Promise<ImportedMetadata> {
   const buffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(buffer);
   // Prefer internal/metadata.json, fallback to metadata.json at root
@@ -1125,7 +1184,10 @@ export async function importMetadataFromZipFile(file: File): Promise<ImportedMet
       break;
     }
   }
-  if (!content) throw new Error('metadata.json not found in ZIP (searched internal/metadata.json and metadata.json)');
+  if (!content)
+    throw new Error(
+      'metadata.json not found in ZIP (searched internal/metadata.json and metadata.json)'
+    );
   const obj = JSON.parse(content);
   return parseMetadataObject(obj);
 }

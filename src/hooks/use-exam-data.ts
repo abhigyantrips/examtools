@@ -10,8 +10,11 @@ import type {
   UnavailableFaculty,
 } from '@/types';
 
+import {
+  importMetadataFromJsonFile,
+  importMetadataFromZipFile,
+} from '@/lib/excel';
 import { facultyCompare } from '@/lib/utils';
-import { importMetadataFromJsonFile, importMetadataFromZipFile } from '@/lib/excel';
 
 interface ExamToolsDB extends DBSchema {
   examData: {
@@ -163,7 +166,9 @@ export function useExamData() {
 
         // Save imported pieces into the DB
         // Faculty (normalized order)
-        const sortedFaculty = [...imported.faculty].sort((a, b) => facultyCompare(a, b));
+        const sortedFaculty = [...imported.faculty].sort((a, b) =>
+          facultyCompare(a, b)
+        );
 
         const updatedExamStructure = imported.examStructure;
 
@@ -174,7 +179,9 @@ export function useExamData() {
           assignments: [],
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to import metadata');
+        setError(
+          err instanceof Error ? err.message : 'Failed to import metadata'
+        );
       } finally {
         setLoading(false);
       }

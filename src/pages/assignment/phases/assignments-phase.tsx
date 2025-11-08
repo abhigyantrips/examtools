@@ -211,7 +211,7 @@ export function AssignmentsPhase({
   const exportAllAssignments = useCallback(async () => {
     try {
       await exportBatchAssignments(
-        examStructure.dutySlots,
+        examStructure,
         assignments,
         faculty,
         unavailability
