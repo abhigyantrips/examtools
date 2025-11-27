@@ -10,6 +10,7 @@ import {
   generateZipBlob,
   loadZip,
   readAssignmentsFromZip,
+  readMetadataSlots,
   readSlotAttendance,
   saveSlotAttendance,
 } from '@/lib/attendance';
@@ -29,15 +30,17 @@ export function AttendancePage() {
   const { data: examData } = useExamData();
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
+  const [zipSlots, setZipSlots] = useState<Array<any> | null>(null);
   const [selected, setSelected] = useState<{
     day: number;
     slot: number;
   } | null>(null);
   const [attendance, setAttendance] = useState<SlotAttendance | null>(null);
 
+  // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(
-    () => examData.examStructure.dutySlots || [],
-    [examData]
+    () => zipSlots ?? (examData.examStructure.dutySlots || []),
+    [examData, zipSlots]
   );
 
   const onImportZip = useCallback(async (f: File | null) => {
@@ -46,6 +49,17 @@ export function AttendancePage() {
       const zip = await loadZip(f);
       setZipInstance(zip as any);
       setZipFileName(f.name);
+
+      // load metadata slots (if the zip contains internal/metadata.json)
+      try {
+        const meta = await readMetadataSlots(zip as any);
+        if (meta && meta.length > 0) {
+          // convert date strings to Date objects for display
+          setZipSlots(meta.map((s: any) => ({ ...s, date: new Date(s.date) })));
+        }
+      } catch (err) {
+        console.warn('Failed to read metadata slots from zip', err);
+      }
 
       console.log('Loaded ZIP');
     } catch (err) {
@@ -154,10 +168,7 @@ export function AttendancePage() {
                     onImportZip(e.target.files ? e.target.files[0] : null)
                   }
                 />
-                <div>
-                  {zipFileName ||
-                    'No ZIP loaded'}
-                </div>
+                <div>{zipFileName || 'No ZIP loaded'}</div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">

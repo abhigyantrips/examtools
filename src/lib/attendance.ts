@@ -48,6 +48,31 @@ export async function readAssignmentsFromZip(
   }
 }
 
+// Read metadata.json (internal/metadata.json or metadata.json) and return duty slot summaries
+export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
+  const f = zip.file('internal/metadata.json') || zip.file('metadata.json');
+  if (!f) return [];
+  try {
+    const text = await f.async('string');
+    const obj = JSON.parse(text);
+    const slots = Array.isArray(obj.slots) ? obj.slots : (obj.dutySlots && Array.isArray(obj.dutySlots) ? obj.dutySlots : []);
+    return slots.map((s: any) => ({
+      day: Number(s.day),
+      slot: Number(s.slot),
+      date: s.date || (s.date && typeof s.date === 'string' ? s.date : new Date().toISOString()),
+      startTime: s.startTime || s.start || '',
+      endTime: s.endTime || s.end || '',
+      regularDuties: Number(s.regularDuties || s.regular || 0),
+      relieverDuties: Number(s.relieverDuties || 0),
+      squadDuties: Number(s.squadDuties || 0),
+      bufferDuties: Number(s.bufferDuties || 0),
+    }));
+  } catch (err) {
+    console.warn('Failed to parse metadata.json from zip', err);
+    return [];
+  }
+}
+
 // Save attendance object into the zip (mutates zip) and update last_modified.txt
 export async function saveSlotAttendance(
   zip: JSZip,
