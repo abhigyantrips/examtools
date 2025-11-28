@@ -1,5 +1,13 @@
-import JSZip from 'jszip';
-import { ClipboardCheck } from 'lucide-react';
+import type JSZip from 'jszip';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  CheckCircle,
+  Settings,
+  Users,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 import { useCallback, useMemo, useState } from 'react';
 
@@ -7,27 +15,28 @@ import type { SlotAttendance } from '@/types';
 
 import {
   createEmptyAttendance,
-  generateZipBlob,
   loadZip,
   readAssignmentsFromZip,
   readMetadataSlots,
   readSlotAttendance,
-  saveSlotAttendance,
 } from '@/lib/attendance';
+import { cn } from '@/lib/utils';
 
 import { useExamData } from '@/hooks/use-exam-data';
 
+import { PWAPrompt } from '@/components/pwa-prompt';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Toaster } from '@/components/ui/sonner';
+
+import { ImportPhase } from './phases/import-phase';
+import { LinkPhase } from './phases/link-phase';
+import { MarkPhase } from './phases/mark-phase';
+import { ReviewPhase } from './phases/review-phase';
+import { SlotSelectionPhase } from './phases/slot-selection-phase';
 
 export function AttendancePage() {
-  const { data: examData } = useExamData();
+  const { data: examData, loading, error } = useExamData();
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<Array<any> | null>(null);
@@ -36,12 +45,75 @@ export function AttendancePage() {
     slot: number;
   } | null>(null);
   const [attendance, setAttendance] = useState<SlotAttendance | null>(null);
+  const [assignedList, setAssignedList] = useState<
+    Array<{ facultyId: string; role: string }>
+  >([]);
+  const [phase, setPhase] = useState<
+    'import' | 'select' | 'mark' | 'link' | 'review'
+  >('import');
 
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(
     () => zipSlots ?? (examData.examStructure.dutySlots || []),
     [examData, zipSlots]
   );
+
+  type Phase = 'import' | 'select' | 'mark' | 'link' | 'review';
+
+  const getPhaseCompletion = useCallback(
+    (p: Phase) => {
+      switch (p) {
+        case 'import':
+          // import phase considered complete when slots are available or zip loaded
+          return (
+            zipInstance !== null ||
+            (examData.examStructure.dutySlots || []).length > 0
+          );
+        case 'select':
+          return selected !== null;
+        case 'mark':
+          return attendance !== null && attendance.entries.length > 0;
+        case 'link':
+          return true; // placeholder
+        case 'review':
+          return attendance !== null;
+        default:
+          return false;
+      }
+    },
+    [zipInstance, examData, selected, attendance]
+  );
+
+  const canProceedToNext = useCallback(
+    (current: Phase) => getPhaseCompletion(current),
+    [getPhaseCompletion]
+  );
+
+  const phases: Phase[] = ['import', 'select', 'mark', 'link', 'review'];
+
+  const getNextPhase = (current: Phase): Phase | null => {
+    const idx = phases.indexOf(current);
+    return idx < phases.length - 1 ? phases[idx + 1] : null;
+  };
+
+  const getPreviousPhase = (current: Phase): Phase | null => {
+    const idx = phases.indexOf(current);
+    return idx > 0 ? phases[idx - 1] : null;
+  };
+
+  const handleContinue = useCallback(() => {
+    if (!canProceedToNext(phase)) {
+      toast.error('Please complete the current phase before continuing.');
+      return;
+    }
+    const next = getNextPhase(phase);
+    if (next) setPhase(next);
+  }, [phase, canProceedToNext]);
+
+  const handleBack = useCallback(() => {
+    const prev = getPreviousPhase(phase);
+    if (prev) setPhase(prev);
+  }, [phase]);
 
   const onImportZip = useCallback(async (f: File | null) => {
     if (!f) return;
@@ -62,6 +134,8 @@ export function AttendancePage() {
       }
 
       console.log('Loaded ZIP');
+      // move to select phase after import
+      setPhase('select');
     } catch (err) {
       console.error('Failed to load ZIP', err);
     }
@@ -70,229 +144,174 @@ export function AttendancePage() {
   const onSelectSlot = useCallback(
     async (day: number, slot: number) => {
       setSelected({ day, slot });
-      if (!zipInstance) {
-        // create empty template based on examData
-        const ds = slots.find((s) => s.day === day && s.slot === slot);
-        const att = createEmptyAttendance(
+      // load or create attendance
+      const ds = slots.find((s) => s.day === day && s.slot === slot);
+      const existing = zipInstance
+        ? await readSlotAttendance(zipInstance, day, slot)
+        : null;
+      const att =
+        existing ??
+        createEmptyAttendance(
           day,
           slot,
           ds ? ds.date.toISOString() : new Date().toISOString(),
           ds ? `${ds.startTime} - ${ds.endTime}` : undefined
         );
-        setAttendance(att);
-        return;
-      }
-      const existing = await readSlotAttendance(zipInstance, day, slot);
-      if (existing) setAttendance(existing);
-      else {
-        const ds = slots.find((s) => s.day === day && s.slot === slot);
-        const att = createEmptyAttendance(
-          day,
-          slot,
-          ds ? ds.date.toISOString() : new Date().toISOString(),
-          ds ? `${ds.startTime} - ${ds.endTime}` : undefined
-        );
-        // try to prefill from internal assignment.json
+      setAttendance(att);
+
+      // load assigned list from zip or fallback to app assignments
+      if (zipInstance) {
         const fromZip = await readAssignmentsFromZip(zipInstance, day, slot);
-        if (fromZip && fromZip.length > 0) {
-          att.entries = fromZip.map((r) => ({
-            facultyId: r.facultyId,
-            role: r.role as any,
-            status: 'absent',
-          }));
-        }
-        setAttendance(att);
-      }
-    },
-    [zipInstance, slots]
-  );
-
-  const onToggleStatus = useCallback(
-    (facultyId: string) => {
-      if (!attendance) return;
-      const next = { ...attendance } as SlotAttendance;
-      const idx = next.entries.findIndex((e) => e.facultyId === facultyId);
-      if (idx === -1) {
-        next.entries.push({ facultyId, role: 'regular', status: 'present' });
+        if (fromZip && fromZip.length > 0)
+          setAssignedList(
+            fromZip.map((r) => ({ facultyId: r.facultyId, role: r.role }))
+          );
+        else
+          setAssignedList(
+            examData.assignments
+              .filter((a) => a.day === day && a.slot === slot)
+              .map((a) => ({ facultyId: a.facultyId, role: a.role }))
+          );
       } else {
-        const entry = next.entries[idx];
-        // cycle: present -> absent -> replacement -> present
-        if (entry.status === 'present') entry.status = 'absent';
-        else if (entry.status === 'absent') entry.status = 'replacement';
-        else entry.status = 'present';
+        setAssignedList(
+          examData.assignments
+            .filter((a) => a.day === day && a.slot === slot)
+            .map((a) => ({ facultyId: a.facultyId, role: a.role }))
+        );
       }
-      next.updatedAt = new Date().toISOString();
-      setAttendance(next);
+
+      setPhase('mark');
     },
-    [attendance]
+    [zipInstance, slots, examData]
   );
 
-  const onSave = useCallback(async () => {
-    if (!attendance) return;
-    let zip = zipInstance;
-    if (!zip) zip = new JSZip();
-    await saveSlotAttendance(zip, attendance);
-    const blob = await generateZipBlob(zip);
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download =
-      zipFileName ||
-      `exam-duty-updated-${new Date().toISOString().split('T')[0]}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  }, [attendance, zipInstance, zipFileName]);
+  // cycling was removed; marking is handled inside the MarkPhase
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <Card>
+  // Save is handled by export actions in phases; page does not directly save
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="border-primary mx-auto size-8 animate-spin rounded-full border-2 border-t-transparent" />
+          <p className="text-muted-foreground">Loading exam data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="max-w-md">
           <CardHeader>
-            <ClipboardCheck className="mx-auto mb-4 size-16 text-green-600" />
-            <CardTitle className="text-2xl">Duty Attendance Marking</CardTitle>
-            <CardDescription>
-              Import exported ZIP, mark attendance per slot and save back into
-              ZIP
-            </CardDescription>
+            <CardTitle className="text-red-600">Error Loading Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <input
-                  id="zipfile"
-                  type="file"
-                  accept=".zip,application/zip"
-                  onChange={(e) =>
-                    onImportZip(e.target.files ? e.target.files[0] : null)
-                  }
-                />
-                <div>{zipFileName || 'No ZIP loaded'}</div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                {slots.map((s) => (
-                  <button
-                    key={`${s.day}-${s.slot}`}
-                    className={`rounded border p-2 ${selected && selected.day === s.day && selected.slot === s.slot ? 'bg-blue-100' : ''}`}
-                    onClick={() => onSelectSlot(s.day, s.slot)}
-                  >
-                    Day {s.day + 1} - Slot {s.slot + 1}
-                    <div className="text-xs">{s.date.toLocaleDateString()}</div>
-                  </button>
-                ))}
-              </div>
-
-              {attendance && (
-                <div>
-                  <h3 className="font-semibold">
-                    Attendance for Day {attendance.day + 1} Slot{' '}
-                    {attendance.slot + 1}
-                  </h3>
-                  <div className="mt-2 space-y-1">
-                    {(attendance.entries.length === 0
-                      ? examData.assignments
-                          .filter(
-                            (a) =>
-                              a.day === attendance.day &&
-                              a.slot === attendance.slot
-                          )
-                          .map((a) => ({
-                            facultyId: a.facultyId,
-                            role: a.role,
-                          }))
-                      : attendance.entries.map(
-                          (e) =>
-                            ({
-                              facultyId: e.facultyId,
-                              role: e.role,
-                              status: e.status,
-                            }) as any
-                        )
-                    ).map((row: any) => {
-                      const currentStatus =
-                        attendance.entries.find(
-                          (en) => en.facultyId === row.facultyId
-                        )?.status || 'absent';
-                      return (
-                        <div
-                          key={row.facultyId}
-                          className="flex items-center justify-between rounded border p-2"
-                        >
-                          <div>
-                            <div className="font-medium">{row.facultyId}</div>
-                            <div className="text-xs">{row.role}</div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              className={`rounded border px-2 py-1 ${currentStatus === 'present' ? 'bg-green-100' : ''}`}
-                              onClick={() => {
-                                // set present
-                                if (!attendance) return;
-                                const next = {
-                                  ...attendance,
-                                } as SlotAttendance;
-                                const idx = next.entries.findIndex(
-                                  (e) => e.facultyId === row.facultyId
-                                );
-                                if (idx === -1)
-                                  next.entries.push({
-                                    facultyId: row.facultyId,
-                                    role: row.role,
-                                    status: 'present',
-                                  });
-                                else next.entries[idx].status = 'present';
-                                next.updatedAt = new Date().toISOString();
-                                setAttendance(next);
-                              }}
-                            >
-                              Present
-                            </button>
-                            <button
-                              className={`rounded border px-2 py-1 ${currentStatus === 'absent' ? 'bg-yellow-100' : ''}`}
-                              onClick={() => {
-                                if (!attendance) return;
-                                const next = {
-                                  ...attendance,
-                                } as SlotAttendance;
-                                const idx = next.entries.findIndex(
-                                  (e) => e.facultyId === row.facultyId
-                                );
-                                if (idx === -1)
-                                  next.entries.push({
-                                    facultyId: row.facultyId,
-                                    role: row.role,
-                                    status: 'absent',
-                                  });
-                                else next.entries[idx].status = 'absent';
-                                next.updatedAt = new Date().toISOString();
-                                setAttendance(next);
-                              }}
-                            >
-                              Absent
-                            </button>
-                            <button
-                              className={`rounded border px-2 py-1 ${currentStatus === 'replacement' ? 'bg-orange-100' : ''}`}
-                              onClick={() => onToggleStatus(row.facultyId)}
-                            >
-                              Cycle
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <Button onClick={onSave}>Save & Download ZIP</Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <p className="text-muted-foreground mb-4 text-sm">
+              {String(error)}
+            </p>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  return (
+    <div className="bg-background min-h-screen">
+      {/* Compact Phase Navigation */}
+      <div className="bg-muted/30 border-b">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center">
+            {[
+              { key: 'import', label: 'Import', icon: Users },
+              { key: 'select', label: 'Select Slot', icon: Settings },
+              { key: 'mark', label: 'Mark', icon: Calendar },
+              { key: 'link', label: 'Link', icon: CheckCircle },
+              { key: 'review', label: 'Review', icon: CheckCircle },
+            ].map(({ key, label, icon: Icon }, index) => {
+              const isActive = phase === key;
+              const isComplete = getPhaseCompletion(key as Phase);
+
+              return (
+                <div
+                  key={key}
+                  className="flex flex-1 items-center last:flex-none"
+                >
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg px-3 py-2 whitespace-nowrap transition-colors',
+                      isActive && 'bg-primary text-primary-foreground',
+                      isComplete &&
+                        !isActive &&
+                        'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400',
+                      !isActive && !isComplete && 'text-muted-foreground'
+                    )}
+                  >
+                    <Icon className="size-4" />
+                    <span className="text-sm font-medium">{label}</span>
+                    {isComplete && <CheckCircle className="size-4" />}
+                  </div>
+
+                  {index < 4 && <div className="bg-border mx-4 h-px flex-1" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="bg-background border-b">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={phase === 'import'}
+            >
+              <ArrowLeft className="mr-2 size-4" /> Back
+            </Button>
+
+            <Button
+              onClick={handleContinue}
+              disabled={!canProceedToNext(phase) || phase === 'review'}
+            >
+              Continue <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Phase Content */}
+      <main className="container mx-auto px-4 py-6">
+        {phase === 'import' && (
+          <ImportPhase zipFileName={zipFileName} onImport={onImportZip} />
+        )}
+        {phase === 'select' && (
+          <SlotSelectionPhase
+            slots={slots}
+            selected={selected}
+            onSelect={onSelectSlot}
+          />
+        )}
+        {phase === 'mark' && (
+          <MarkPhase
+            attendance={attendance}
+            assignedList={assignedList}
+            examFaculty={examData.faculty}
+            onSetAttendance={(next) => setAttendance(next)}
+          />
+        )}
+        {phase === 'link' && <LinkPhase assignedList={assignedList} />}
+        {phase === 'review' && <ReviewPhase attendance={attendance} />}
+      </main>
+
+      <Toaster />
+      <PWAPrompt />
     </div>
   );
 }
