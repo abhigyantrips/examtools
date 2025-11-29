@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+
 import type { SlotAttendance } from '@/types';
 
 // Read a ZIP file and return the JSZip instance
@@ -40,8 +41,14 @@ export async function readAssignmentsFromZip(
     const arr = JSON.parse(text);
     if (!Array.isArray(arr)) return [];
     return arr
-      .filter((a: any) => Number(a.day) === Number(day) && Number(a.slot) === Number(slot))
-      .map((a: any) => ({ facultyId: String(a.facultyId || ''), role: String(a.role || 'regular') }));
+      .filter(
+        (a: any) =>
+          Number(a.day) === Number(day) && Number(a.slot) === Number(slot)
+      )
+      .map((a: any) => ({
+        facultyId: String(a.facultyId || ''),
+        role: String(a.role || 'regular'),
+      }));
   } catch (err) {
     console.warn('Failed to read assignment.json from zip', err);
     return [];
@@ -55,11 +62,19 @@ export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
   try {
     const text = await f.async('string');
     const obj = JSON.parse(text);
-    const slots = Array.isArray(obj.slots) ? obj.slots : (obj.dutySlots && Array.isArray(obj.dutySlots) ? obj.dutySlots : []);
+    const slots = Array.isArray(obj.slots)
+      ? obj.slots
+      : obj.dutySlots && Array.isArray(obj.dutySlots)
+        ? obj.dutySlots
+        : [];
     return slots.map((s: any) => ({
       day: Number(s.day),
       slot: Number(s.slot),
-      date: s.date || (s.date && typeof s.date === 'string' ? s.date : new Date().toISOString()),
+      date:
+        s.date ||
+        (s.date && typeof s.date === 'string'
+          ? s.date
+          : new Date().toISOString()),
       startTime: s.startTime || s.start || '',
       endTime: s.endTime || s.end || '',
       regularDuties: Number(s.regularDuties || s.regular || 0),

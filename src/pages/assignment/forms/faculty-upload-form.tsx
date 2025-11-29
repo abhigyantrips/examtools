@@ -7,7 +7,6 @@ import type { ExcelParseResult, Faculty } from '@/types';
 
 import { parseFacultyExcel } from '@/lib/excel';
 
-
 import { Button } from '@/components/ui/button';
 import {
   Card,
