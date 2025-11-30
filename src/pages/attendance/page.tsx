@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 
-import type { SlotAttendance } from '@/types';
+import type { SlotAttendance, DutySlot, Assignment } from '@/types';
 
 import {
   createEmptyAttendance,
@@ -39,18 +39,19 @@ export function AttendancePage() {
   const { data: examData, loading, error } = useExamData();
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
-  const [zipSlots, setZipSlots] = useState<Array<any> | null>(null);
+  const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
   const [selected, setSelected] = useState<{
     day: number;
     slot: number;
   } | null>(null);
   const [attendance, setAttendance] = useState<SlotAttendance | null>(null);
   const [assignedList, setAssignedList] = useState<
-    Array<{ facultyId: string; role: string }>
+    Array<Pick<Assignment, 'facultyId' | 'role'>>
   >([]);
   const [phase, setPhase] = useState<
     'import' | 'select' | 'mark' | 'link' | 'review'
   >('import');
+  const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
 
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(
@@ -127,7 +128,23 @@ export function AttendancePage() {
         const meta = await readMetadataSlots(zip as any);
         if (meta && meta.length > 0) {
           // convert date strings to Date objects for display
-          setZipSlots(meta.map((s: any) => ({ ...s, date: new Date(s.date) })));
+          const mapped = meta.map((s: any) => ({ ...s, date: new Date(s.date) }));
+          setZipSlots(mapped);
+          // compute marked map for these slots
+          const mm: Record<string, boolean> = {};
+          await Promise.all(
+            mapped.map(async (s: any) => {
+              try {
+                console.log('Reading attendance for slot:', s);
+                const att = await readSlotAttendance(zip as any, Number(s.day), Number(s.slot));
+                mm[`${s.day}-${s.slot}`] = !!(att && att.entries && att.entries.length > 0);
+              } catch {
+                mm[`${s.day}-${s.slot}`] = false;
+              }
+            })
+          );
+          console.log('Marked map from metadata slots:', mm);
+          setMarkedMap(mm);
         }
       } catch (err) {
         console.warn('Failed to read metadata slots from zip', err);
@@ -140,6 +157,34 @@ export function AttendancePage() {
       console.error('Failed to load ZIP', err);
     }
   }, []);
+
+  // recompute marked map when zipInstance or slots change (fallback if no metadata)
+  useEffect(() => {
+    let cancelled = false;
+    async function compute() {
+      if (!zipInstance) {
+        setMarkedMap({});
+        return;
+      }
+      const mm: Record<string, boolean> = {};
+      const iterate = slots && slots.length > 0 ? slots : [];
+      await Promise.all(
+        iterate.map(async (s: any) => {
+          try {
+            const att = await readSlotAttendance(zipInstance, Number(s.day), Number(s.slot));
+            if (!cancelled) mm[`${s.day}-${s.slot}`] = !!(att && att.entries && att.entries.length > 0);
+          } catch {
+            if (!cancelled) mm[`${s.day}-${s.slot}`] = false;
+          }
+        })
+      );
+      if (!cancelled) setMarkedMap(mm);
+    }
+    compute();
+    return () => {
+      cancelled = true;
+    };
+  }, [zipInstance, slots]);
 
   const onSelectSlot = useCallback(
     async (day: number, slot: number) => {
@@ -164,7 +209,10 @@ export function AttendancePage() {
         const fromZip = await readAssignmentsFromZip(zipInstance, day, slot);
         if (fromZip && fromZip.length > 0)
           setAssignedList(
-            fromZip.map((r) => ({ facultyId: r.facultyId, role: r.role }))
+            fromZip.map((r) => ({
+              facultyId: r.facultyId,
+              role: (String(r.role) as Assignment['role']) || 'regular',
+            }))
           );
         else
           setAssignedList(
@@ -296,6 +344,7 @@ export function AttendancePage() {
             slots={slots}
             selected={selected}
             onSelect={onSelectSlot}
+            markedMap={markedMap}
           />
         )}
         {phase === 'mark' && (

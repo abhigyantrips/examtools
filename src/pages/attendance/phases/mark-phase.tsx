@@ -1,10 +1,9 @@
-// ...existing code...
-import type { SlotAttendance } from '@/types';
+import type { SlotAttendance, Assignment, Faculty, AttendanceEntry } from '@/types';
 
 interface MarkPhaseProps {
   attendance: SlotAttendance | null;
-  assignedList: Array<{ facultyId: string; role: string }>;
-  examFaculty: Array<any>;
+  assignedList: Array<Pick<Assignment, 'facultyId' | 'role'>>;
+  examFaculty: Array<Faculty>;
   onSetAttendance: (next: SlotAttendance) => void;
 }
 
@@ -16,9 +15,9 @@ export function MarkPhase({
 }: MarkPhaseProps) {
   if (!attendance) return null;
 
-  const rows =
+  const rows: Array<{ facultyId: string; role: Assignment['role']; status?: AttendanceEntry['status'] }> =
     attendance.entries.length === 0
-      ? assignedList
+      ? assignedList.map((a) => ({ facultyId: a.facultyId, role: a.role }))
       : attendance.entries.map((e) => ({
           facultyId: e.facultyId,
           role: e.role,
@@ -62,7 +61,7 @@ export function MarkPhase({
                         facultyId: row.facultyId,
                         role: row.role,
                         status: 'present',
-                      } as any);
+                      });
                     else next.entries[idx].status = 'present';
                     next.updatedAt = new Date().toISOString();
                     onSetAttendance(next);
@@ -82,7 +81,7 @@ export function MarkPhase({
                         facultyId: row.facultyId,
                         role: row.role,
                         status: 'absent',
-                      } as any);
+                      });
                     else next.entries[idx].status = 'absent';
                     next.updatedAt = new Date().toISOString();
                     onSetAttendance(next);

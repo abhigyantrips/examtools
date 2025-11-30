@@ -1,6 +1,8 @@
+import type { Assignment } from '@/types';
+
 interface LinkPhaseProps {
   // placeholder for linking replacements and buffers
-  assignedList: Array<{ facultyId: string; role: string }>;
+  assignedList: Array<Pick<Assignment, 'facultyId' | 'role'>>;
 }
 
 export function LinkPhase({ assignedList }: LinkPhaseProps) {
