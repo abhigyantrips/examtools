@@ -15,14 +15,12 @@ export function MarkPhase({
 }: MarkPhaseProps) {
   if (!attendance) return null;
 
+  // Always show the assigned list. Merge existing attendance entries to show their status if present.
   const rows: Array<{ facultyId: string; role: Assignment['role']; status?: AttendanceEntry['status'] }> =
-    attendance.entries.length === 0
-      ? assignedList.map((a) => ({ facultyId: a.facultyId, role: a.role }))
-      : attendance.entries.map((e) => ({
-          facultyId: e.facultyId,
-          role: e.role,
-          status: e.status,
-        }));
+    assignedList.map((a) => {
+      const existing = attendance.entries.find((e) => e.facultyId === a.facultyId);
+      return { facultyId: a.facultyId, role: a.role, status: existing?.status };
+    });
 
   return (
     <div>
@@ -33,7 +31,7 @@ export function MarkPhase({
         {rows.map((row) => {
           const currentStatus =
             attendance.entries.find((en) => en.facultyId === row.facultyId)
-              ?.status || 'unmarked';
+              ?.status || 'absent';
           const facultyName =
             examFaculty.find((f: any) => f.facultyId === row.facultyId)
               ?.facultyName || row.facultyId;
@@ -51,38 +49,37 @@ export function MarkPhase({
               <div className="flex gap-2">
                 <button
                   className={`rounded border px-2 py-1 ${currentStatus === 'present' ? 'bg-green-100' : ''}`}
-                  onClick={() => {
-                    const next = { ...attendance };
-                    const idx = next.entries.findIndex(
-                      (e) => e.facultyId === row.facultyId
-                    );
-                    if (idx === -1)
-                      next.entries.push({
-                        facultyId: row.facultyId,
-                        role: row.role,
-                        status: 'present',
-                      });
-                    else next.entries[idx].status = 'present';
-                    next.updatedAt = new Date().toISOString();
-                    onSetAttendance(next);
-                  }}
+                    onClick={() => {
+                      // create an immutable copy of attendance and its entries
+                      const next: SlotAttendance = {
+                        ...attendance,
+                        entries: attendance.entries ? attendance.entries.slice() : [],
+                      };
+                      const idx = next.entries.findIndex((e) => e.facultyId === row.facultyId);
+                      if (idx === -1) {
+                        next.entries.push({ facultyId: row.facultyId, role: row.role, status: 'present' });
+                      } else {
+                        next.entries[idx] = { ...next.entries[idx], status: 'present' };
+                      }
+                      next.updatedAt = new Date().toISOString();
+                      onSetAttendance(next);
+                    }}
                 >
                   Present
                 </button>
                 <button
                   className={`rounded border px-2 py-1 ${currentStatus === 'absent' ? 'bg-yellow-100' : ''}`}
                   onClick={() => {
-                    const next = { ...attendance };
-                    const idx = next.entries.findIndex(
-                      (e) => e.facultyId === row.facultyId
-                    );
-                    if (idx === -1)
-                      next.entries.push({
-                        facultyId: row.facultyId,
-                        role: row.role,
-                        status: 'absent',
-                      });
-                    else next.entries[idx].status = 'absent';
+                    const next: SlotAttendance = {
+                      ...attendance,
+                      entries: attendance.entries ? attendance.entries.slice() : [],
+                    };
+                    const idx = next.entries.findIndex((e) => e.facultyId === row.facultyId);
+                    if (idx === -1) {
+                      next.entries.push({ facultyId: row.facultyId, role: row.role, status: 'absent' });
+                    } else {
+                      next.entries[idx] = { ...next.entries[idx], status: 'absent' };
+                    }
                     next.updatedAt = new Date().toISOString();
                     onSetAttendance(next);
                   }}
