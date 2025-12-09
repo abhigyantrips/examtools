@@ -1,30 +1,34 @@
-import { ArrowRight, BarChart3, Calendar, ClipboardCheck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import {
+  Banknote,
+  Calendar,
+  ClipboardCheck,
+  Clock,
+  FileText,
+  Plus,
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
-import { Button } from '@/components/ui/button';
+import { type ChangeEvent, useCallback } from 'react';
+
 import {
   Card,
-  CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 
 export function HomePage() {
+  const navigate = useNavigate();
   const tools = [
     {
       title: 'Exam Duty Assignment',
       description:
-        'Automatically assign faculty to examination duties using constraint-based algorithms.',
+        'Automatically assign faculty using constraint-based algorithms.',
       path: '/assignment',
       icon: Calendar,
-      features: [
-        'Constraint-based assignment',
-        'Excel import/export',
-        'Offline functionality',
-      ],
       color: 'bg-red-50 border-red-200 dark:bg-red-900/50 dark:border-red-800',
-      iconColor: 'text-red-600',
+      iconColor: 'text-red-500',
     },
     {
       title: 'Duty Attendance Marking',
@@ -32,91 +36,153 @@ export function HomePage() {
         'Mark and track faculty attendance during examination duties.',
       path: '/attendance',
       icon: ClipboardCheck,
-      features: [
-        'Digital attendance tracking',
-        'Absence reporting',
-        'Excel export',
-      ],
       color:
         'bg-orange-50 border-orange-200 dark:bg-orange-900/50 dark:border-orange-800',
-      iconColor: 'text-orange-600',
+      iconColor: 'text-orange-500',
       incomplete: true,
     },
     {
-      title: 'Faculty Duty Accumulation',
-      description:
-        'End-of-year analysis and accumulation of faculty duty distribution.',
+      title: 'Financial Renumeration',
+      description: 'End-of-year analysis and remuneration of faculty duties.',
       path: '/accumulation',
-      icon: BarChart3,
-      features: [
-        'Multi-exam analysis',
-        'Fair distribution calculation',
-        'Annual reports',
-      ],
+      icon: Banknote,
       color:
         'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/50 dark:border-yellow-800',
-      iconColor: 'text-yellow-600',
+      iconColor: 'text-yellow-500',
       incomplete: true,
     },
   ];
 
+  const recentFiles = [
+    {
+      id: '1',
+      name: 'Fall 2024 Mid-Sem',
+      timestamp: '2 hours ago',
+      type: 'assignment',
+    },
+    {
+      id: '2',
+      name: 'Spring 2024 Finals',
+      timestamp: '2 days ago',
+      type: 'accumulation',
+    },
+    {
+      id: '3',
+      name: 'Winter 2023 Supplementary',
+      timestamp: '1 week ago',
+      type: 'attendance',
+    },
+    {
+      id: '4',
+      name: 'Fall 2023 Finals',
+      timestamp: '2 months ago',
+      type: 'assignment',
+    },
+    {
+      id: '5',
+      name: 'Summer 2023 Special',
+      timestamp: '5 months ago',
+      type: 'accumulation',
+    },
+  ];
+
+  const handleFileSelect = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        navigate('/edit');
+      }
+    },
+    [navigate]
+  );
+
   return (
-    <div className="container mx-auto px-4 py-8 lg:flex lg:h-[calc(100vh-9.15rem)] lg:items-center">
-      {/* Tools Grid */}
-      <div className="grid w-full grid-cols-1 gap-8 lg:grid-cols-3">
+    <div className="container mx-auto space-y-8 px-4 py-8">
+      {/* Tools Row */}
+      <div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-3">
         {tools.map((tool) => {
           const Icon = tool.icon;
           return (
-            <Card
-              key={tool.path}
-              className={`relative ${tool.color} transition-shadow hover:shadow-lg`}
-            >
-              <CardHeader>
-                <div className="mb-3 flex items-center gap-3">
-                  <Icon className={`size-8 ${tool.iconColor}`} />
-                  <CardTitle className="text-xl">{tool.title}</CardTitle>
+            <Link key={tool.path} to={tool.path} className="block">
+              <Card
+                className={`group relative ${tool.color} cursor-pointer overflow-hidden transition-all hover:scale-[1.02] hover:shadow-md`}
+              >
+                <CardHeader className="relative z-10 pb-12">
+                  <CardTitle className="tracking-normal">
+                    {tool.title}
+                  </CardTitle>
+                  <CardDescription>{tool.description}</CardDescription>
+                </CardHeader>
+                <div className="absolute -right-1 -bottom-12 z-0">
+                  <Icon
+                    strokeWidth={1.5}
+                    className={`size-30 ${tool.iconColor} opacity-20`}
+                  />
                 </div>
-                <CardDescription className="text-base">
-                  {tool.description}
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Key Features:</h4>
-                  <ul className="space-y-1">
-                    {tool.features.map((feature, index) => (
-                      <li
-                        key={index}
-                        className="text-muted-foreground flex items-center gap-2 text-sm"
-                      >
-                        <div className="size-1.5 rounded-full bg-current" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <Button
-                  asChild={!tool.incomplete}
-                  className="w-full"
-                  disabled={tool.incomplete}
-                >
-                  <Link to={tool.path}>
-                    {tool.incomplete ? (
-                      'Coming Soon'
-                    ) : (
-                      <>
-                        Open Tool
-                        <ArrowRight className="ml-2 size-4" />
-                      </>
-                    )}
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </Card>
+            </Link>
           );
         })}
+      </div>
+
+      {/* Recent Files Section */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold tracking-tight">Recent Files</h2>
+        <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Upload Card */}
+          <Card
+            className="bg-muted/30 hover:bg-muted/50 flex cursor-pointer flex-col justify-between transition-colors"
+            onClick={() => document.getElementById('file-upload')?.click()}
+          >
+            <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
+              <div className="bg-background mt-1 rounded-md p-2 shadow-sm">
+                <Plus className="text-muted-foreground size-5" />
+              </div>
+              <div className="space-y-1">
+                <CardTitle className="text-base">New File</CardTitle>
+                <CardDescription>Create or upload a new file</CardDescription>
+              </div>
+            </CardHeader>
+            <CardFooter>
+              <p className="text-muted-foreground text-xs">
+                Supports .zip format
+              </p>
+            </CardFooter>
+            <input
+              id="file-upload"
+              type="file"
+              accept=".zip"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </Card>
+
+          {/* Recent Files Cards */}
+          {recentFiles.map((file) => (
+            <Card
+              key={file.id}
+              className="flex cursor-pointer flex-col justify-between transition-all hover:shadow-md"
+              onClick={() => navigate('/edit')}
+            >
+              <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
+                <div className="bg-primary/10 mt-1 rounded-md p-2">
+                  <FileText className="text-primary size-5" />
+                </div>
+                <div className="space-y-1">
+                  <CardTitle className="text-base">{file.name}</CardTitle>
+                  <CardDescription className="capitalize">
+                    {file.type} Tool
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardFooter className="justify-end">
+                <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                  <Clock className="size-3" />
+                  {file.timestamp}
+                </div>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );
