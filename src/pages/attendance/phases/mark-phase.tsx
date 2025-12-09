@@ -1,4 +1,9 @@
-import type { SlotAttendance, Assignment, Faculty, AttendanceEntry } from '@/types';
+import type {
+  Assignment,
+  AttendanceEntry,
+  Faculty,
+  SlotAttendance,
+} from '@/types';
 
 interface MarkPhaseProps {
   attendance: SlotAttendance | null;
@@ -16,11 +21,16 @@ export function MarkPhase({
   if (!attendance) return null;
 
   // Always show the assigned list. Merge existing attendance entries to show their status if present.
-  const rows: Array<{ facultyId: string; role: Assignment['role']; status?: AttendanceEntry['status'] }> =
-    assignedList.map((a) => {
-      const existing = attendance.entries.find((e) => e.facultyId === a.facultyId);
-      return { facultyId: a.facultyId, role: a.role, status: existing?.status };
-    });
+  const rows: Array<{
+    facultyId: string;
+    role: Assignment['role'];
+    status?: AttendanceEntry['status'];
+  }> = assignedList.map((a) => {
+    const existing = attendance.entries.find(
+      (e) => e.facultyId === a.facultyId
+    );
+    return { facultyId: a.facultyId, role: a.role, status: existing?.status };
+  });
   // Group rows by role (duty type)
   const groups = rows.reduce((acc: Map<string, typeof rows>, r) => {
     const k = String(r.role || 'other');
@@ -31,8 +41,13 @@ export function MarkPhase({
 
   // Preferred order for roles
   const preferred: string[] = ['regular', 'reliever', 'squad'];
-  const otherRoles = Array.from(groups.keys()).filter((k) => !preferred.includes(k));
-  const orderedRoles = [...preferred.filter((r) => groups.has(r)), ...otherRoles];
+  const otherRoles = Array.from(groups.keys()).filter(
+    (k) => !preferred.includes(k)
+  );
+  const orderedRoles = [
+    ...preferred.filter((r) => groups.has(r)),
+    ...otherRoles,
+  ];
 
   return (
     <div>
@@ -44,12 +59,15 @@ export function MarkPhase({
           const members = groups.get(role) || [];
           return (
             <div key={`role-${role}`}>
-              <div className="mb-2 text-sm font-medium">{String(role).toUpperCase()}</div>
+              <div className="mb-2 text-sm font-medium">
+                {String(role).toUpperCase()}
+              </div>
               <div className="space-y-2">
                 {members.map((row) => {
                   const currentStatus =
-                    attendance.entries.find((en) => en.facultyId === row.facultyId)
-                      ?.status || 'absent';
+                    attendance.entries.find(
+                      (en) => en.facultyId === row.facultyId
+                    )?.status || 'absent';
                   const facultyName =
                     examFaculty.find((f: any) => f.facultyId === row.facultyId)
                       ?.facultyName || row.facultyId;
@@ -71,13 +89,24 @@ export function MarkPhase({
                             // create an immutable copy of attendance and its entries
                             const next: SlotAttendance = {
                               ...attendance,
-                              entries: attendance.entries ? attendance.entries.slice() : [],
+                              entries: attendance.entries
+                                ? attendance.entries.slice()
+                                : [],
                             };
-                            const idx = next.entries.findIndex((e) => e.facultyId === row.facultyId);
+                            const idx = next.entries.findIndex(
+                              (e) => e.facultyId === row.facultyId
+                            );
                             if (idx === -1) {
-                              next.entries.push({ facultyId: row.facultyId, role: row.role, status: 'present' });
+                              next.entries.push({
+                                facultyId: row.facultyId,
+                                role: row.role,
+                                status: 'present',
+                              });
                             } else {
-                              next.entries[idx] = { ...next.entries[idx], status: 'present' };
+                              next.entries[idx] = {
+                                ...next.entries[idx],
+                                status: 'present',
+                              };
                             }
                             next.updatedAt = new Date().toISOString();
                             onSetAttendance(next);
@@ -90,13 +119,24 @@ export function MarkPhase({
                           onClick={() => {
                             const next: SlotAttendance = {
                               ...attendance,
-                              entries: attendance.entries ? attendance.entries.slice() : [],
+                              entries: attendance.entries
+                                ? attendance.entries.slice()
+                                : [],
                             };
-                            const idx = next.entries.findIndex((e) => e.facultyId === row.facultyId);
+                            const idx = next.entries.findIndex(
+                              (e) => e.facultyId === row.facultyId
+                            );
                             if (idx === -1) {
-                              next.entries.push({ facultyId: row.facultyId, role: row.role, status: 'absent' });
+                              next.entries.push({
+                                facultyId: row.facultyId,
+                                role: row.role,
+                                status: 'absent',
+                              });
                             } else {
-                              next.entries[idx] = { ...next.entries[idx], status: 'absent' };
+                              next.entries[idx] = {
+                                ...next.entries[idx],
+                                status: 'absent',
+                              };
                             }
                             next.updatedAt = new Date().toISOString();
                             onSetAttendance(next);

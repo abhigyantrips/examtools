@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { SlotAttendance, DutySlot, Assignment } from '@/types';
+import type { Assignment, DutySlot, SlotAttendance } from '@/types';
 
 import {
   createEmptyAttendance,
@@ -128,7 +128,10 @@ export function AttendancePage() {
         const meta = await readMetadataSlots(zip as any);
         if (meta && meta.length > 0) {
           // convert date strings to Date objects for display
-          const mapped = meta.map((s: any) => ({ ...s, date: new Date(s.date) }));
+          const mapped = meta.map((s: any) => ({
+            ...s,
+            date: new Date(s.date),
+          }));
           setZipSlots(mapped);
           // compute marked map for these slots
           const mm: Record<string, boolean> = {};
@@ -136,8 +139,16 @@ export function AttendancePage() {
             mapped.map(async (s: any) => {
               try {
                 console.log('Reading attendance for slot:', s);
-                const att = await readSlotAttendance(zip as any, Number(s.day), Number(s.slot));
-                mm[`${s.day}-${s.slot}`] = !!(att && att.entries && att.entries.length > 0);
+                const att = await readSlotAttendance(
+                  zip as any,
+                  Number(s.day),
+                  Number(s.slot)
+                );
+                mm[`${s.day}-${s.slot}`] = !!(
+                  att &&
+                  att.entries &&
+                  att.entries.length > 0
+                );
               } catch {
                 mm[`${s.day}-${s.slot}`] = false;
               }
@@ -171,8 +182,17 @@ export function AttendancePage() {
       await Promise.all(
         iterate.map(async (s: any) => {
           try {
-            const att = await readSlotAttendance(zipInstance, Number(s.day), Number(s.slot));
-            if (!cancelled) mm[`${s.day}-${s.slot}`] = !!(att && att.entries && att.entries.length > 0);
+            const att = await readSlotAttendance(
+              zipInstance,
+              Number(s.day),
+              Number(s.slot)
+            );
+            if (!cancelled)
+              mm[`${s.day}-${s.slot}`] = !!(
+                att &&
+                att.entries &&
+                att.entries.length > 0
+              );
           } catch {
             if (!cancelled) mm[`${s.day}-${s.slot}`] = false;
           }
