@@ -5,6 +5,8 @@ import type {
   SlotAttendance,
 } from '@/types';
 
+import { Button } from '@/components/ui/button';
+
 interface MarkPhaseProps {
   attendance: SlotAttendance | null;
   assignedList: Array<Pick<Assignment, 'facultyId' | 'role'>>;
@@ -49,109 +51,158 @@ export function MarkPhase({
     ...otherRoles,
   ];
 
+  // Hide Buffer role as its used to cover absent duties
+  const hiddenRoles = ['buffer'];
+
   return (
     <div>
       <h3 className="font-semibold">
         Attendance for Day {attendance.day + 1} Slot {attendance.slot + 1}
       </h3>
       <div className="mt-4 space-y-6">
-        {orderedRoles.map((role) => {
-          const members = groups.get(role) || [];
-          return (
-            <div key={`role-${role}`}>
-              <div className="mb-2 text-sm font-medium">
-                {String(role).toUpperCase()}
-              </div>
-              <div className="space-y-2">
-                {members.map((row) => {
-                  const currentStatus =
-                    attendance.entries.find(
-                      (en) => en.facultyId === row.facultyId
-                    )?.status || 'absent';
-                  const facultyName =
-                    examFaculty.find((f: any) => f.facultyId === row.facultyId)
-                      ?.facultyName || row.facultyId;
-                  return (
-                    <div
-                      key={row.facultyId}
-                      className="flex items-center justify-between rounded border p-2"
+        {orderedRoles
+          .filter((r) => !hiddenRoles.includes(r))
+          .map((role) => {
+            const members = groups.get(role) || [];
+            return (
+              <div key={`role-${role}`}>
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="text-sm font-medium">
+                    {String(role).toUpperCase()}
+                  </div>
+                  <div className="ml-auto">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="bg-green-50 text-sm hover:bg-green-100"
+                      onClick={() => {
+                        const next: SlotAttendance = {
+                          ...attendance,
+                          entries: attendance.entries
+                            ? attendance.entries.slice()
+                            : [],
+                        };
+                        const members = groups.get(role) || [];
+                        members.forEach((m) => {
+                          const idx = next.entries.findIndex(
+                            (e) => e.facultyId === m.facultyId
+                          );
+                          if (idx === -1) {
+                            next.entries.push({
+                              facultyId: m.facultyId,
+                              role: (m.role as any) || role,
+                              status: 'present',
+                            });
+                          } else {
+                            next.entries[idx] = {
+                              ...next.entries[idx],
+                              status: 'present',
+                            };
+                          }
+                        });
+                        next.updatedAt = new Date().toISOString();
+                        onSetAttendance(next);
+                      }}
                     >
-                      <div>
-                        <div className="font-medium">{facultyName}</div>
-                        <div className="text-muted-foreground text-xs">
-                          {row.facultyId} • {String(row.role).toUpperCase()}
+                      Mark All Present
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {members.map((row) => {
+                    const currentStatus =
+                      attendance.entries.find(
+                        (en) => en.facultyId === row.facultyId
+                      )?.status || 'absent';
+                    const facultyName =
+                      examFaculty.find(
+                        (f: any) => f.facultyId === row.facultyId
+                      )?.facultyName || row.facultyId;
+                    return (
+                      <div
+                        key={row.facultyId}
+                        className="flex items-center justify-between rounded border p-2"
+                      >
+                        <div>
+                          <div className="font-medium">{facultyName}</div>
+                          <div className="text-muted-foreground text-xs">
+                            {row.facultyId} • {String(row.role).toUpperCase()}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`${currentStatus === 'present' ? 'bg-green-100' : ''}`}
+                            onClick={() => {
+                              // create an immutable copy of attendance and its entries
+                              const next: SlotAttendance = {
+                                ...attendance,
+                                entries: attendance.entries
+                                  ? attendance.entries.slice()
+                                  : [],
+                              };
+                              const idx = next.entries.findIndex(
+                                (e) => e.facultyId === row.facultyId
+                              );
+                              if (idx === -1) {
+                                next.entries.push({
+                                  facultyId: row.facultyId,
+                                  role: row.role,
+                                  status: 'present',
+                                });
+                              } else {
+                                next.entries[idx] = {
+                                  ...next.entries[idx],
+                                  status: 'present',
+                                };
+                              }
+                              next.updatedAt = new Date().toISOString();
+                              onSetAttendance(next);
+                            }}
+                          >
+                            Present
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`${currentStatus === 'absent' ? 'bg-yellow-100' : ''}`}
+                            onClick={() => {
+                              const next: SlotAttendance = {
+                                ...attendance,
+                                entries: attendance.entries
+                                  ? attendance.entries.slice()
+                                  : [],
+                              };
+                              const idx = next.entries.findIndex(
+                                (e) => e.facultyId === row.facultyId
+                              );
+                              if (idx === -1) {
+                                next.entries.push({
+                                  facultyId: row.facultyId,
+                                  role: row.role,
+                                  status: 'absent',
+                                });
+                              } else {
+                                next.entries[idx] = {
+                                  ...next.entries[idx],
+                                  status: 'absent',
+                                };
+                              }
+                              next.updatedAt = new Date().toISOString();
+                              onSetAttendance(next);
+                            }}
+                          >
+                            Absent
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          className={`rounded border px-2 py-1 ${currentStatus === 'present' ? 'bg-green-100' : ''}`}
-                          onClick={() => {
-                            // create an immutable copy of attendance and its entries
-                            const next: SlotAttendance = {
-                              ...attendance,
-                              entries: attendance.entries
-                                ? attendance.entries.slice()
-                                : [],
-                            };
-                            const idx = next.entries.findIndex(
-                              (e) => e.facultyId === row.facultyId
-                            );
-                            if (idx === -1) {
-                              next.entries.push({
-                                facultyId: row.facultyId,
-                                role: row.role,
-                                status: 'present',
-                              });
-                            } else {
-                              next.entries[idx] = {
-                                ...next.entries[idx],
-                                status: 'present',
-                              };
-                            }
-                            next.updatedAt = new Date().toISOString();
-                            onSetAttendance(next);
-                          }}
-                        >
-                          Present
-                        </button>
-                        <button
-                          className={`rounded border px-2 py-1 ${currentStatus === 'absent' ? 'bg-yellow-100' : ''}`}
-                          onClick={() => {
-                            const next: SlotAttendance = {
-                              ...attendance,
-                              entries: attendance.entries
-                                ? attendance.entries.slice()
-                                : [],
-                            };
-                            const idx = next.entries.findIndex(
-                              (e) => e.facultyId === row.facultyId
-                            );
-                            if (idx === -1) {
-                              next.entries.push({
-                                facultyId: row.facultyId,
-                                role: row.role,
-                                status: 'absent',
-                              });
-                            } else {
-                              next.entries[idx] = {
-                                ...next.entries[idx],
-                                status: 'absent',
-                              };
-                            }
-                            next.updatedAt = new Date().toISOString();
-                            onSetAttendance(next);
-                          }}
-                        >
-                          Absent
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     </div>
   );
