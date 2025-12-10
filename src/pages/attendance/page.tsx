@@ -75,7 +75,7 @@ export function AttendancePage() {
         case 'mark':
           return attendance !== null && attendance.entries.length > 0;
         case 'link':
-          return true; // placeholder
+        // complete no absentee
         case 'review':
           return attendance !== null;
         default:
@@ -375,7 +375,14 @@ export function AttendancePage() {
             onSetAttendance={(next) => setAttendance(next)}
           />
         )}
-        {phase === 'link' && <LinkPhase assignedList={assignedList} />}
+        {phase === 'link' && (
+          <LinkPhase
+            attendance={attendance}
+            assignedList={assignedList}
+            examFaculty={examData.faculty}
+            onSetAttendance={(next) => setAttendance(next)}
+          />
+        )}
         {phase === 'review' && <ReviewPhase attendance={attendance} />}
       </main>
 
