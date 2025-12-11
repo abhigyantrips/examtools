@@ -75,7 +75,19 @@ export function AttendancePage() {
         case 'mark':
           return attendance !== null && attendance.entries.length > 0;
         case 'link':
-        // complete no absentee
+          // Complete if all assigned faculty are either present or have a replacement
+          if (!attendance) return false;
+          const unlinkedAbsentees = attendance.entries.filter(
+            (e) =>
+              e.status === 'absent' &&
+              e.role !== 'buffer' &&
+              !attendance.entries.some(
+                (en) =>
+                  en.status === 'replacement' &&
+                  en.replacementFrom === e.facultyId
+              )
+          );
+          return unlinkedAbsentees.length === 0;
         case 'review':
           return attendance !== null;
         default:
