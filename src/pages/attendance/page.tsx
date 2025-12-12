@@ -395,7 +395,15 @@ export function AttendancePage() {
             onSetAttendance={(next) => setAttendance(next)}
           />
         )}
-        {phase === 'review' && <ReviewPhase attendance={attendance} />}
+        {phase === 'review' && (
+          <ReviewPhase
+            attendance={attendance}
+            assignedList={assignedList}
+            examFaculty={examData.faculty}
+            zipInstance={zipInstance}
+            zipFileName={zipFileName ?? undefined}
+          />
+        )}
       </main>
 
       <Toaster />
