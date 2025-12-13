@@ -1,4 +1,4 @@
-import { ClipboardCheck } from 'lucide-react';
+import { Upload } from 'lucide-react';
 
 import {
   Card,
@@ -17,7 +17,6 @@ export function ImportPhase({ zipFileName, onImport }: ImportPhaseProps) {
   return (
     <Card>
       <CardHeader>
-        <ClipboardCheck className="mx-auto mb-4 size-16 text-green-600" />
         <CardTitle className="text-2xl">Duty Attendance Marking</CardTitle>
         <CardDescription>
           Import exported ZIP, mark attendance per slot and save back into ZIP
@@ -25,7 +24,12 @@ export function ImportPhase({ zipFileName, onImport }: ImportPhaseProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
+          <div
+            className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+              /* highlight when dragging */
+              'border-muted-foreground/25 hover:border-muted-foreground/50'
+            }`}
+          >
             <input
               id="zipfile"
               type="file"
@@ -33,14 +37,24 @@ export function ImportPhase({ zipFileName, onImport }: ImportPhaseProps) {
               onChange={(e) =>
                 onImport(e.target.files ? e.target.files[0] : null)
               }
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
-            <div>{zipFileName || 'No ZIP loaded'}</div>
+
+            <div className="space-y-3">
+              <Upload className="text-muted-foreground mx-auto size-12" />
+              <div>
+                <p className="text-sm font-medium">
+                  Drag and drop your ZIP file here
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  or click to browse files (.zip)
+                </p>
+              </div>
+              <div className="text-muted-foreground text-sm">
+                {zipFileName || 'No ZIP loaded'}
+              </div>
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm">
-            Import the exported assignments ZIP (contains internal/metadata.json
-            and internal/assignment.json). If you don't have one you can still
-            proceed.
-          </p>
         </div>
       </CardContent>
     </Card>
