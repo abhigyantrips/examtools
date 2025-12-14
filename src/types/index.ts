@@ -111,7 +111,7 @@ export interface ExcelParseResult<T> {
 // Attendance export formats
 export interface AttendanceEntry {
   facultyId: string;
-  role: 'regular' | 'reliever' | 'squad' | 'buffer';
+  role: 'regular' | 'reliever' | 'squad' | 'buffer' | 'attendance-override';
   status: 'present' | 'absent' | 'replacement';
   replacementFrom?: string | null; // facultyId of replacement
 }

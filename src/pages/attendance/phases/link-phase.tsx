@@ -117,7 +117,7 @@ export function LinkPhase({
                           const isBuffer = bufferCandidates.includes(sel);
                           next.entries.push({
                             facultyId: sel,
-                            role: isBuffer ? 'buffer' : 'regular',
+                            role: isBuffer ? 'buffer' : 'attendance-override',
                             status: 'replacement',
                             replacementFrom: absent.facultyId,
                           });
