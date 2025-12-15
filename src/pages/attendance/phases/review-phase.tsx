@@ -23,7 +23,27 @@ export function ReviewPhase({
 }: ReviewPhaseProps) {
   if (!attendance) return <div />;
 
+  const cleanRoleName = (role: string) => {
+    switch (role) {
+      case 'regular':
+        return 'Regular Duty';
+      case 'reliever':
+        return 'Reliever Duty';
+      case 'squad':
+        return 'Squad Duty';
+      case 'buffer':
+        return 'Buffer Duty';
+      case 'attendance-override':
+        return 'Manual Assignment';
+      default:
+        return role;
+    }
+  };
+
   const assignedCount = assignedList.length;
+  const bufferDutyCount = assignedList.filter(
+    (a) => a.role === 'buffer'
+  ).length;
   const presentCount = attendance.entries.filter(
     (e) => e.status === 'present' || e.status === 'replacement'
   ).length;
@@ -34,6 +54,9 @@ export function ReviewPhase({
     (e) =>
       e.role === 'buffer' &&
       (e.status === 'present' || e.status === 'replacement')
+  ).length;
+  const overrideCount = attendance.entries.filter(
+    (e) => e.role === 'attendance-override'
   ).length;
 
   const absentees = attendance.entries.filter(
@@ -77,24 +100,34 @@ export function ReviewPhase({
         Created: {attendance.createdAt} • Updated: {attendance.updatedAt}
       </p>
 
-      <div className="mt-3 grid grid-cols-3 gap-4">
+      <div className="mt-3 grid grid-cols-4 gap-4">
         <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">Assigned duties</div>
-          <div className="text-xl font-medium">{assignedCount}</div>
-        </div>
-        <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">
-            Present (incl. replacements)
+          <div className="text-muted-foreground text-sm">Required duties</div>
+          <div className="text-xl font-medium">
+            {assignedCount - bufferDutyCount}
           </div>
-          <div className="text-xl font-medium">{presentCount}</div>
         </div>
         <div className="rounded border p-3">
           <div className="text-muted-foreground text-sm">
-            Replacements / Buffers used
+            Present (without replacements)
           </div>
           <div className="text-xl font-medium">
-            {replacementsCount} / {buffersUsedCount}
+            {presentCount - replacementsCount}
           </div>
+        </div>
+        <div className="rounded border p-3">
+          <div className="text-muted-foreground text-sm">
+            Buffers used / Assigned
+          </div>
+          <div className="text-xl font-medium">
+            {buffersUsedCount} / {bufferDutyCount}
+          </div>
+        </div>
+        <div className="rounded border p-3">
+          <div className="text-muted-foreground text-sm">
+            Attendance overrides
+          </div>
+          <div className="text-xl font-medium">{overrideCount}</div>
         </div>
       </div>
 
@@ -117,7 +150,7 @@ export function ReviewPhase({
                     {getFacultyName(abs.facultyId)}
                   </div>
                   <div className="text-muted-foreground text-xs">
-                    {abs.facultyId} • {abs.role}
+                    {abs.facultyId} • {cleanRoleName(abs.role)}
                   </div>
                 </div>
                 <div className="text-right">
@@ -127,7 +160,7 @@ export function ReviewPhase({
                         Covered by {getFacultyName(rep.facultyId)}
                       </div>
                       <div className="text-muted-foreground text-xs">
-                        {rep.facultyId} • {rep.role}
+                        {rep.facultyId} • {cleanRoleName(rep.role)}
                       </div>
                     </div>
                   ) : (
