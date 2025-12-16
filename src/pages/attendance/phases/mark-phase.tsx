@@ -94,6 +94,21 @@ export function MarkPhase({
                               status: 'present',
                             });
                           } else {
+                            // Check is previously marked as absent and remove replacement entry
+                            const existing = next.entries[idx];
+                            // console.log('Existing entry:', existing);
+                            if (existing.status === 'absent') {
+                              // Remove any replacement entries linked to this faculty
+                              next.entries = next.entries.filter(
+                                (en) =>
+                                  !(
+                                    en.status === 'replacement' &&
+                                    en.replacementFrom === m.facultyId
+                                  )
+                              );
+                            }
+
+                            // Update to present
                             next.entries[idx] = {
                               ...next.entries[idx],
                               status: 'present',
@@ -152,6 +167,21 @@ export function MarkPhase({
                                   status: 'present',
                                 });
                               } else {
+                                // Check is previously marked as absent and remove replacement entry
+                                const existing = next.entries[idx];
+                                // console.log('Existing entry:', existing);
+                                if (existing.status === 'absent') {
+                                  // Remove any replacement entries linked to this faculty
+                                  next.entries = next.entries.filter(
+                                    (en) =>
+                                      !(
+                                        en.status === 'replacement' &&
+                                        en.replacementFrom === row.facultyId
+                                      )
+                                  );
+                                }
+
+                                // Update to present
                                 next.entries[idx] = {
                                   ...next.entries[idx],
                                   status: 'present',
