@@ -259,54 +259,53 @@ export function AssignmentsPhase({
     <div className="space-y-6">
       {/* Assignment Generation */}
       <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                <Play className="size-5" />
-                Generate Assignments
-              </CardTitle>
-              <CardDescription>
-                Generate duty assignments based on your configuration and
-                faculty availability
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              {/* Reset Button: visible if assignmentResult exists */}
-              {examStructure.dutySlots.length != 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setAssignmentResult(null);
-                    onAssignmentsUpdated([]);
-                  }}
-                  disabled={assigning}
-                >
-                  Reset
-                </Button>
-              )}
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <Play className="size-5" />
+              Generate Assignments
+            </CardTitle>
+            <CardDescription>
+              Generate duty assignments based on your configuration and faculty
+              availability
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            {/* Reset Button: visible if assignmentResult exists */}
+            {examStructure.dutySlots.length != 0 && (
               <Button
-                onClick={runAssignment}
-                disabled={assigning || examStructure.dutySlots.length === 0}
+                variant="outline"
+                onClick={() => {
+                  setAssignmentResult(null);
+                  onAssignmentsUpdated([]);
+                }}
+                disabled={assigning}
               >
-                {assigning ? (
-                  <>
-                    <Clock className="size-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-4" />
-                    Generate
-                  </>
-                )}
+                Reset
               </Button>
-            </div>
+            )}
+            <Button
+              onClick={runAssignment}
+              disabled={assigning || examStructure.dutySlots.length === 0}
+            >
+              {assigning ? (
+                <>
+                  <Clock className="size-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Play className="size-4" />
+                  Generate
+                </>
+              )}
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Assignment Statistics */}
-          {assignmentStats && (
+        {assignmentStats && (
+          <CardContent className="space-y-4">
+            {/* Assignment Statistics */}
+
             <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
               <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/30">
                 <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
@@ -357,8 +356,8 @@ export function AssignmentsPhase({
                 </div>
               </div>
             </div>
-          )}
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
       {/* Export Options */}

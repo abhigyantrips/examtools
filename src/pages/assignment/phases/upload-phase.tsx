@@ -31,7 +31,11 @@ interface UploadPhaseProps {
   importMetadata?: (file: File) => Promise<void>;
 }
 
-export function UploadPhase({ faculty, onFacultyUploaded, importMetadata }: UploadPhaseProps) {
+export function UploadPhase({
+  faculty,
+  onFacultyUploaded,
+  importMetadata,
+}: UploadPhaseProps) {
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   // Group faculty by designation for summary

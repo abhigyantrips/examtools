@@ -212,7 +212,7 @@ export function AssignmentPage() {
               onClick={handleBack}
               disabled={currentPhase === 'upload'}
             >
-              <ArrowLeft className="mr-2 size-4" />
+              <ArrowLeft />
               Back
             </Button>
 
@@ -221,7 +221,7 @@ export function AssignmentPage() {
               disabled={!canProceedToNext() || currentPhase === 'assignments'}
             >
               Continue
-              <ArrowRight className="ml-2 size-4" />
+              <ArrowRight />
             </Button>
           </div>
         </div>
