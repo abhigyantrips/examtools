@@ -1,7 +1,7 @@
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
+import { toast } from 'sonner';
 
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
 
 import type {
   Assignment,
@@ -113,7 +113,9 @@ export function useExamData() {
       // Changing faculty affects assignments; reset assignments
       await saveData({ faculty: sorted, assignments: [] });
       if (hadAssignments) {
-        toast.success('Assignments were reset because the faculty list changed');
+        toast.success(
+          'Assignments were reset because the faculty list changed'
+        );
       }
     },
     [saveData, data]
@@ -125,7 +127,9 @@ export function useExamData() {
       // Changing exam structure affects assignments; reset assignments
       await saveData({ examStructure, assignments: [] });
       if (hadAssignments) {
-        toast.success('Assignments were reset because the exam configuration changed');
+        toast.success(
+          'Assignments were reset because the exam configuration changed'
+        );
       }
     },
     [saveData, data]
@@ -137,7 +141,9 @@ export function useExamData() {
       // Changing unavailability affects assignments; reset assignments
       await saveData({ unavailability, assignments: [] });
       if (hadAssignments) {
-        toast.success('Assignments were reset because faculty unavailability changed');
+        toast.success(
+          'Assignments were reset because faculty unavailability changed'
+        );
       }
     },
     [saveData, data]
@@ -166,7 +172,8 @@ export function useExamData() {
         assignments: [],
         lastUpdated: new Date(),
       });
-      if (hadAssignments) toast('All data cleared; assignments have been reset');
+      if (hadAssignments)
+        toast('All data cleared; assignments have been reset');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear data');
     }
@@ -197,7 +204,8 @@ export function useExamData() {
           unavailability: imported.unavailability,
           assignments: [],
         });
-        if (hadAssignments) toast.success('Metadata imported; assignments have been reset');
+        if (hadAssignments)
+          toast.success('Metadata imported; assignments have been reset');
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to import metadata'
