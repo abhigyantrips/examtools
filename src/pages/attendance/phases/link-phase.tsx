@@ -1,5 +1,8 @@
 import type { Assignment, Faculty, SlotAttendance } from '@/types';
 
+// Enable option to mark "No Replacement" for absent faculty
+const ENABLE_NO_REPLACEMENT_OPTION = true;
+
 interface LinkPhaseProps {
   attendance: SlotAttendance | null;
   assignedList: Array<Pick<Assignment, 'facultyId' | 'role'>>;
@@ -150,7 +153,9 @@ export function LinkPhase({
                       }}
                     >
                       <option value="">— Select replacement —</option>
-                      <option value="no-replacement">— Not Replaced —</option>
+                      {ENABLE_NO_REPLACEMENT_OPTION && (
+                        <option value="no-replacement">— Not Replaced —</option>
+                      )}
                       {facultyCandidates.map((bId) => {
                         const bufUsedElsewhere = attendance.entries.some(
                           (en) =>
