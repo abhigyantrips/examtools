@@ -138,7 +138,8 @@ export function ReviewPhase({
             const rep = attendance.entries.find(
               (en) =>
                 en.status === 'replacement' &&
-                en.replacementFrom === abs.facultyId
+                en.replacementFrom === abs.facultyId &&
+                !en.facultyId.startsWith('no-replacement-for')
             );
             return (
               <div

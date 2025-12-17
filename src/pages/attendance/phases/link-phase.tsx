@@ -57,12 +57,17 @@ export function LinkPhase({
               new Set([...bufferCandidates, ...unassignedCandidates])
             );
 
-            // current mapping: find entry replacing this absent
             const currentReplacement = attendance.entries.find(
               (en) =>
                 en.status === 'replacement' &&
                 en.replacementFrom === absent.facultyId
             );
+
+            const replacementFacultyId = currentReplacement
+              ? currentReplacement.facultyId.startsWith('no-replacement-for-')
+                ? 'no-replacement'
+                : currentReplacement.facultyId
+              : '';
 
             const absentName =
               examFaculty.find((f) => f.facultyId === absent.facultyId)
@@ -77,7 +82,7 @@ export function LinkPhase({
                   <div className="flex items-center gap-3">
                     <select
                       className="rounded border px-2 py-1"
-                      value={currentReplacement?.facultyId || ''}
+                      value={replacementFacultyId}
                       onChange={(ev) => {
                         const sel = ev.target.value; // facultyId or ''
                         const next: SlotAttendance = {
@@ -109,24 +114,35 @@ export function LinkPhase({
                         );
                         if (usedElsewhere) return;
 
-                        const idx = next.entries.findIndex(
-                          (en) => en.facultyId === sel
-                        );
-                        if (idx === -1) {
-                          // prefer to keep role as 'buffer' for assigned buffers, otherwise keep existing role if present
-                          const isBuffer = bufferCandidates.includes(sel);
+                        // Special Case of "No Replacement"
+                        if (sel === 'no-replacement') {
+                          // Add a replacement entry with dummy facultyId
                           next.entries.push({
-                            facultyId: sel,
-                            role: isBuffer ? 'buffer' : 'attendance-override',
+                            facultyId: `no-replacement-for-${absent.facultyId}`,
+                            role: 'attendance-override',
                             status: 'replacement',
                             replacementFrom: absent.facultyId,
                           });
                         } else {
-                          next.entries[idx] = {
-                            ...next.entries[idx],
-                            status: 'replacement',
-                            replacementFrom: absent.facultyId,
-                          };
+                          const idx = next.entries.findIndex(
+                            (en) => en.facultyId === sel
+                          );
+                          if (idx === -1) {
+                            // prefer to keep role as 'buffer' for assigned buffers, otherwise keep existing role if present
+                            const isBuffer = bufferCandidates.includes(sel);
+                            next.entries.push({
+                              facultyId: sel,
+                              role: isBuffer ? 'buffer' : 'attendance-override',
+                              status: 'replacement',
+                              replacementFrom: absent.facultyId,
+                            });
+                          } else {
+                            next.entries[idx] = {
+                              ...next.entries[idx],
+                              status: 'replacement',
+                              replacementFrom: absent.facultyId,
+                            };
+                          }
                         }
 
                         next.updatedAt = new Date().toISOString();
@@ -134,6 +150,7 @@ export function LinkPhase({
                       }}
                     >
                       <option value="">— Select replacement —</option>
+                      <option value="no-replacement">— Not Replaced —</option>
                       {facultyCandidates.map((bId) => {
                         const bufUsedElsewhere = attendance.entries.some(
                           (en) =>
