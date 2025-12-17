@@ -1,9 +1,8 @@
 import { Home } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-
-import { ThemeToggle } from './theme-toggle';
 
 export function Header() {
   const location = useLocation();
@@ -15,8 +14,8 @@ export function Header() {
         return 'duties.';
       case '/attendance':
         return 'attendance.';
-      case '/accumulation':
-        return 'accumulation.';
+      case '/renumeration':
+        return 'renumeration.';
       default:
         return '';
     }
@@ -73,7 +72,7 @@ export function Header() {
             {!isHome && (
               <Button variant="outline" asChild>
                 <Link to="/">
-                  <Home className="size-4" />
+                  <Home />
                   Home
                 </Link>
               </Button>

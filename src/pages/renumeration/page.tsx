@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function AccumulationPage() {
+export function RenumerationPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-2xl text-center">
@@ -16,7 +16,7 @@ export function AccumulationPage() {
           <CardHeader>
             <BarChart3 className="mx-auto mb-4 size-16 text-purple-600" />
             <CardTitle className="text-2xl">
-              Faculty Duty Accumulation
+              Faculty Duty Renumeration
             </CardTitle>
             <CardDescription>
               End-of-year analysis and balancing of faculty duty distribution

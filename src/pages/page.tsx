@@ -13,10 +13,17 @@ import { type ChangeEvent, useCallback } from 'react';
 import {
   Card,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -44,7 +51,7 @@ export function HomePage() {
     {
       title: 'Financial Renumeration',
       description: 'End-of-year analysis and remuneration of faculty duties.',
-      path: '/accumulation',
+      path: '/renumeration',
       icon: Banknote,
       color:
         'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/50 dark:border-yellow-800',
@@ -56,7 +63,7 @@ export function HomePage() {
   const recentFiles = [
     {
       id: '1',
-      name: 'Fall 2024 Mid-Sem',
+      name: '2024 Even Semester Mid-Sem',
       timestamp: '2 hours ago',
       type: 'assignment',
     },
@@ -64,7 +71,7 @@ export function HomePage() {
       id: '2',
       name: 'Spring 2024 Finals',
       timestamp: '2 days ago',
-      type: 'accumulation',
+      type: 'renumeration',
     },
     {
       id: '3',
@@ -82,7 +89,7 @@ export function HomePage() {
       id: '5',
       name: 'Summer 2023 Special',
       timestamp: '5 months ago',
-      type: 'accumulation',
+      type: 'renumeration',
     },
   ];
 
@@ -127,62 +134,71 @@ export function HomePage() {
       {/* Recent Files Section */}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold tracking-tight">Recent Files</h2>
-        <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <ItemGroup className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Upload Card */}
-          <Card
-            className="bg-muted/30 hover:bg-muted/50 flex cursor-pointer flex-col justify-between transition-colors"
-            onClick={() => document.getElementById('file-upload')?.click()}
+          <Item
+            variant="outline"
+            asChild
+            role="button"
+            className="hover:cursor-pointer"
           >
-            <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-              <div className="bg-background mt-1 rounded-md p-2 shadow-sm">
-                <Plus className="text-muted-foreground size-5" />
-              </div>
-              <div className="space-y-1">
-                <CardTitle className="text-base">New File</CardTitle>
-                <CardDescription>Create or upload a new file</CardDescription>
-              </div>
-            </CardHeader>
-            <CardFooter>
-              <p className="text-muted-foreground text-xs">
-                Supports .zip format
-              </p>
-            </CardFooter>
-            <input
-              id="file-upload"
-              type="file"
-              accept=".zip"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </Card>
+            <a onClick={() => document.getElementById('file-upload')?.click()}>
+              <ItemMedia variant="default" className="translate-y-0!">
+                <div className="bg-foreground/10 flex size-14 items-center justify-center rounded-md">
+                  <Plus className="text-muted-foreground size-7" />
+                </div>
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle className="text-base">Edit New File</ItemTitle>
+                <ItemDescription>
+                  Attach a{' '}
+                  <code className="bg-muted/50 rounded-md px-1 py-0.5">
+                    .zip
+                  </code>{' '}
+                  file to get started!
+                </ItemDescription>
+              </ItemContent>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".zip"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </a>
+          </Item>
 
           {/* Recent Files Cards */}
-          {recentFiles.map((file) => (
-            <Card
-              key={file.id}
-              className="flex cursor-pointer flex-col justify-between transition-all hover:shadow-md"
-              onClick={() => navigate('/edit')}
-            >
-              <CardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
-                <div className="bg-primary/10 mt-1 rounded-md p-2">
-                  <FileText className="text-primary size-5" />
-                </div>
-                <div className="space-y-1">
-                  <CardTitle className="text-base">{file.name}</CardTitle>
-                  <CardDescription className="capitalize">
-                    {file.type} Tool
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardFooter className="justify-end">
-                <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                  <Clock className="size-3" />
-                  {file.timestamp}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+          {recentFiles.map((file) => {
+            const tool = tools.find((t) => t.path.includes(file.type));
+            const Icon = tool ? tool.icon : FileText;
+            const iconColor = tool ? tool.iconColor : 'text-primary';
+            const bgColor = tool ? tool.color : 'bg-muted';
+
+            return (
+              <Item key={file.id} variant="outline" asChild role="listitem">
+                <Link to="/edit">
+                  <ItemMedia variant="default" className="translate-y-0!">
+                    <div
+                      className={`${bgColor} flex size-14 items-center justify-center rounded-md`}
+                    >
+                      <Icon
+                        className={`size-7 ${file.type === 'renumeration' ? '-rotate-45' : ''} ${iconColor} opacity-75`}
+                      />
+                    </div>
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle className="text-base">{file.name}</ItemTitle>
+                    <ItemDescription className="flex flex-row items-center gap-1 capitalize">
+                      <Clock className="size-3" />
+                      {file.timestamp}
+                    </ItemDescription>
+                  </ItemContent>
+                </Link>
+              </Item>
+            );
+          })}
+        </ItemGroup>
       </div>
     </div>
   );

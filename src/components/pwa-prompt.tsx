@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 
@@ -122,22 +121,22 @@ export function PWAPrompt() {
     <>
       {/* Install Prompt */}
       {showInstallPrompt && (
-        <div className="fixed right-4 bottom-4 z-50 max-w-sm">
+        <div className="fixed right-4 bottom-4 z-50 max-w-54">
           <Card className="border-primary shadow-lg">
-            <CardHeader className="pb-3">
+            <CardContent className="flex flex-col items-end space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm">Install ExamTools</CardTitle>
+                  <CardTitle className="text-sm">
+                    Install Application?
+                  </CardTitle>
                   <CardDescription className="text-xs">
-                    Install for offline access and better performance
+                    This will allow for offline access and a better experience.
                   </CardDescription>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
               <div className="flex gap-2">
                 <Button onClick={handleInstall} size="sm" className="flex-1">
-                  <Download className="mr-2 size-3" />
+                  <Download />
                   Install
                 </Button>
                 <Button
@@ -155,24 +154,22 @@ export function PWAPrompt() {
 
       {/* Update Prompt */}
       {showUpdatePrompt && (
-        <div className="fixed right-4 bottom-4 z-50 max-w-sm">
-          <Card className="border-blue-200 bg-blue-50 shadow-lg">
-            <CardHeader className="pb-3">
+        <div className="fixed right-4 bottom-4 z-50 max-w-54">
+          <Card className="border-blue-200 bg-blue-50 shadow-lg dark:border-blue-800 dark:bg-blue-900">
+            <CardContent className="flex flex-col items-end space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm text-blue-900">
+                  <CardTitle className="text-sm text-blue-900 dark:text-blue-100">
                     Update Available
                   </CardTitle>
-                  <CardDescription className="text-xs text-blue-700">
-                    A new version of the application is ready
+                  <CardDescription className="text-xs text-blue-700 dark:text-blue-300">
+                    A new version of the application is ready!
                   </CardDescription>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
               <div className="flex gap-2">
                 <Button onClick={handleUpdate} size="sm" className="flex-1">
-                  <RefreshCw className="mr-2 size-3" />
+                  <RefreshCw />
                   Update Now
                 </Button>
                 <Button

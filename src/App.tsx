@@ -6,11 +6,11 @@ import { PWAPrompt } from '@/components/pwa-prompt';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 
-import { AccumulationPage } from '@/pages/accumulation/page';
 import { AssignmentPage } from '@/pages/assignment/page';
 import { AttendancePage } from '@/pages/attendance/page';
 import { EditPage } from '@/pages/edit/page';
 import { HomePage } from '@/pages/page';
+import { RenumerationPage } from '@/pages/renumeration/page';
 
 export default function App() {
   return (
@@ -24,7 +24,7 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/assignment" element={<AssignmentPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
-              <Route path="/accumulation" element={<AccumulationPage />} />
+              <Route path="/renumeration" element={<RenumerationPage />} />
               <Route path="/edit" element={<EditPage />} />
             </Routes>
           </main>
