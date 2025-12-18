@@ -5,6 +5,13 @@ import type { Assignment, Faculty, SlotAttendance } from '@/types';
 import { generateZipBlob, saveSlotAttendance } from '@/lib/attendance';
 
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 interface ReviewPhaseProps {
   attendance: SlotAttendance | null;
@@ -94,89 +101,99 @@ export function ReviewPhase({
   }
 
   return (
-    <div>
-      <h3 className="font-semibold">Review & Export</h3>
-      <p className="text-muted-foreground text-sm">
-        Created: {attendance.createdAt} • Updated: {attendance.updatedAt}
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Review & Export</CardTitle>
+        <CardDescription>
+          Summary of attendance for Day {attendance.day + 1} Slot{' '}
+          {attendance.slot + 1}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground text-sm">
+          Created: {attendance.createdAt} • Updated: {attendance.updatedAt}
+        </p>
 
-      <div className="mt-3 grid grid-cols-4 gap-4">
-        <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">Required duties</div>
-          <div className="text-xl font-medium">
-            {assignedCount - bufferDutyCount}
+        <div className="mt-3 grid grid-cols-4 gap-4">
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground text-sm">Required duties</div>
+            <div className="text-xl font-medium">
+              {assignedCount - bufferDutyCount}
+            </div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground text-sm">
+              Present (without replacements)
+            </div>
+            <div className="text-xl font-medium">
+              {presentCount - replacementsCount}
+            </div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground text-sm">
+              Buffers used / Assigned
+            </div>
+            <div className="text-xl font-medium">
+              {buffersUsedCount} / {bufferDutyCount}
+            </div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground text-sm">
+              Attendance overrides
+            </div>
+            <div className="text-xl font-medium">{overrideCount}</div>
           </div>
         </div>
-        <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">
-            Present (without replacements)
-          </div>
-          <div className="text-xl font-medium">
-            {presentCount - replacementsCount}
-          </div>
-        </div>
-        <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">
-            Buffers used / Assigned
-          </div>
-          <div className="text-xl font-medium">
-            {buffersUsedCount} / {bufferDutyCount}
-          </div>
-        </div>
-        <div className="rounded border p-3">
-          <div className="text-muted-foreground text-sm">
-            Attendance overrides
-          </div>
-          <div className="text-xl font-medium">{overrideCount}</div>
-        </div>
-      </div>
 
-      <div className="mt-4">
-        <h4 className="font-medium">Absentees & Replacements</h4>
-        <div className="mt-2 space-y-2">
-          {absentees.map((abs) => {
-            const rep = attendance.entries.find(
-              (en) =>
-                en.status === 'replacement' &&
-                en.replacementFrom === abs.facultyId &&
-                !en.facultyId.startsWith('no-replacement-for')
-            );
-            return (
-              <div
-                key={abs.facultyId}
-                className="flex items-center justify-between rounded border p-2"
-              >
-                <div>
-                  <div className="font-medium">
-                    {getFacultyName(abs.facultyId)}
-                  </div>
-                  <div className="text-muted-foreground text-xs">
-                    {abs.facultyId} • {cleanRoleName(abs.role)}
-                  </div>
-                </div>
-                <div className="text-right">
-                  {rep ? (
-                    <div>
-                      <div className="font-medium">
-                        Covered by {getFacultyName(rep.facultyId)}
-                      </div>
-                      <div className="text-muted-foreground text-xs">
-                        {rep.facultyId} • {cleanRoleName(rep.role)}
-                      </div>
+        <div className="mt-4">
+          <h4 className="font-medium">Absentees & Replacements</h4>
+          <div className="mt-2 space-y-2">
+            {absentees.map((abs) => {
+              const rep = attendance.entries.find(
+                (en) =>
+                  en.status === 'replacement' &&
+                  en.replacementFrom === abs.facultyId &&
+                  !en.facultyId.startsWith('no-replacement-for')
+              );
+              return (
+                <div
+                  key={abs.facultyId}
+                  className="flex items-center justify-between rounded border p-2"
+                >
+                  <div>
+                    <div className="font-medium">
+                      {getFacultyName(abs.facultyId)}
                     </div>
-                  ) : (
-                    <div className="text-sm text-red-600">Not covered</div>
-                  )}
+                    <div className="text-muted-foreground text-xs">
+                      {abs.facultyId} • {cleanRoleName(abs.role)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {rep ? (
+                      <div>
+                        <div className="font-medium">
+                          Covered by {getFacultyName(rep.facultyId)}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          {rep.facultyId} • {cleanRoleName(rep.role)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-red-600 dark:text-red-400">
+                        Not covered
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className="mt-6">
-        <Button onClick={handleExport}>Export ZIP with Attendance</Button>
-      </div>
-    </div>
+        <div className="mt-6">
+          <Button onClick={handleExport}>Export ZIP with Attendance</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
