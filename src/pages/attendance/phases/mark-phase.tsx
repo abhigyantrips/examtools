@@ -1,3 +1,5 @@
+import { format } from 'date-fns';
+
 import type {
   Assignment,
   AttendanceEntry,
@@ -65,7 +67,9 @@ export function MarkPhase({
     <Card>
       <CardHeader>
         <CardTitle>
-          Attendance for Day {attendance.day + 1} · Slot {attendance.slot + 1}
+          Attendance for Day {attendance.day + 1} (
+          {format(attendance.date, 'MMM dd, yyyy')}) · Slot{' '}
+          {attendance.slot + 1} ({attendance.time})
         </CardTitle>
         <CardDescription>
           Mark presence or absence for assigned faculty and apply replacements.
@@ -78,8 +82,8 @@ export function MarkPhase({
             .map((role) => {
               const members = groups.get(role) || [];
               return (
-                <div key={`role-${role}`}>
-                  <div className="mb-2 flex items-center gap-2">
+                <Card className="my-2 gap-2 px-2 py-0" key={`card-${role}`}>
+                  <div className="flex items-center py-2">
                     <div className="text-sm font-medium">
                       {String(role).toUpperCase()}
                     </div>
@@ -243,7 +247,7 @@ export function MarkPhase({
                       );
                     })}
                   </div>
-                </div>
+                </Card>
               );
             })}
         </div>

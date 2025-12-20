@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import type JSZip from 'jszip';
 
 import type { Assignment, Faculty, SlotAttendance } from '@/types';
@@ -9,6 +10,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -105,16 +107,15 @@ export function ReviewPhase({
       <CardHeader>
         <CardTitle>Review & Export</CardTitle>
         <CardDescription>
-          Summary of attendance for Day {attendance.day + 1} Slot{' '}
-          {attendance.slot + 1}
+          <p>
+            Attendance for Day {attendance.day + 1} (
+            {format(attendance.date, 'MMM dd, yyyy')}) · Slot{' '}
+            {attendance.slot + 1} ({attendance.time})
+          </p>
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground text-sm">
-          Created: {attendance.createdAt} • Updated: {attendance.updatedAt}
-        </p>
-
-        <div className="mt-3 grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div className="rounded border p-3">
             <div className="text-muted-foreground text-sm">Required duties</div>
             <div className="text-xl font-medium">
@@ -145,55 +146,63 @@ export function ReviewPhase({
           </div>
         </div>
 
-        <div className="mt-4">
-          <h4 className="font-medium">Absentees & Replacements</h4>
-          <div className="mt-2 space-y-2">
-            {absentees.map((abs) => {
-              const rep = attendance.entries.find(
-                (en) =>
-                  en.status === 'replacement' &&
-                  en.replacementFrom === abs.facultyId &&
-                  !en.facultyId.startsWith('no-replacement-for')
-              );
-              return (
-                <div
-                  key={abs.facultyId}
-                  className="flex items-center justify-between rounded border p-2"
-                >
-                  <div>
-                    <div className="font-medium">
-                      {getFacultyName(abs.facultyId)}
+        {replacementsCount > 0 && (
+          <div className="mt-4">
+            <h4 className="font-medium">Absentees & Replacements</h4>
+            <div className="mt-2 space-y-2">
+              {absentees.map((abs) => {
+                const rep = attendance.entries.find(
+                  (en) =>
+                    en.status === 'replacement' &&
+                    en.replacementFrom === abs.facultyId &&
+                    !en.facultyId.startsWith('no-replacement-for')
+                );
+                return (
+                  <div
+                    key={abs.facultyId}
+                    className="flex items-center justify-between rounded border p-2"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {getFacultyName(abs.facultyId)}
+                      </div>
+                      <div className="text-muted-foreground text-xs">
+                        {abs.facultyId} • {cleanRoleName(abs.role)}
+                      </div>
                     </div>
-                    <div className="text-muted-foreground text-xs">
-                      {abs.facultyId} • {cleanRoleName(abs.role)}
+                    <div className="text-right">
+                      {rep ? (
+                        <div>
+                          <div className="font-medium">
+                            Covered by {getFacultyName(rep.facultyId)}
+                          </div>
+                          <div className="text-muted-foreground text-xs">
+                            {rep.facultyId} • {cleanRoleName(rep.role)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-red-600 dark:text-red-400">
+                          Not covered
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    {rep ? (
-                      <div>
-                        <div className="font-medium">
-                          Covered by {getFacultyName(rep.facultyId)}
-                        </div>
-                        <div className="text-muted-foreground text-xs">
-                          {rep.facultyId} • {cleanRoleName(rep.role)}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-red-600 dark:text-red-400">
-                        Not covered
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between items-center">
+        <div className="text-muted-foreground mt-3 text-sm">
+          <p>Created: {format(attendance.createdAt, 'dd-MM-yyyy HH:mm:ss')}</p>
+          <p>Updated: {format(attendance.updatedAt, 'dd-MM-yyyy HH:mm:ss')}</p>
         </div>
 
-        <div className="mt-6">
+        <div>
           <Button onClick={handleExport}>Export ZIP with Attendance</Button>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }
