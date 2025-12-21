@@ -41,10 +41,12 @@ export function Header() {
                   className="stroke-current"
                 />
               </svg>
-              <span className="text-foreground text-xl font-semibold tracking-tight">
-                examtools
-                {isHome && <span className="text-primary">.</span>}
-              </span>
+              <Link to="/">
+                <span className="text-foreground text-xl font-semibold tracking-tight">
+                  examtools
+                  {isHome && <span className="text-primary">.</span>}
+                </span>
+              </Link>
               {!isHome && (
                 <>
                   <svg
