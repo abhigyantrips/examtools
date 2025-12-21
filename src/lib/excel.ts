@@ -977,6 +977,7 @@ export async function exportBatchAssignments(
   // 2.5 Add metadata.json and assignment.json
   try {
     const metadata = {
+      type: 'assignment',
       generatedAt: new Date().toISOString(),
       slots: dutySlots.map((ds) => ({
         day: ds.day,
@@ -1031,6 +1032,10 @@ export async function exportBatchAssignments(
     zip.file(
       'internal/assignment.json',
       JSON.stringify(assignmentExport, null, 2)
+    );
+    zip.file(
+      'internal/DO_NOT_MODIFY.txt',
+      'This folder contains important metadata files. Please do not delete or modify its contents.'
     );
   } catch (err) {
     // If JSON serialization fails for some reason, still continue with ZIP generation

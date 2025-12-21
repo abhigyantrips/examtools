@@ -107,3 +107,10 @@ export interface ExcelParseResult<T> {
   errors: string[];
   warnings: string[];
 }
+
+export type ToolType = 'assignment' | 'attendance' | 'renumeration';
+
+export interface ExportMetadata {
+  type: ToolType;
+  generatedAt: string;
+}

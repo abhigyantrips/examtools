@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import {
   Banknote,
   Calendar,
@@ -7,8 +8,11 @@ import {
   Plus,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { type ChangeEvent, useCallback } from 'react';
+
+import type { ExportMetadata } from '@/types';
 
 import {
   Card,
@@ -94,10 +98,43 @@ export function HomePage() {
   ];
 
   const handleFileSelect = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files.length > 0) {
-        navigate('/edit');
-      }
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const promise = (async () => {
+        const zip = new JSZip();
+        const contents = await zip.loadAsync(file);
+
+        const metadataFile = contents.file('internal/metadata.json');
+        if (!metadataFile) {
+          throw new Error('Invalid export file: metadata.json not found');
+        }
+
+        const metadataContent = await metadataFile.async('string');
+        const metadata = JSON.parse(metadataContent) as ExportMetadata;
+
+        if (!metadata.type) {
+          throw new Error('Invalid metadata: Export type not specified');
+        }
+
+        return metadata.type;
+      })();
+
+      toast.promise(promise, {
+        loading: 'Processing file...',
+        success: (type) => {
+          navigate(`/edit/${type}`);
+          return `Detected ${type} export`;
+        },
+        error: (err) => {
+          console.error('Error processing file:', err);
+          return err instanceof Error ? err.message : 'Failed to process file';
+        },
+      });
+
+      // Reset input
+      e.target.value = '';
     },
     [navigate]
   );
@@ -177,7 +214,7 @@ export function HomePage() {
 
             return (
               <Item key={file.id} variant="outline" asChild role="listitem">
-                <Link to="/edit">
+                <Link to={`/edit/${file.type}`}>
                   <ItemMedia variant="default" className="translate-y-0!">
                     <div
                       className={`${bgColor} flex size-14 items-center justify-center rounded-md`}

@@ -17,6 +17,9 @@ export function Header() {
       case '/renumeration':
         return 'renumeration.';
       default:
+        if (location.pathname.startsWith('/edit')) {
+          return 'editor.';
+        }
         return '';
     }
   };
@@ -41,11 +44,12 @@ export function Header() {
                   className="stroke-current"
                 />
               </svg>
-              <Link to="/">
-                <span className="text-foreground text-xl font-semibold tracking-tight">
-                  examtools
-                  {isHome && <span className="text-primary">.</span>}
-                </span>
+              <Link
+                to="/"
+                className="text-foreground hover:text-foreground/75 text-xl font-semibold tracking-tight transition-colors duration-200"
+              >
+                examtools
+                {isHome && <span>.</span>}
               </Link>
               {!isHome && (
                 <>

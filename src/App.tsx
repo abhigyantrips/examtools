@@ -14,7 +14,7 @@ import { RenumerationPage } from '@/pages/renumeration/page';
 
 export default function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="examtools-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="examtools-theme">
       <Router>
         <div className="bg-background flex min-h-screen flex-col">
           <Header />
@@ -25,7 +25,7 @@ export default function App() {
               <Route path="/assignment" element={<AssignmentPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/renumeration" element={<RenumerationPage />} />
-              <Route path="/edit" element={<EditPage />} />
+              <Route path="/edit/:tool" element={<EditPage />} />
             </Routes>
           </main>
 
