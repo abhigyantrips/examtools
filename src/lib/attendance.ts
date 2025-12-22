@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 
-import type { SlotAttendance } from '@/types';
+import type { Faculty, SlotAttendance } from '@/types';
 
 // Read a ZIP file and return the JSZip instance
 export async function loadZip(file: File) {
@@ -81,6 +81,34 @@ export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
       relieverDuties: Number(s.relieverDuties || 0),
       squadDuties: Number(s.squadDuties || 0),
       bufferDuties: Number(s.bufferDuties || 0),
+    }));
+  } catch (err) {
+    console.warn('Failed to parse metadata.json from zip', err);
+    return [];
+  }
+}
+
+// Read metadata faculty list from internal/metadata.json
+export async function readMetadataFaculty(
+  zip: JSZip
+): Promise<Array<Faculty>> {
+  const f = zip.file('internal/metadata.json') || zip.file('metadata.json');
+  if (!f) return [];
+  try {
+    const text = await f.async('string');
+    const obj = JSON.parse(text);
+    const facultyList = Array.isArray(obj.faculty)
+      ? obj.faculty
+      : Array.isArray(obj.facultyList)
+        ? obj.facultyList
+        : [];
+    return facultyList.map((f: any, index: number) => ({
+      sNo: Number(f.sNo || index + 1),
+      facultyName: String(f.facultyName || ''),
+      facultyId: String(f.facultyId || ''),
+      designation: String(f.designation || ''),
+      department: String(f.department || ''),
+      phoneNo: String(f.phoneNo || ''),
     }));
   } catch (err) {
     console.warn('Failed to parse metadata.json from zip', err);
