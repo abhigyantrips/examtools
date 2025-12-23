@@ -11,18 +11,17 @@ import { toast } from 'sonner';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { Assignment, DutySlot, SlotAttendance } from '@/types';
+import type { Assignment, DutySlot, Faculty, SlotAttendance } from '@/types';
 
 import {
   createEmptyAttendance,
   loadZip,
   readAssignmentsFromZip,
+  readMetadataFaculty,
   readMetadataSlots,
   readSlotAttendance,
 } from '@/lib/attendance';
 import { cn } from '@/lib/utils';
-
-import { useExamData } from '@/hooks/use-exam-data';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
 import { Button } from '@/components/ui/button';
@@ -36,7 +35,8 @@ import { ReviewPhase } from './phases/review-phase';
 import { SlotSelectionPhase } from './phases/slot-selection-phase';
 
 export function AttendancePage() {
-  const { data: examData, loading, error } = useExamData();
+  // const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
@@ -52,12 +52,10 @@ export function AttendancePage() {
     'import' | 'select' | 'mark' | 'link' | 'review'
   >('import');
   const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
+  const [facultyList, setFacultyList] = useState<Faculty[]>([]);
 
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
-  const slots = useMemo(
-    () => zipSlots ?? (examData.examStructure.dutySlots || []),
-    [examData, zipSlots]
-  );
+  const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
 
   type Phase = 'import' | 'select' | 'mark' | 'link' | 'review';
 
@@ -66,10 +64,7 @@ export function AttendancePage() {
       switch (p) {
         case 'import':
           // import phase considered complete when slots are available or zip loaded
-          return (
-            zipInstance !== null ||
-            (examData.examStructure.dutySlots || []).length > 0
-          );
+          return zipInstance !== null || [].length > 0;
         case 'select':
           return selected !== null;
         case 'mark':
@@ -94,7 +89,7 @@ export function AttendancePage() {
           return false;
       }
     },
-    [zipInstance, examData, selected, attendance]
+    [zipInstance, selected, attendance]
   );
 
   const canProceedToNext = useCallback(
@@ -168,6 +163,11 @@ export function AttendancePage() {
           );
           console.log('Marked map from metadata slots:', mm);
           setMarkedMap(mm);
+          // Extract faculty list from metadata for faculty map
+          const facultyList = await readMetadataFaculty(zip as any);
+          if (facultyList && facultyList.length > 0) {
+            setFacultyList(facultyList);
+          }
         }
       } catch (err) {
         console.warn('Failed to read metadata slots from zip', err);
@@ -223,69 +223,81 @@ export function AttendancePage() {
       setSelected({ day, slot });
       // load or create attendance
       const ds = slots.find((s) => s.day === day && s.slot === slot);
-      const existing = zipInstance
-        ? await readSlotAttendance(zipInstance, day, slot)
-        : null;
-      const att =
-        existing ??
-        createEmptyAttendance(
+
+      if (zipInstance) {
+        const existing = await readSlotAttendance(zipInstance, day, slot);
+        const fromZip = await readAssignmentsFromZip(zipInstance, day, slot);
+        const localAssignedList = fromZip.map((r) => ({
+          facultyId: r.facultyId,
+          role: (String(r.role) as Assignment['role']) || 'regular',
+        }));
+        setAssignedList(localAssignedList);
+        const attendanceData = createEmptyAttendance(
           day,
           slot,
           ds ? ds.date.toISOString() : new Date().toISOString(),
           ds ? `${ds.startTime} - ${ds.endTime}` : undefined
         );
-      setAttendance(att);
+        // if existing attendance found in zip, use it to prefill
+        if (existing) {
+          attendanceData.entries = existing.entries;
+          // Ensure all assigned faculty are included (excluding buffers)
+          localAssignedList
+            .filter((a) => a.role !== 'buffer')
+            .forEach((a) => {
+              if (
+                !attendanceData.entries.some((e) => e.facultyId === a.facultyId)
+              ) {
+                // Add missing assigned faculty as absent by default
+                attendanceData.entries.push({
+                  facultyId: a.facultyId,
+                  status: 'absent',
+                  role: a.role,
+                });
+              }
+            });
+        } else {
+          // Default all assigned faculty to absent
+          localAssignedList.forEach((a) => {
+            attendanceData.entries.push({
+              facultyId: a.facultyId,
+              status: 'absent',
+              role: a.role,
+            });
+          });
+        }
 
-      // load assigned list from zip or fallback to app assignments
-      if (zipInstance) {
-        const fromZip = await readAssignmentsFromZip(zipInstance, day, slot);
-        if (fromZip && fromZip.length > 0)
-          setAssignedList(
-            fromZip.map((r) => ({
-              facultyId: r.facultyId,
-              role: (String(r.role) as Assignment['role']) || 'regular',
-            }))
-          );
-        else
-          setAssignedList(
-            examData.assignments
-              .filter((a) => a.day === day && a.slot === slot)
-              .map((a) => ({ facultyId: a.facultyId, role: a.role }))
-          );
+        console.log('After adding', attendanceData);
+
+        setAttendance(attendanceData);
+        setPhase('mark');
       } else {
-        setAssignedList(
-          examData.assignments
-            .filter((a) => a.day === day && a.slot === slot)
-            .map((a) => ({ facultyId: a.facultyId, role: a.role }))
-        );
+        setError(new Error('No ZIP instance loaded'));
+        return;
       }
-
-      setPhase('mark');
     },
-    [zipInstance, slots, examData]
+    [zipInstance, slots]
   );
 
-  // cycling was removed; marking is handled inside the MarkPhase
-
-  // Save is handled by export actions in phases; page does not directly save
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-4 text-center">
-          <div className="border-primary mx-auto size-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground">Loading exam data...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="flex min-h-screen items-center justify-center">
+  //       <div className="space-y-4 text-center">
+  //         <div className="border-primary mx-auto size-8 animate-spin rounded-full border-2 border-t-transparent" />
+  //         <p className="text-muted-foreground">Loading exam data...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle className="text-red-600">Error Loading Data</CardTitle>
+            <CardTitle className="text-red-600">
+              An unexpected error has occurred
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-4 text-sm">
@@ -383,7 +395,7 @@ export function AttendancePage() {
           <MarkPhase
             attendance={attendance}
             assignedList={assignedList}
-            examFaculty={examData.faculty}
+            examFaculty={facultyList}
             onSetAttendance={(next) => setAttendance(next)}
           />
         )}
@@ -391,7 +403,7 @@ export function AttendancePage() {
           <LinkPhase
             attendance={attendance}
             assignedList={assignedList}
-            examFaculty={examData.faculty}
+            examFaculty={facultyList}
             onSetAttendance={(next) => setAttendance(next)}
           />
         )}
@@ -399,7 +411,7 @@ export function AttendancePage() {
           <ReviewPhase
             attendance={attendance}
             assignedList={assignedList}
-            examFaculty={examData.faculty}
+            examFaculty={facultyList}
             zipInstance={zipInstance}
             zipFileName={zipFileName ?? undefined}
           />
