@@ -19,13 +19,11 @@ import {
 interface FacultyUploadFormProps {
   onFacultyUploaded: (faculty: Faculty[]) => void;
   currentFaculty: Faculty[];
-  importMetadata?: (file: File) => Promise<void>;
 }
 
 export function FacultyUploadForm({
   onFacultyUploaded,
   currentFaculty,
-  importMetadata,
 }: FacultyUploadFormProps) {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -98,22 +96,6 @@ export function FacultyUploadForm({
       }
     },
     [handleFileUpload]
-  );
-
-  const handleImportSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !importMetadata) return;
-      try {
-        await importMetadata(file);
-        toast.success('Metadata imported successfully');
-      } catch (err) {
-        toast.error(
-          `Import failed: ${err instanceof Error ? err.message : String(err)}`
-        );
-      }
-    },
-    [importMetadata]
   );
 
   const clearResults = useCallback(() => {
@@ -281,24 +263,6 @@ export function FacultyUploadForm({
             )}
           </div>
         )}
-
-        {/* Import metadata (JSON or ZIP) */}
-        <div className="pt-2">
-          <label className="inline-flex items-center gap-2">
-            <input
-              type="file"
-              accept=".json,.zip"
-              onChange={handleImportSelect}
-              className="hidden"
-            />
-            <Button asChild variant="outline" size="sm">
-              <span>
-                <FileText className="mr-2 inline-block" /> Import metadata (JSON
-                / ZIP)
-              </span>
-            </Button>
-          </label>
-        </div>
       </CardContent>
     </Card>
   );

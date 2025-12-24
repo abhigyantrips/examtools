@@ -12,6 +12,7 @@ import type {
 } from '@/types';
 
 import {
+  importDataFromZip,
   importMetadataFromJsonFile,
   importMetadataFromZipFile,
 } from '@/lib/excel';
@@ -179,7 +180,45 @@ export function useExamData() {
     }
   }, [initDB, data]);
 
-  // Import metadata (either a metadata.json file or a ZIP containing internal/metadata.json)
+  // Import data (ZIP containing internal/metadata.json and internal/assignment.json)
+  const importData = useCallback(
+    async (file: File) => {
+      try {
+        setLoading(true);
+        if (!file.name.toLowerCase().endsWith('.zip')) {
+          throw new Error('Only ZIP files are supported for full data import');
+        }
+
+        const imported = await importDataFromZip(file);
+
+        // Save imported pieces into the DB
+        // Faculty (normalized order)
+        const sortedFaculty = [...imported.faculty].sort((a, b) =>
+          facultyCompare(a, b)
+        );
+
+        const updatedExamStructure = imported.examStructure;
+
+        await saveData({
+          faculty: sortedFaculty,
+          examStructure: updatedExamStructure,
+          unavailability: imported.unavailability,
+          assignments: imported.assignments,
+        });
+        toast.success('Data imported successfully');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to import data');
+        toast.error(
+          err instanceof Error ? err.message : 'Failed to import data'
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [saveData]
+  );
+
+  // Legacy Import metadata (either a metadata.json file or a ZIP containing internal/metadata.json)
   const importMetadata = useCallback(
     async (file: File) => {
       try {
@@ -234,5 +273,6 @@ export function useExamData() {
     clearAllData,
     reload: loadData,
     importMetadata,
+    importData,
   };
 }

@@ -63,6 +63,7 @@ const formSchema = z
   .object({
     startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string().min(1, 'End time is required'),
+    subjectCode: z.string().optional(),
     regularDuties: z.number().min(1, 'Regular duties must be at least 1'),
     relieverDuties: z.number().min(0, 'Reliever duties cannot be negative'),
     squadDuties: z.number().min(0, 'Squad duties cannot be negative'),
@@ -93,6 +94,7 @@ export function SlotEditDialog({
     defaultValues: {
       startTime: slot.startTime,
       endTime: slot.endTime,
+      subjectCode: slot.subjectCode || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -108,6 +110,7 @@ export function SlotEditDialog({
     form.reset({
       startTime: slot.startTime,
       endTime: slot.endTime,
+      subjectCode: slot.subjectCode || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -180,6 +183,7 @@ export function SlotEditDialog({
     const updatedSlot: DutySlot = {
       ...slot,
       startTime: data.startTime,
+      subjectCode: data.subjectCode,
       endTime: data.endTime,
       regularDuties: data.regularDuties,
       relieverDuties: data.relieverDuties,
@@ -193,10 +197,10 @@ export function SlotEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] min-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="size-5" />
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
+            <Clock className="size-6" />
             Edit Day {dayNumber} - Slot {slotNumber}
           </DialogTitle>
           <DialogDescription>
@@ -208,8 +212,8 @@ export function SlotEditDialog({
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Timing Configuration */}
           <div className="space-y-4">
-            <h4 className="font-medium">Slot Timing</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <h4 className="font-medium">Slot Details</h4>
+            <div className="grid grid-cols-3 gap-4">
               <Controller
                 control={form.control}
                 name="startTime"
@@ -273,13 +277,31 @@ export function SlotEditDialog({
                   </Field>
                 )}
               />
+
+              <Controller
+                control={form.control}
+                name="subjectCode"
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel>Subject Code</FieldLabel>
+                    <Input
+                      {...field}
+                      placeholder="e.g. CSE_1010"
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
             </div>
           </div>
 
           {/* Duty Requirements */}
           <div className="space-y-4">
             <h4 className="font-medium">Duty Requirements</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <Controller
                 control={form.control}
                 name="regularDuties"

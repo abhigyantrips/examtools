@@ -127,6 +127,7 @@ export function ConfigurationPhase({
       date: dayDate,
       startTime: newSlotIndex === 0 ? '9:00 AM' : '2:00 PM',
       endTime: newSlotIndex === 0 ? '12:00 PM' : '5:00 PM',
+      subjectCode: '',
       regularDuties: 10,
       relieverDuties: 2,
       squadDuties: 2,
@@ -329,9 +330,16 @@ export function ConfigurationPhase({
                               <div className="space-y-3">
                                 <div className="flex justify-between">
                                   {/* Time Display */}
-                                  <div className="flex items-center justify-center gap-1 text-sm font-medium">
-                                    <Clock className="size-4" />
-                                    {slot.startTime} - {slot.endTime}
+                                  <div className="flex flex-col items-center justify-center gap-1">
+                                    <div className="flex items-center gap-1 text-sm font-medium">
+                                      <Clock className="size-4" />
+                                      {slot.startTime} - {slot.endTime}
+                                    </div>
+                                    {slot.subjectCode && (
+                                      <div className="text-muted-foreground font-mono text-xs">
+                                        {slot.subjectCode}
+                                      </div>
+                                    )}
                                   </div>
 
                                   {/* Edit Button */}

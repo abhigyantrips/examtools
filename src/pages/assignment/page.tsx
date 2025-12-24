@@ -37,7 +37,7 @@ export function AssignmentPage() {
     updateExamStructure,
     updateUnavailability,
     updateAssignments,
-    importMetadata,
+    importData,
   } = useExamData();
 
   const getPhaseCompletion = useCallback(
@@ -233,7 +233,7 @@ export function AssignmentPage() {
           <UploadPhase
             faculty={data.faculty}
             onFacultyUploaded={updateFaculty}
-            importMetadata={importMetadata}
+            importData={importData}
           />
         )}
         {currentPhase === 'allocation' && (

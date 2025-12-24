@@ -1,4 +1,4 @@
-import { CheckCircle, Users } from 'lucide-react';
+import { CheckCircle, FolderArchive, FolderInput, Users } from 'lucide-react';
 
 import { useMemo, useState } from 'react';
 
@@ -7,6 +7,7 @@ import type { Faculty } from '@/types';
 import { facultyCompare } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -28,15 +29,30 @@ import { FacultyUploadForm } from '@/pages/assignment/forms/faculty-upload-form'
 interface UploadPhaseProps {
   faculty: Faculty[];
   onFacultyUploaded: (faculty: Faculty[]) => void;
-  importMetadata?: (file: File) => Promise<void>;
+  importData?: (file: File) => Promise<void>;
 }
 
 export function UploadPhase({
   faculty,
   onFacultyUploaded,
-  importMetadata,
+  importData,
 }: UploadPhaseProps) {
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  const handleImportSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !importData) return;
+
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      return;
+    }
+
+    try {
+      await importData(file);
+    } catch (err) {
+      // Error handled in hook
+    }
+  };
 
   // Group faculty by designation for summary
   const facultySummary = useMemo(() => {
@@ -76,8 +92,36 @@ export function UploadPhase({
       <FacultyUploadForm
         currentFaculty={faculty}
         onFacultyUploaded={handleUploadSuccess}
-        importMetadata={importMetadata}
       />
+
+      {/* Import Existing Data Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <FolderInput className="size-5" />
+              Import Existing Data
+            </CardTitle>
+            <CardDescription>
+              Restore a previous session from a backup ZIP file.
+            </CardDescription>
+          </div>
+          <label>
+            <input
+              type="file"
+              accept=".zip"
+              onChange={handleImportSelect}
+              className="hidden"
+            />
+            <Button variant="outline" className="cursor-pointer" asChild>
+              <span>
+                <FolderArchive className="size-4" />
+                Import ZIP
+              </span>
+            </Button>
+          </label>
+        </CardHeader>
+      </Card>
 
       {/* Faculty Preview */}
       {faculty.length > 0 && (
