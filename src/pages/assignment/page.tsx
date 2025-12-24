@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  ArrowLeftCircle,
   ArrowRight,
   ArrowRightCircle,
   Calendar,
