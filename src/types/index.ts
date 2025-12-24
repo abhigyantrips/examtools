@@ -1,3 +1,6 @@
+export * from './excel';
+export * from './json';
+
 export interface Faculty {
   sNo: number;
   facultyName: string;
@@ -13,6 +16,7 @@ export interface DutySlot {
   date: Date;
   startTime: string; // "2:00 PM"
   endTime: string; // "4:00 PM"
+  subjectCode?: string;
   regularDuties: number;
   relieverDuties: number;
   squadDuties: number;
@@ -102,11 +106,7 @@ export interface AssignmentResult {
 }
 
 // Excel upload helpers
-export interface ExcelParseResult<T> {
-  data: T[];
-  errors: string[];
-  warnings: string[];
-}
+// ExcelParseResult moved to ./excel.ts
 
 export type ToolType = 'assignment' | 'attendance' | 'renumeration';
 
