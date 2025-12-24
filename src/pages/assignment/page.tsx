@@ -1,6 +1,8 @@
 import {
   ArrowLeft,
+  ArrowLeftCircle,
   ArrowRight,
+  ArrowRightCircle,
   Calendar,
   CheckCircle,
   Settings,
@@ -106,7 +108,13 @@ export function AssignmentPage() {
     const nextPhase = getNextPhase(currentPhase);
     if (nextPhase) {
       setCurrentPhase(nextPhase);
-      toast.success(`Proceeding to ${nextPhase} phase.`);
+      toast(
+        <div className="flex items-center gap-2">
+          <ArrowRightCircle className="size-4.5 shrink-0" />
+          Proceeded to the{' '}
+          {nextPhase.charAt(0).toUpperCase() + nextPhase.slice(1)} Phase.
+        </div>
+      );
     }
   }, [currentPhase, canProceedToNext]);
 
