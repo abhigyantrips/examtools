@@ -5,7 +5,7 @@ import {
   Clock,
   Download,
   Expand,
-  FileSpreadsheet,
+  FolderArchive,
   Play,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,12 +22,7 @@ import type {
 } from '@/types';
 
 import { assignDuties } from '@/lib/assignment';
-import {
-  exportAssignmentsOverview,
-  exportBatchAssignments,
-  exportDaySlotAssignments,
-  exportSignatureSheet,
-} from '@/lib/excel';
+import { exportBatchAssignments, exportDaySlotAssignments } from '@/lib/excel';
 import { facultyCompare } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
@@ -225,16 +220,6 @@ export function AssignmentsPhase({
     }
   }, [examStructure.dutySlots, assignments, faculty]);
 
-  const exportOverview = useCallback(() => {
-    exportAssignmentsOverview(examStructure.dutySlots, assignments, faculty);
-    toast.success('Overview exported successfully!');
-  }, [examStructure.dutySlots, assignments, faculty]);
-
-  const exportAttendanceSheet = useCallback(() => {
-    exportSignatureSheet(examStructure.dutySlots, assignments, faculty);
-    toast.success('Overview exported successfully!');
-  }, [examStructure.dutySlots, assignments, faculty]);
-
   // Calculate assignment statistics
   const assignmentStats = useMemo(() => {
     if (assignments.length === 0) return null;
@@ -360,45 +345,6 @@ export function AssignmentsPhase({
         )}
       </Card>
 
-      {/* Export Options */}
-      {hasAssignments && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <CardTitle>Export Assignments</CardTitle>
-              <CardDescription>
-                Download assignment data in various formats
-              </CardDescription>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                onClick={exportAllAssignments}
-                className="flex items-center gap-2"
-              >
-                <Download className="size-4" />
-                Export All (ZIP)
-              </Button>
-              <Button
-                onClick={exportOverview}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <FileSpreadsheet className="size-4" />
-                Export Overview
-              </Button>
-              <Button
-                onClick={exportAttendanceSheet}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <FileSpreadsheet className="size-4" />
-                Export Attendance Sheet
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
-      )}
-
       {/* Assignment Errors */}
       {assignmentResult && !assignmentResult.success && (
         <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/30">
@@ -502,13 +448,22 @@ export function AssignmentsPhase({
       {/* Schedule with Assignments */}
       {dayColumns.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Assignment Results</CardTitle>
-            <CardDescription>
-              {hasAssignments
-                ? 'Click download to get individual slot assignments, or expand to view faculty details.'
-                : 'Generate assignments to see results and download options.'}
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle>Assignment Results</CardTitle>
+              <CardDescription>
+                {hasAssignments
+                  ? 'Click download to get individual slot assignments, or expand to view faculty details.'
+                  : 'Generate assignments to see results and download options.'}
+              </CardDescription>
+            </div>
+            <Button
+              onClick={exportAllAssignments}
+              className="flex items-center gap-2"
+            >
+              <FolderArchive className="size-4" />
+              Download ZIP
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto rounded-lg border">
@@ -566,7 +521,7 @@ export function AssignmentsPhase({
                           >
                             {slot ? (
                               <div className="space-y-3">
-                                <div className="flex justify-between">
+                                <div className="text-muted-foreground flex justify-between">
                                   {/* Time Display */}
                                   <div className="flex items-center justify-center gap-1 text-sm font-medium">
                                     <Clock className="size-4" />
@@ -576,7 +531,7 @@ export function AssignmentsPhase({
                                   {/* Assignment Status */}
                                   {slotAssignments.length > 0 ? (
                                     <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                      <CheckCircle className="mr-1 size-3" />
+                                      <CheckCircle className="mr-0.5 size-3" />
                                       {slotAssignments.length} assigned
                                     </Badge>
                                   ) : hasAssignments ? (

@@ -123,7 +123,7 @@ export function PWAPrompt() {
       {showInstallPrompt && (
         <div className="fixed right-4 bottom-4 z-50 max-w-54">
           <Card className="border-primary shadow-lg">
-            <CardContent className="flex flex-col items-end space-y-4">
+            <CardContent className="flex flex-col items-start space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">
@@ -156,7 +156,7 @@ export function PWAPrompt() {
       {showUpdatePrompt && (
         <div className="fixed right-4 bottom-4 z-50 max-w-54">
           <Card className="border-blue-200 bg-blue-50 shadow-lg dark:border-blue-800 dark:bg-blue-900">
-            <CardContent className="flex flex-col items-end space-y-4">
+            <CardContent className="flex flex-col items-start space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm text-blue-900 dark:text-blue-100">

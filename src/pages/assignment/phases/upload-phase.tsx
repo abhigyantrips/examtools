@@ -7,6 +7,13 @@ import type { Faculty } from '@/types';
 import { facultyCompare } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,6 +22,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item';
 import {
   Table,
   TableBody,
@@ -128,7 +142,7 @@ export function UploadPhase({
         <>
           {/* Summary Card */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 {uploadSuccess && (
                   <CheckCircle className="size-5 text-green-600" />
@@ -136,32 +150,41 @@ export function UploadPhase({
                 <Users className="size-5" />
                 Faculty Summary
               </CardTitle>
-              <CardDescription>
-                {faculty.length} faculty members across {facultySummary.length}{' '}
-                designations
-              </CardDescription>
+              <div className="pt-1">
+                <Breadcrumb className="bg-muted rounded-full px-3 py-1.5">
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>
+                        {faculty.length} Faculty Members
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>
+                        {facultySummary.length} Designations
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <ItemGroup className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {facultySummary.map(({ designation, count }) => (
-                  <div
-                    key={designation}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <div className="font-medium">{designation}</div>
-                      <div className="text-muted-foreground text-sm">
-                        {count} member{count !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                    <Badge variant="secondary">{count}</Badge>
-                  </div>
+                  <Item key={designation} variant="outline">
+                    <ItemContent>
+                      <ItemTitle>{designation}</ItemTitle>
+                    </ItemContent>
+                    <ItemActions>
+                      <Badge variant="secondary">{count} members</Badge>
+                    </ItemActions>
+                  </Item>
                 ))}
-              </div>
+              </ItemGroup>
             </CardContent>
           </Card>
 
-          {/* Detailed Faculty Table */}
+          {/* Detailed Faculty List */}
           <Card>
             <CardHeader>
               <CardTitle>Faculty List</CardTitle>
