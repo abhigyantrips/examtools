@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { format } from 'date-fns';
 
 interface SlotSelectionProps {
   slots: DutySlot[];
@@ -29,28 +30,21 @@ export function SlotSelectionPhase({
   onSelect,
   markedMap,
 }: SlotSelectionProps) {
-  // Group slots by day
-  const days = slots.reduce((acc: Map<number, any[]>, s) => {
-    const day = Number(s.day || 0);
-    if (!acc.has(day)) acc.set(day, []);
-    acc.get(day)!.push(s);
+  // Group slots by day and build sorted dayColumns
+  const dayMap = slots.reduce<Record<number, DutySlot[]>>((acc, s) => {
+    const day = Number(s.day ?? 0);
+    (acc[day] ||= []).push(s);
     return acc;
-  }, new Map<number, any[]>());
+  }, {});
 
-  // Convert to sorted array of day groups
-  const dayGroups = Array.from(days.entries())
-    .map(([day, sl]) => ({
-      day,
-      slots: sl.sort((a, b) => (a.slot || 0) - (b.slot || 0)),
-    }))
-    .sort((a, b) => a.day - b.day);
-
-  // Build dayColumns for the calendar-style table
-  const dayColumns: DayColumn[] = dayGroups.map((dg) => ({
-    dayIndex: dg.day,
-    date: dg.slots[0] ? new Date(dg.slots[0].date) : new Date(),
-    slots: dg.slots,
-  }));
+  const dayColumns: DayColumn[] = Object.keys(dayMap)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((dayIndex) => {
+      const daySlots = dayMap[dayIndex].sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+      const date = daySlots[0]?.date ? new Date(daySlots[0].date) : new Date();
+      return { dayIndex, date, slots: daySlots };
+    });
 
   // determine maximum number of slots per day (use highest slot index)
   const maxSlotIndex =
@@ -71,7 +65,7 @@ export function SlotSelectionPhase({
                 <div className="space-y-2">
                   <div className="font-semibold">Day {dayCol.dayIndex + 1}</div>
                   <div className="text-muted-foreground text-sm">
-                    {dayCol.date.toLocaleDateString()}
+                    {format(dayCol.date, 'MMM dd, yyyy')}
                   </div>
                 </div>
               </TableHead>
