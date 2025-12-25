@@ -6,11 +6,12 @@ import {
   Download,
   Expand,
   FolderArchive,
+  Loader,
   Play,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCallback, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 
 import type {
   Assignment,
@@ -50,6 +51,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+const ManualOverride = lazy(() =>
+  import('@/pages/assignment/phases/manual-override').then((module) => ({
+    default: module.ManualOverride,
+  }))
+);
 
 interface AssignmentsPhaseProps {
   faculty: Faculty[];
@@ -721,6 +728,32 @@ export function AssignmentsPhase({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Manual Override */}
+      {dayColumns.length > 0 && (
+        <Suspense
+          fallback={
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Loader className="size-5 animate-spin duration-1000" />
+                  Manual Override
+                </CardTitle>
+                <CardDescription>
+                  The interface is being loaded...
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          }
+        >
+          <ManualOverride
+            faculty={faculty}
+            examStructure={examStructure}
+            assignments={assignments}
+            onAssignmentsUpdated={onAssignmentsUpdated}
+          />
+        </Suspense>
       )}
     </div>
   );
