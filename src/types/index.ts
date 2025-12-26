@@ -114,3 +114,20 @@ export interface ExportMetadata {
   type: ToolType;
   generatedAt: string;
 }
+// Attendance export formats
+export interface AttendanceEntry {
+  facultyId: string;
+  role: 'regular' | 'reliever' | 'squad' | 'buffer' | 'attendance-override';
+  status: 'present' | 'absent' | 'replacement';
+  replacementFrom?: string | null; // facultyId of replacement
+}
+
+export interface SlotAttendance {
+  day: number;
+  slot: number;
+  date: string; // ISO string
+  time?: string;
+  entries: AttendanceEntry[];
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+}
