@@ -50,7 +50,6 @@ export function HomePage() {
       color:
         'bg-orange-50 border-orange-200 dark:bg-orange-900/50 dark:border-orange-800',
       iconColor: 'text-orange-500',
-      incomplete: true,
     },
     {
       title: 'Financial Renumeration',
