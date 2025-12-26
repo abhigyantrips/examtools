@@ -193,7 +193,7 @@ export function ReviewPhase({
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between items-center">
+      <CardFooter className="flex items-center justify-between">
         <div className="text-muted-foreground mt-3 text-sm">
           <p>Created: {format(attendance.createdAt, 'dd-MM-yyyy HH:mm:ss')}</p>
           <p>Updated: {format(attendance.updatedAt, 'dd-MM-yyyy HH:mm:ss')}</p>

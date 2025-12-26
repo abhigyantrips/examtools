@@ -89,9 +89,7 @@ export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
 }
 
 // Read metadata faculty list from internal/metadata.json
-export async function readMetadataFaculty(
-  zip: JSZip
-): Promise<Array<Faculty>> {
+export async function readMetadataFaculty(zip: JSZip): Promise<Array<Faculty>> {
   const f = zip.file('internal/metadata.json') || zip.file('metadata.json');
   if (!f) return [];
   try {
