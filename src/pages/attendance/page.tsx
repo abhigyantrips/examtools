@@ -24,6 +24,16 @@ import {
 import { cn } from '@/lib/utils';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/sonner';
@@ -41,6 +51,10 @@ export function AttendancePage() {
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
   const [selected, setSelected] = useState<{
+    day: number;
+    slot: number;
+  } | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{
     day: number;
     slot: number;
   } | null>(null);
@@ -279,6 +293,19 @@ export function AttendancePage() {
     [zipInstance, slots]
   );
 
+  const attemptSelectSlot = useCallback(
+    (day: number, slot: number) => {
+      const key = `${day}-${slot}`;
+      if (markedMap && markedMap[key]) {
+        setPendingSelection({ day, slot });
+        return;
+      }
+      // proceed directly
+      onSelectSlot(day, slot);
+    },
+    [markedMap, onSelectSlot]
+  );
+
   // if (loading) {
   //   return (
   //     <div className="flex min-h-screen items-center justify-center">
@@ -387,7 +414,7 @@ export function AttendancePage() {
           <SlotSelectionPhase
             slots={slots}
             selected={selected}
-            onSelect={onSelectSlot}
+            onSelect={attemptSelectSlot}
             markedMap={markedMap}
           />
         )}
@@ -420,6 +447,48 @@ export function AttendancePage() {
 
       <Toaster />
       <PWAPrompt />
+
+      {/* Confirm dialog when editing already-marked slot */}
+      <AlertDialog
+        open={!!pendingSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingSelection(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit existing attendance?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This slot already has attendance recorded. Are you sure you want
+              to edit it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setPendingSelection(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (pendingSelection) {
+                  await onSelectSlot(
+                    pendingSelection.day,
+                    pendingSelection.slot
+                  );
+                }
+                setPendingSelection(null);
+              }}
+            >
+              Edit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
