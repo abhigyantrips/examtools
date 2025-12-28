@@ -15,13 +15,13 @@ import type { Assignment, DutySlot, Faculty, SlotAttendance } from '@/types';
 
 import {
   createEmptyAttendance,
-  loadZip,
   readAssignmentsFromZip,
   readMetadataFaculty,
   readMetadataSlots,
   readSlotAttendance,
 } from '@/lib/attendance';
 import { cn } from '@/lib/utils';
+import { loadZip } from '@/lib/zip';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
 import {

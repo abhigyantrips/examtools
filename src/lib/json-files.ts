@@ -1,0 +1,113 @@
+import type JSZip from 'jszip';
+
+import { readTextFile, writeTextFile } from './zip';
+import type { Faculty, SlotAttendance } from '@/types';
+
+// Read existing attendance JSON for a given slot from internal folder, if present
+export async function readSlotAttendance(
+  zip: JSZip,
+  day: number,
+  slot: number
+): Promise<SlotAttendance | null> {
+  const filename = `internal/attendance-day${day}-slot${slot}.json`;
+  const text = await readTextFile(zip as any, filename);
+  if (!text) return null;
+  try {
+    const obj = JSON.parse(text) as SlotAttendance;
+    return obj;
+  } catch (err) {
+    console.warn('Failed to parse attendance file', filename, err);
+    return null;
+  }
+}
+
+// Read assignments exported inside the ZIP at internal/assignment.json and return entries for the slot
+export async function readAssignmentsFromZip(
+  zip: JSZip,
+  day: number,
+  slot: number
+): Promise<Array<{ facultyId: string; role: string }>> {
+  const text = await readTextFile(zip as any, 'internal/assignment.json') || await readTextFile(zip as any, 'assignment.json');
+  if (!text) return [];
+  try {
+    const arr = JSON.parse(text);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter(
+        (a: any) => Number(a.day) === Number(day) && Number(a.slot) === Number(slot)
+      )
+      .map((a: any) => ({
+        facultyId: String(a.facultyId || ''),
+        role: String(a.role || 'regular'),
+      }));
+  } catch (err) {
+    console.warn('Failed to read assignment.json from zip', err);
+    return [];
+  }
+}
+
+// Read metadata.json (internal/metadata.json or metadata.json) and return duty slot summaries
+export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
+  const text = await readTextFile(zip as any, 'internal/metadata.json') || await readTextFile(zip as any, 'metadata.json');
+  if (!text) return [];
+  try {
+    const obj = JSON.parse(text);
+    const slots = Array.isArray(obj.slots)
+      ? obj.slots
+      : obj.dutySlots && Array.isArray(obj.dutySlots)
+        ? obj.dutySlots
+        : [];
+    return slots.map((s: any) => ({
+      day: Number(s.day),
+      slot: Number(s.slot),
+      date: s.date || (s.date && typeof s.date === 'string' ? s.date : new Date().toISOString()),
+      startTime: s.startTime || s.start || '',
+      endTime: s.endTime || s.end || '',
+      regularDuties: Number(s.regularDuties || s.regular || 0),
+      relieverDuties: Number(s.relieverDuties || 0),
+      squadDuties: Number(s.squadDuties || 0),
+      bufferDuties: Number(s.bufferDuties || 0),
+    }));
+  } catch (err) {
+    console.warn('Failed to parse metadata.json from zip', err);
+    return [];
+  }
+}
+
+// Read metadata faculty list from internal/metadata.json
+export async function readMetadataFaculty(zip: JSZip): Promise<Array<Faculty>> {
+  const text = await readTextFile(zip as any, 'internal/metadata.json') || await readTextFile(zip as any, 'metadata.json');
+  if (!text) return [];
+  try {
+    const obj = JSON.parse(text);
+    const facultyList = Array.isArray(obj.faculty) ? obj.faculty : Array.isArray(obj.facultyList) ? obj.facultyList : [];
+    return facultyList.map((f: any, index: number) => ({
+      sNo: Number(f.sNo || index + 1),
+      facultyName: String(f.facultyName || ''),
+      facultyId: String(f.facultyId || ''),
+      designation: String(f.designation || ''),
+      department: String(f.department || ''),
+      phoneNo: String(f.phoneNo || ''),
+    }));
+  } catch (err) {
+    console.warn('Failed to parse metadata.json from zip', err);
+    return [];
+  }
+}
+
+// Save attendance object into the zip (mutates zip) and update last_modified.txt
+export async function saveSlotAttendance(zip: JSZip, attendance: SlotAttendance): Promise<void> {
+  const filename = `internal/attendance-day${attendance.day}-slot${attendance.slot}.json`;
+  attendance.updatedAt = new Date().toISOString();
+  if (!attendance.createdAt) attendance.createdAt = new Date().toISOString();
+  writeTextFile(zip as any, filename, JSON.stringify(attendance, null, 2));
+
+  // update last_modified.txt at root and internal/last_modified.txt
+  const ts = new Date().toISOString();
+  try {
+    writeTextFile(zip as any, 'last_modified.txt', ts);
+    writeTextFile(zip as any, 'internal/last_modified.txt', ts);
+  } catch (err) {
+    // ignore
+  }
+}
