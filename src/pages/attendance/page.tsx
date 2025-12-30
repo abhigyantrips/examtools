@@ -19,6 +19,7 @@ import {
   readMetadataFaculty,
   readMetadataSlots,
   readSlotAttendance,
+  saveSlotAttendance,
 } from '@/lib/attendance';
 import { cn } from '@/lib/utils';
 import { loadZip } from '@/lib/zip';
@@ -129,6 +130,42 @@ export function AttendancePage() {
       return;
     }
     const next = getNextPhase(phase);
+    if (phase === 'review') {
+      // Reset selected and attendance to allow new slot selection
+      setSelected(null);
+      setAttendance(null);
+      // Update marked map to reflect newly marked slot
+      if (selected) {
+        setMarkedMap((prev) => ({
+          ...prev,
+          [`${selected.day}-${selected.slot}`]: true,
+        }));
+      }
+      if (!zipInstance || !attendance) {
+        toast.error('No ZIP instance or attendance data found.');
+        return;
+      } else {
+        // Make a copy of zipInstance to modify
+        var zip = zipInstance;
+        // Update zip blob
+        saveSlotAttendance(zip as any, attendance)
+          .then(() => {
+            console.log('Saved attendance to ZIP');
+          })
+          .catch((err) => {
+            console.error('Failed to save attendance to ZIP', err);
+            toast.error('Failed to save attendance data to ZIP.');
+          });
+        setZipInstance(zip);
+      }
+
+      toast.success(
+        'Attendance data saved successfully. You can mark another slot now.'
+      );
+      // Move to select phase
+      setPhase('select');
+      return;
+    }
     if (next) setPhase(next);
   }, [phase, canProceedToNext]);
 
@@ -397,9 +434,11 @@ export function AttendancePage() {
 
             <Button
               onClick={handleContinue}
-              disabled={!canProceedToNext(phase) || phase === 'review'}
+              disabled={!canProceedToNext(phase)}
             >
-              Continue <ArrowRight className="ml-2 size-4" />
+              {/* Iterative Marking */}
+              {phase === 'review' ? 'Mark Another Slot' : 'Continue'}
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </div>
