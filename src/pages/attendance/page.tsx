@@ -51,6 +51,7 @@ export function AttendancePage() {
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
+  const [zipTimestamps, setZipTimestamps] = useState<{ updated?: string; created?: string } | null>(null);
   const [selected, setSelected] = useState<{
     day: number;
     slot: number;
@@ -180,6 +181,33 @@ export function AttendancePage() {
       const zip = await loadZip(f);
       setZipInstance(zip as any);
       setZipFileName(f.name);
+      // persist ZIP in localStorage as data URL so it survives reloads
+      try {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const dataUrl = reader.result as string;
+            localStorage.setItem('attendance:zip:dataUrl', dataUrl);
+            localStorage.setItem('attendance:zip:name', f.name);
+          } catch (err) {
+            console.warn('Failed to persist ZIP to localStorage', err);
+          }
+        };
+        reader.readAsDataURL(f);
+      } catch (err) {
+        console.warn('Failed to create data URL for ZIP', err);
+      }
+
+      // read last_modified.txt if present and expose to import UI
+      try {
+        const lm = zip.file('last_modified.txt') || zip.file('internal/last_modified.txt');
+        if (lm) {
+          const text = await lm.async('string');
+          setZipTimestamps({ updated: text });
+        }
+      } catch (err) {
+        // ignore
+      }
 
       // load metadata slots (if the zip contains internal/metadata.json)
       try {
@@ -230,6 +258,44 @@ export function AttendancePage() {
     } catch (err) {
       console.error('Failed to load ZIP', err);
     }
+  }, []);
+
+  // on mount, try to restore persisted zip from localStorage
+  useEffect(() => {
+    const dataUrl = localStorage.getItem('attendance:zip:dataUrl');
+    const name = localStorage.getItem('attendance:zip:name');
+    if (!dataUrl) return;
+    (async () => {
+      try {
+        const resp = await fetch(dataUrl);
+        const buffer = await resp.arrayBuffer();
+        const f = new File([buffer], name || 'attendance.zip', { type: 'application/zip' });
+        const zip = await loadZip(f);
+        setZipInstance(zip as any);
+        setZipFileName(name || 'attendance.zip');
+        // read metadata slots if present
+        try {
+          const meta = await readMetadataSlots(zip as any);
+          if (meta && meta.length > 0) {
+            const mapped = meta.map((s: any) => ({ ...s, date: new Date(s.date) }));
+            setZipSlots(mapped);
+          }
+        } catch (err) {
+          // ignore
+        }
+        // read last_modified
+        try {
+          const lm = zip.file('last_modified.txt') || zip.file('internal/last_modified.txt');
+          if (lm) {
+            const text = await lm.async('string');
+            setZipTimestamps({ updated: text });
+          }
+        } catch (err) {}
+        setPhase('select');
+      } catch (err) {
+        console.warn('Failed to restore ZIP from storage', err);
+      }
+    })();
   }, []);
 
   // recompute marked map when zipInstance or slots change (fallback if no metadata)
@@ -447,7 +513,17 @@ export function AttendancePage() {
       {/* Phase Content */}
       <main className="container mx-auto px-4 py-6">
         {phase === 'import' && (
-          <ImportPhase zipFileName={zipFileName} onImport={onImportZip} />
+          <ImportPhase zipFileName={zipFileName} zipTimestamps={zipTimestamps} onImport={onImportZip} onReset={() => {
+            // clear persisted zip and reset state
+            localStorage.removeItem('attendance:zip:dataUrl');
+            localStorage.removeItem('attendance:zip:name');
+            setZipInstance(null);
+            setZipFileName(null);
+            setZipSlots(null);
+            setMarkedMap({});
+            setZipTimestamps(null);
+            setPhase('import');
+          }} />
         )}
         {phase === 'select' && (
           <SlotSelectionPhase
