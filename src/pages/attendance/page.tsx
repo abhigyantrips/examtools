@@ -51,7 +51,10 @@ export function AttendancePage() {
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
-  const [zipTimestamps, setZipTimestamps] = useState<{ updated?: string; created?: string } | null>(null);
+  const [zipTimestamps, setZipTimestamps] = useState<{
+    updated?: string;
+    created?: string;
+  } | null>(null);
   const [selected, setSelected] = useState<{
     day: number;
     slot: number;
@@ -175,6 +178,18 @@ export function AttendancePage() {
     if (prev) setPhase(prev);
   }, [phase]);
 
+  const onZipReset = useCallback(() => {
+    // clear persisted zip and reset state
+    localStorage.removeItem('attendance:zip:dataUrl');
+    localStorage.removeItem('attendance:zip:name');
+    setZipInstance(null);
+    setZipFileName(null);
+    setZipSlots(null);
+    setMarkedMap({});
+    setZipTimestamps(null);
+    setPhase('import');
+  }, []);
+
   const onImportZip = useCallback(async (f: File | null) => {
     if (!f) return;
     try {
@@ -200,7 +215,9 @@ export function AttendancePage() {
 
       // read last_modified.txt if present and expose to import UI
       try {
-        const lm = zip.file('last_modified.txt') || zip.file('internal/last_modified.txt');
+        const lm =
+          zip.file('last_modified.txt') ||
+          zip.file('internal/last_modified.txt');
         if (lm) {
           const text = await lm.async('string');
           setZipTimestamps({ updated: text });
@@ -269,7 +286,9 @@ export function AttendancePage() {
       try {
         const resp = await fetch(dataUrl);
         const buffer = await resp.arrayBuffer();
-        const f = new File([buffer], name || 'attendance.zip', { type: 'application/zip' });
+        const f = new File([buffer], name || 'attendance.zip', {
+          type: 'application/zip',
+        });
         const zip = await loadZip(f);
         setZipInstance(zip as any);
         setZipFileName(name || 'attendance.zip');
@@ -277,7 +296,10 @@ export function AttendancePage() {
         try {
           const meta = await readMetadataSlots(zip as any);
           if (meta && meta.length > 0) {
-            const mapped = meta.map((s: any) => ({ ...s, date: new Date(s.date) }));
+            const mapped = meta.map((s: any) => ({
+              ...s,
+              date: new Date(s.date),
+            }));
             setZipSlots(mapped);
           }
         } catch (err) {
@@ -285,7 +307,9 @@ export function AttendancePage() {
         }
         // read last_modified
         try {
-          const lm = zip.file('last_modified.txt') || zip.file('internal/last_modified.txt');
+          const lm =
+            zip.file('last_modified.txt') ||
+            zip.file('internal/last_modified.txt');
           if (lm) {
             const text = await lm.async('string');
             setZipTimestamps({ updated: text });
@@ -513,17 +537,12 @@ export function AttendancePage() {
       {/* Phase Content */}
       <main className="container mx-auto px-4 py-6">
         {phase === 'import' && (
-          <ImportPhase zipFileName={zipFileName} zipTimestamps={zipTimestamps} onImport={onImportZip} onReset={() => {
-            // clear persisted zip and reset state
-            localStorage.removeItem('attendance:zip:dataUrl');
-            localStorage.removeItem('attendance:zip:name');
-            setZipInstance(null);
-            setZipFileName(null);
-            setZipSlots(null);
-            setMarkedMap({});
-            setZipTimestamps(null);
-            setPhase('import');
-          }} />
+          <ImportPhase
+            zipFileName={zipFileName}
+            zipTimestamps={zipTimestamps}
+            onImport={onImportZip}
+            onReset={onZipReset}
+          />
         )}
         {phase === 'select' && (
           <SlotSelectionPhase
