@@ -7,19 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-// Enable option to mark "No Replacement" for absent faculty
-const ENABLE_NO_REPLACEMENT_OPTION = true;
 
 interface LinkPhaseProps {
   attendance: SlotAttendance | null;
@@ -30,9 +17,9 @@ interface LinkPhaseProps {
 
 export function LinkPhase({
   attendance,
-  assignedList,
+  assignedList: _assignedList,
   examFaculty,
-  onSetAttendance,
+  onSetAttendance: _onSetAttendance,
 }: LinkPhaseProps) {
   if (!attendance) return null;
 
@@ -54,206 +41,49 @@ export function LinkPhase({
       </Card>
     );
   }
-
-  const unAssignedFaculty = examFaculty.filter(
-    (f) => !assignedList.some((a) => a.facultyId === f.facultyId)
+  const absentList = attendance.entries.filter(
+    (e) => e.status === 'absent' && e.role !== 'buffer'
   );
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Link Phase</CardTitle>
+        <CardTitle>Link Summary</CardTitle>
         <CardDescription>
-          There are {absentCount} absent faculty. You can link Buffer duty
-          faculty to cover these absences.
+          Replacements are set inline in the Mark phase. Use the Mark phase to
+          assign buffer or unassigned faculty as replacements.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mt-3 space-y-4">
-          {attendance.entries
-            .filter((e) => e.status === 'absent' && e.role !== 'buffer')
-            .map((absent) => {
-              // candidates: buffers assigned for this slot + any examFaculty not assigned any duty in this slot
-              const bufferCandidates = assignedList
-                .filter((a) => a.role === 'buffer')
-                .map((b) => b.facultyId);
-              const unassignedCandidates = unAssignedFaculty.map(
-                (f) => f.facultyId
-              );
+        <div className="space-y-3">
+          {absentList.map((absent) => {
+            const currentReplacement = attendance.entries.find(
+              (en) =>
+                en.status === 'replacement' &&
+                en.replacementFrom === absent.facultyId
+            );
+            const replacementLabel = currentReplacement
+              ? currentReplacement.facultyId.startsWith('no-replacement-for-')
+                ? 'Not covered'
+                : `${
+                    examFaculty.find((f) => f.facultyId === currentReplacement.facultyId)?.facultyName || currentReplacement.facultyId
+                  } (${currentReplacement.facultyId})`
+              : 'Pending';
 
-              const currentReplacement = attendance.entries.find(
-                (en) =>
-                  en.status === 'replacement' &&
-                  en.replacementFrom === absent.facultyId
-              );
+            const absentName =
+              examFaculty.find((f) => f.facultyId === absent.facultyId)
+                ?.facultyName || absent.facultyId;
 
-              const replacementFacultyId = currentReplacement
-                ? currentReplacement.facultyId.startsWith('no-replacement-for-')
-                  ? 'no-replacement'
-                  : currentReplacement.facultyId
-                : '';
-
-              const absentName =
-                examFaculty.find((f) => f.facultyId === absent.facultyId)
-                  ?.facultyName || absent.facultyId;
-
-              const handleSelect = (sel: string) => {
-                const next: SlotAttendance = {
-                  ...attendance,
-                  entries: attendance.entries ? attendance.entries.slice() : [],
-                };
-
-                // remove any replacement mapping for this absent
-                next.entries = next.entries.filter(
-                  (en) =>
-                    !(
-                      en.status === 'replacement' &&
-                      en.replacementFrom === absent.facultyId
-                    )
-                );
-
-                // handle resetting selection
-                if (sel === 'no-option') {
-                  next.updatedAt = new Date().toISOString();
-                  onSetAttendance(next);
-                  return;
-                }
-
-                // prevent selecting a faculty already used as replacement for someone else
-                const usedElsewhere = next.entries.some(
-                  (en) => en.status === 'replacement' && en.facultyId === sel
-                );
-                if (usedElsewhere) return;
-
-                // Special Case of "No Replacement"
-                if (sel === 'no-replacement') {
-                  // Add a replacement entry with dummy facultyId
-                  next.entries.push({
-                    facultyId: `no-replacement-for-${absent.facultyId}`,
-                    role: 'attendance-override',
-                    status: 'replacement',
-                    replacementFrom: absent.facultyId,
-                  });
-                } else {
-                  const idx = next.entries.findIndex(
-                    (en) => en.facultyId === sel
-                  );
-                  if (idx === -1) {
-                    // prefer to keep role as 'buffer' for assigned buffers, otherwise keep existing role if present
-                    const isBuffer = bufferCandidates.includes(sel);
-                    next.entries.push({
-                      facultyId: sel,
-                      role: isBuffer ? 'buffer' : 'attendance-override',
-                      status: 'replacement',
-                      replacementFrom: absent.facultyId,
-                    });
-                  } else {
-                    next.entries[idx] = {
-                      ...next.entries[idx],
-                      status: 'replacement',
-                      replacementFrom: absent.facultyId,
-                    };
-                  }
-                }
-
-                next.updatedAt = new Date().toISOString();
-                onSetAttendance(next);
-              };
-
-              return (
-                <div
-                  key={absent.facultyId}
-                  className="rounded border p-3 dark:border-neutral-700 dark:bg-neutral-900/5"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">
-                      Absent: {absentName} ({absent.facultyId})
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Select
-                        value={replacementFacultyId}
-                        onValueChange={handleSelect}
-                      >
-                        <SelectTrigger className="w-56">
-                          <SelectValue placeholder="— Select replacement —" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Options</SelectLabel>
-                            <SelectItem value="no-option">
-                              — Pending Selection —
-                            </SelectItem>
-                            {ENABLE_NO_REPLACEMENT_OPTION && (
-                              <SelectItem value="no-replacement">
-                                Duty not Covered
-                              </SelectItem>
-                            )}
-                          </SelectGroup>
-
-                          <SelectSeparator />
-
-                          {bufferCandidates.length > 0 && (
-                            <SelectGroup>
-                              <SelectLabel>Buffer Duties</SelectLabel>
-                              {bufferCandidates.map((bId) => {
-                                const bufUsedElsewhere =
-                                  attendance.entries.some(
-                                    (en) =>
-                                      en.status === 'replacement' &&
-                                      en.facultyId === bId &&
-                                      en.replacementFrom !== absent.facultyId
-                                  );
-                                const facultyName =
-                                  examFaculty.find((f) => f.facultyId === bId)
-                                    ?.facultyName || bId;
-                                return (
-                                  <SelectItem
-                                    key={`buf-${bId}`}
-                                    value={bId}
-                                    disabled={bufUsedElsewhere}
-                                  >
-                                    {facultyName} ({bId})
-                                    {bufUsedElsewhere ? ' — already used' : ''}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectGroup>
-                          )}
-
-                          {unassignedCandidates.length > 0 && (
-                            <SelectGroup>
-                              <SelectLabel>Unassigned Faculty</SelectLabel>
-                              {unassignedCandidates.map((bId) => {
-                                const bufUsedElsewhere =
-                                  attendance.entries.some(
-                                    (en) =>
-                                      en.status === 'replacement' &&
-                                      en.facultyId === bId &&
-                                      en.replacementFrom !== absent.facultyId
-                                  );
-                                const facultyName =
-                                  examFaculty.find((f) => f.facultyId === bId)
-                                    ?.facultyName || bId;
-                                return (
-                                  <SelectItem
-                                    key={`un-${bId}`}
-                                    value={bId}
-                                    disabled={bufUsedElsewhere}
-                                  >
-                                    {facultyName} ({bId})
-                                    {bufUsedElsewhere ? ' — already used' : ''}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectGroup>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+            return (
+              <div key={absent.facultyId} className="flex items-center justify-between rounded border p-3">
+                <div>
+                  <div className="font-medium">{absentName} ({absent.facultyId})</div>
+                  <div className="text-sm text-muted-foreground">Absent</div>
                 </div>
-              );
-            })}
+                <div className="text-sm">Replacement: {replacementLabel}</div>
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
