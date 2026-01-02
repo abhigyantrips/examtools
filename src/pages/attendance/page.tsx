@@ -40,7 +40,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/sonner';
 
 import { ImportPhase } from './phases/import-phase';
-import { LinkPhase } from './phases/link-phase';
 import { MarkPhase } from './phases/mark-phase';
 import { ReviewPhase } from './phases/review-phase';
 import { SlotSelectionPhase } from './phases/slot-selection-phase';
@@ -68,7 +67,7 @@ export function AttendancePage() {
     Array<Pick<Assignment, 'facultyId' | 'role'>>
   >([]);
   const [phase, setPhase] = useState<
-    'import' | 'select' | 'mark' | 'link' | 'review'
+    'import' | 'select' | 'mark' | 'review'
   >('import');
   const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
@@ -76,7 +75,7 @@ export function AttendancePage() {
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
 
-  type Phase = 'import' | 'select' | 'mark' | 'link' | 'review';
+  type Phase = 'import' | 'select' | 'mark'| 'review';
 
   const getPhaseCompletion = useCallback(
     (p: Phase) => {
@@ -88,20 +87,6 @@ export function AttendancePage() {
           return selected !== null;
         case 'mark':
           return attendance !== null && attendance.entries.length > 0;
-        case 'link':
-          // Complete if all assigned faculty are either present or have a replacement
-          if (!attendance) return false;
-          const unlinkedAbsentees = attendance.entries.filter(
-            (e) =>
-              e.status === 'absent' &&
-              e.role !== 'buffer' &&
-              !attendance.entries.some(
-                (en) =>
-                  en.status === 'replacement' &&
-                  en.replacementFrom === e.facultyId
-              )
-          );
-          return unlinkedAbsentees.length === 0;
         case 'review':
           return attendance !== null;
         default:
@@ -116,7 +101,7 @@ export function AttendancePage() {
     [getPhaseCompletion]
   );
 
-  const phases: Phase[] = ['import', 'select', 'mark', 'link', 'review'];
+  const phases: Phase[] = ['import', 'select', 'mark', 'review'];
 
   const getNextPhase = (current: Phase): Phase | null => {
     const idx = phases.indexOf(current);
@@ -554,14 +539,6 @@ export function AttendancePage() {
         )}
         {phase === 'mark' && (
           <MarkPhase
-            attendance={attendance}
-            assignedList={assignedList}
-            examFaculty={facultyList}
-            onSetAttendance={(next) => setAttendance(next)}
-          />
-        )}
-        {phase === 'link' && (
-          <LinkPhase
             attendance={attendance}
             assignedList={assignedList}
             examFaculty={facultyList}
