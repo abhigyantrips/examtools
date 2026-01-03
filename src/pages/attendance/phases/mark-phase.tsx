@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { CheckCheck } from 'lucide-react';
 
 import type {
   Assignment,
@@ -146,7 +147,7 @@ export function MarkPhase({
                           onSetAttendance(next);
                         }}
                       >
-                        Mark All Present
+                        Mark All Present <CheckCheck />
                       </Button>
                     </div>
                   </div>
@@ -172,86 +173,6 @@ export function MarkPhase({
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`dark:hover:bg-green-700/50 ${currentStatus === 'present' ? 'bg-green-100 dark:bg-green-800/50' : ''}`}
-                              onClick={() => {
-                                // create an immutable copy of attendance and its entries
-                                const next: SlotAttendance = {
-                                  ...attendance,
-                                  entries: attendance.entries
-                                    ? attendance.entries.slice()
-                                    : [],
-                                };
-                                const idx = next.entries.findIndex(
-                                  (e) => e.facultyId === row.facultyId
-                                );
-                                if (idx === -1) {
-                                  next.entries.push({
-                                    facultyId: row.facultyId,
-                                    role: row.role,
-                                    status: 'present',
-                                  });
-                                } else {
-                                  // Check is previously marked as absent and remove replacement entry
-                                  const existing = next.entries[idx];
-                                  // console.log('Existing entry:', existing);
-                                  if (existing.status === 'absent') {
-                                    // Remove any replacement entries linked to this faculty
-                                    next.entries = next.entries.filter(
-                                      (en) =>
-                                        !(
-                                          en.status === 'replacement' &&
-                                          en.replacementFrom === row.facultyId
-                                        )
-                                    );
-                                  }
-
-                                  // Update to present
-                                  next.entries[idx] = {
-                                    ...next.entries[idx],
-                                    status: 'present',
-                                  };
-                                }
-                                next.updatedAt = new Date().toISOString();
-                                onSetAttendance(next);
-                              }}
-                            >
-                              Present
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`dark:hover:bg-yellow-700/50 ${currentStatus === 'absent' ? 'bg-yellow-100 dark:bg-yellow-800/50' : ''}`}
-                              onClick={() => {
-                                const next: SlotAttendance = {
-                                  ...attendance,
-                                  entries: attendance.entries
-                                    ? attendance.entries.slice()
-                                    : [],
-                                };
-                                const idx = next.entries.findIndex(
-                                  (e) => e.facultyId === row.facultyId
-                                );
-                                if (idx === -1) {
-                                  next.entries.push({
-                                    facultyId: row.facultyId,
-                                    role: row.role,
-                                    status: 'absent',
-                                  });
-                                } else {
-                                  next.entries[idx] = {
-                                    ...next.entries[idx],
-                                    status: 'absent',
-                                  };
-                                }
-                                next.updatedAt = new Date().toISOString();
-                                onSetAttendance(next);
-                              }}
-                            >
-                              Absent
-                            </Button>
                             {/* Replacement selector: only visible when marked absent */}
                             {currentStatus === 'absent' && (
                               <Select
@@ -434,6 +355,86 @@ export function MarkPhase({
                                 </SelectContent>
                               </Select>
                             )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={`dark:hover:bg-green-700/50 ${currentStatus === 'present' ? 'bg-green-100 dark:bg-green-800/50' : ''}`}
+                              onClick={() => {
+                                // create an immutable copy of attendance and its entries
+                                const next: SlotAttendance = {
+                                  ...attendance,
+                                  entries: attendance.entries
+                                    ? attendance.entries.slice()
+                                    : [],
+                                };
+                                const idx = next.entries.findIndex(
+                                  (e) => e.facultyId === row.facultyId
+                                );
+                                if (idx === -1) {
+                                  next.entries.push({
+                                    facultyId: row.facultyId,
+                                    role: row.role,
+                                    status: 'present',
+                                  });
+                                } else {
+                                  // Check is previously marked as absent and remove replacement entry
+                                  const existing = next.entries[idx];
+                                  // console.log('Existing entry:', existing);
+                                  if (existing.status === 'absent') {
+                                    // Remove any replacement entries linked to this faculty
+                                    next.entries = next.entries.filter(
+                                      (en) =>
+                                        !(
+                                          en.status === 'replacement' &&
+                                          en.replacementFrom === row.facultyId
+                                        )
+                                    );
+                                  }
+
+                                  // Update to present
+                                  next.entries[idx] = {
+                                    ...next.entries[idx],
+                                    status: 'present',
+                                  };
+                                }
+                                next.updatedAt = new Date().toISOString();
+                                onSetAttendance(next);
+                              }}
+                            >
+                              Present
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={`dark:hover:bg-yellow-700/50 ${currentStatus === 'absent' ? 'bg-yellow-100 dark:bg-yellow-800/50' : ''}`}
+                              onClick={() => {
+                                const next: SlotAttendance = {
+                                  ...attendance,
+                                  entries: attendance.entries
+                                    ? attendance.entries.slice()
+                                    : [],
+                                };
+                                const idx = next.entries.findIndex(
+                                  (e) => e.facultyId === row.facultyId
+                                );
+                                if (idx === -1) {
+                                  next.entries.push({
+                                    facultyId: row.facultyId,
+                                    role: row.role,
+                                    status: 'absent',
+                                  });
+                                } else {
+                                  next.entries[idx] = {
+                                    ...next.entries[idx],
+                                    status: 'absent',
+                                  };
+                                }
+                                next.updatedAt = new Date().toISOString();
+                                onSetAttendance(next);
+                              }}
+                            >
+                              Absent
+                            </Button>
                           </div>
                         </div>
                       );
