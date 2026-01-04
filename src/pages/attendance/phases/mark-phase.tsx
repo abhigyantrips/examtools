@@ -71,6 +71,11 @@ export function MarkPhase({
     ...otherRoles,
   ];
 
+  // List of faculties who aren't assigned any duty for this slot and hence will be available as overrides in the dropdown
+  const unassignedFaculty = examFaculty.filter(
+    (f) => !assignedList.some((a) => a.facultyId === f.facultyId)
+  );
+
   // Hide Buffer role as its used to cover absent duties
   const hiddenRoles = ['buffer'];
 
@@ -310,46 +315,33 @@ export function MarkPhase({
                                         })}
                                     </SelectGroup>
                                   )}
-
-                                  {examFaculty.filter(
-                                    (f) =>
-                                      !assignedList.some(
-                                        (a) => a.facultyId === f.facultyId
-                                      )
-                                  ).length > 0 && (
+                                  {unassignedFaculty.length > 0 && (
                                     <SelectGroup>
                                       <SelectLabel>
                                         Unassigned Faculty
                                       </SelectLabel>
-                                      {examFaculty
-                                        .filter(
-                                          (f) =>
-                                            !assignedList.some(
-                                              (a) => a.facultyId === f.facultyId
-                                            )
-                                        )
-                                        .map((f) => {
-                                          const usedElsewhere =
-                                            attendance.entries.some(
-                                              (en) =>
-                                                en.status === 'replacement' &&
-                                                en.facultyId === f.facultyId &&
-                                                en.replacementFrom !==
-                                                  row.facultyId
-                                            );
-                                          return (
-                                            <SelectItem
-                                              key={`un-${f.facultyId}`}
-                                              value={f.facultyId}
-                                              disabled={usedElsewhere}
-                                            >
-                                              {f.facultyName} ({f.facultyId})
-                                              {usedElsewhere
-                                                ? ' — already used'
-                                                : ''}
-                                            </SelectItem>
+                                      {unassignedFaculty.map((f) => {
+                                        const usedElsewhere =
+                                          attendance.entries.some(
+                                            (en) =>
+                                              en.status === 'replacement' &&
+                                              en.facultyId === f.facultyId &&
+                                              en.replacementFrom !==
+                                                row.facultyId
                                           );
-                                        })}
+                                        return (
+                                          <SelectItem
+                                            key={`un-${f.facultyId}`}
+                                            value={f.facultyId}
+                                            disabled={usedElsewhere}
+                                          >
+                                            {f.facultyName} ({f.facultyId})
+                                            {usedElsewhere
+                                              ? ' — already used'
+                                              : ''}
+                                          </SelectItem>
+                                        );
+                                      })}
                                     </SelectGroup>
                                   )}
                                 </SelectContent>
