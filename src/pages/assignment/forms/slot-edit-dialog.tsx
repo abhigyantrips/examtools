@@ -64,6 +64,7 @@ const formSchema = z
     startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string().min(1, 'End time is required'),
     subjectCode: z.string().optional(),
+    subjectNames: z.string().optional(),
     regularDuties: z.number().min(1, 'Regular duties must be at least 1'),
     relieverDuties: z.number().min(0, 'Reliever duties cannot be negative'),
     squadDuties: z.number().min(0, 'Squad duties cannot be negative'),
@@ -95,6 +96,7 @@ export function SlotEditDialog({
       startTime: slot.startTime,
       endTime: slot.endTime,
       subjectCode: slot.subjectCode || '',
+      subjectNames: slot.subjectNames || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -111,6 +113,7 @@ export function SlotEditDialog({
       startTime: slot.startTime,
       endTime: slot.endTime,
       subjectCode: slot.subjectCode || '',
+      subjectNames: slot.subjectNames || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -184,6 +187,7 @@ export function SlotEditDialog({
       ...slot,
       startTime: data.startTime,
       subjectCode: data.subjectCode,
+      subjectNames: data.subjectNames,
       endTime: data.endTime,
       regularDuties: data.regularDuties,
       relieverDuties: data.relieverDuties,
@@ -287,6 +291,26 @@ export function SlotEditDialog({
                     <Input
                       {...field}
                       placeholder="e.g. CSE_1010"
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
+
+            <div className="mt-2">
+              <Controller
+                control={form.control}
+                name="subjectNames"
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel>Subject Names</FieldLabel>
+                    <Input
+                      {...field}
+                      placeholder="e.g. Data Structures, Algorithms"
                       aria-invalid={fieldState.invalid}
                     />
                     {fieldState.invalid && (

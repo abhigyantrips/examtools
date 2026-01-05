@@ -17,6 +17,7 @@ export interface DutySlot {
   startTime: string; // "2:00 PM"
   endTime: string; // "4:00 PM"
   subjectCode?: string;
+  subjectNames?: string;
   regularDuties: number;
   relieverDuties: number;
   squadDuties: number;
