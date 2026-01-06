@@ -45,19 +45,30 @@ interface SlotEditDialogProps {
   onSave: (slot: DutySlot) => void;
 }
 
-const timeOptions = [
-  '8:00 AM',
-  '9:00 AM',
-  '10:00 AM',
-  '11:00 AM',
-  '12:00 PM',
-  '1:00 PM',
-  '2:00 PM',
-  '3:00 PM',
-  '4:00 PM',
-  '5:00 PM',
-  '6:00 PM',
-];
+// Generate time options between startHour and endHour (inclusive)
+const createTimeOptions = (
+  startHour = 8,
+  endHour = 18,
+  stepMinutes = 30,
+  startAtStep = false
+): string[] => {
+  const times: string[] = [];
+  const startMins = startHour * 60 + (startAtStep ? stepMinutes : 0);
+  const endMins = endHour * 60; // inclusive end
+
+  for (let mins = startMins; mins <= endMins; mins += stepMinutes) {
+    const h24 = Math.floor(mins / 60);
+    const m = mins % 60;
+    const period = h24 >= 12 ? 'PM' : 'AM';
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    times.push(`${h12}:${m.toString().padStart(2, '0')} ${period}`);
+  }
+
+  return times;
+};
+
+const timeOptions = createTimeOptions(8, 18, 30, false);
 
 const formSchema = z
   .object({
