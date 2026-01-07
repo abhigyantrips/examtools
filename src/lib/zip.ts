@@ -14,7 +14,10 @@ export async function generateZipBlob(zip: JSZip) {
 }
 
 // Read a text file from the zip (or null if not present)
-export async function readTextFile(zip: JSZip, path: string): Promise<string | null> {
+export async function readTextFile(
+  zip: JSZip,
+  path: string
+): Promise<string | null> {
   const f = zip.file(path);
   if (!f) return null;
   try {

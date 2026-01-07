@@ -66,16 +66,16 @@ export function AttendancePage() {
   const [assignedList, setAssignedList] = useState<
     Array<Pick<Assignment, 'facultyId' | 'role'>>
   >([]);
-  const [phase, setPhase] = useState<
-    'import' | 'select' | 'mark' | 'review'
-  >('import');
+  const [phase, setPhase] = useState<'import' | 'select' | 'mark' | 'review'>(
+    'import'
+  );
   const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
 
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
 
-  type Phase = 'import' | 'select' | 'mark'| 'review';
+  type Phase = 'import' | 'select' | 'mark' | 'review';
 
   const getPhaseCompletion = useCallback(
     (p: Phase) => {
