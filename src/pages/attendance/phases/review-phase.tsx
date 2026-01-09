@@ -3,7 +3,8 @@ import type JSZip from 'jszip';
 
 import type { Assignment, Faculty, SlotAttendance } from '@/types';
 
-import { generateZipBlob, saveSlotAttendance } from '@/lib/attendance';
+import { saveSlotAttendance } from '@/lib/attendance';
+import { generateZipBlob } from '@/lib/zip';
 
 import { Button } from '@/components/ui/button';
 import {

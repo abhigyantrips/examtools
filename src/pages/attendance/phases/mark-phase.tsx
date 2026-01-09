@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { CheckCheck } from 'lucide-react';
 
 import type {
   Assignment,
@@ -15,6 +16,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface MarkPhaseProps {
   attendance: SlotAttendance | null;
@@ -59,6 +70,11 @@ export function MarkPhase({
     ...preferred.filter((r) => groups.has(r)),
     ...otherRoles,
   ];
+
+  // List of faculties who aren't assigned any duty for this slot and hence will be available as overrides in the dropdown
+  const unassignedFaculty = examFaculty.filter(
+    (f) => !assignedList.some((a) => a.facultyId === f.facultyId)
+  );
 
   // Hide Buffer role as its used to cover absent duties
   const hiddenRoles = ['buffer'];
@@ -136,7 +152,7 @@ export function MarkPhase({
                           onSetAttendance(next);
                         }}
                       >
-                        Mark All Present
+                        Mark All Present <CheckCheck />
                       </Button>
                     </div>
                   </div>
@@ -161,7 +177,176 @@ export function MarkPhase({
                               {row.facultyId} • {String(row.role).toUpperCase()}
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
+                            {/* Replacement selector: only visible when marked absent */}
+                            {currentStatus === 'absent' && (
+                              <Select
+                                value={
+                                  attendance.entries.find(
+                                    (en) =>
+                                      en.status === 'replacement' &&
+                                      en.replacementFrom === row.facultyId
+                                  )
+                                    ? attendance.entries
+                                        .find(
+                                          (en) =>
+                                            en.status === 'replacement' &&
+                                            en.replacementFrom === row.facultyId
+                                        )!
+                                        .facultyId.startsWith(
+                                          'no-replacement-for-'
+                                        )
+                                      ? 'no-replacement'
+                                      : attendance.entries.find(
+                                          (en) =>
+                                            en.status === 'replacement' &&
+                                            en.replacementFrom === row.facultyId
+                                        )!.facultyId
+                                    : ''
+                                }
+                                onValueChange={(sel) => {
+                                  const next: SlotAttendance = {
+                                    ...attendance,
+                                    entries: attendance.entries
+                                      ? attendance.entries.slice()
+                                      : [],
+                                  };
+
+                                  // remove existing replacement for this absent
+                                  next.entries = next.entries.filter(
+                                    (en) =>
+                                      !(
+                                        en.status === 'replacement' &&
+                                        en.replacementFrom === row.facultyId
+                                      )
+                                  );
+
+                                  if (sel === 'no-option') {
+                                    next.updatedAt = new Date().toISOString();
+                                    onSetAttendance(next);
+                                    return;
+                                  }
+
+                                  // compute candidates
+                                  const bufferCandidates = assignedList
+                                    .filter((a) => a.role === 'buffer')
+                                    .map((b) => b.facultyId);
+
+                                  // prevent selecting someone already used elsewhere as replacement
+                                  const usedElsewhere = next.entries.some(
+                                    (en) =>
+                                      en.status === 'replacement' &&
+                                      en.facultyId === sel
+                                  );
+                                  if (usedElsewhere) return;
+
+                                  if (sel === 'no-replacement') {
+                                    next.entries.push({
+                                      facultyId: `no-replacement-for-${row.facultyId}`,
+                                      role: 'attendance-override',
+                                      status: 'replacement',
+                                      replacementFrom: row.facultyId,
+                                    });
+                                  } else {
+                                    const isBuffer =
+                                      bufferCandidates.includes(sel);
+                                    next.entries.push({
+                                      facultyId: sel,
+                                      role: isBuffer
+                                        ? 'buffer'
+                                        : 'attendance-override',
+                                      status: 'replacement',
+                                      replacementFrom: row.facultyId,
+                                    });
+                                  }
+
+                                  next.updatedAt = new Date().toISOString();
+                                  onSetAttendance(next);
+                                }}
+                              >
+                                <SelectTrigger className="w-56">
+                                  <SelectValue placeholder="— Select replacement —" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    <SelectLabel>Options</SelectLabel>
+                                    <SelectItem value="no-option">
+                                      — Pending Selection —
+                                    </SelectItem>
+                                    <SelectItem value="no-replacement">
+                                      Duty not Covered
+                                    </SelectItem>
+                                  </SelectGroup>
+
+                                  <SelectSeparator />
+
+                                  {assignedList.filter(
+                                    (a) => a.role === 'buffer'
+                                  ).length > 0 && (
+                                    <SelectGroup>
+                                      <SelectLabel>Buffer Duties</SelectLabel>
+                                      {assignedList
+                                        .filter((a) => a.role === 'buffer')
+                                        .map((b) => {
+                                          const bufUsedElsewhere =
+                                            attendance.entries.some(
+                                              (en) =>
+                                                en.status === 'replacement' &&
+                                                en.facultyId === b.facultyId &&
+                                                en.replacementFrom !==
+                                                  row.facultyId
+                                            );
+                                          const facultyName =
+                                            examFaculty.find(
+                                              (f) => f.facultyId === b.facultyId
+                                            )?.facultyName || b.facultyId;
+                                          return (
+                                            <SelectItem
+                                              key={`buf-${b.facultyId}`}
+                                              value={b.facultyId}
+                                              disabled={bufUsedElsewhere}
+                                            >
+                                              {facultyName} ({b.facultyId})
+                                              {bufUsedElsewhere
+                                                ? ' — already used'
+                                                : ''}
+                                            </SelectItem>
+                                          );
+                                        })}
+                                    </SelectGroup>
+                                  )}
+                                  {unassignedFaculty.length > 0 && (
+                                    <SelectGroup>
+                                      <SelectLabel>
+                                        Unassigned Faculty
+                                      </SelectLabel>
+                                      {unassignedFaculty.map((f) => {
+                                        const usedElsewhere =
+                                          attendance.entries.some(
+                                            (en) =>
+                                              en.status === 'replacement' &&
+                                              en.facultyId === f.facultyId &&
+                                              en.replacementFrom !==
+                                                row.facultyId
+                                          );
+                                        return (
+                                          <SelectItem
+                                            key={`un-${f.facultyId}`}
+                                            value={f.facultyId}
+                                            disabled={usedElsewhere}
+                                          >
+                                            {f.facultyName} ({f.facultyId})
+                                            {usedElsewhere
+                                              ? ' — already used'
+                                              : ''}
+                                          </SelectItem>
+                                        );
+                                      })}
+                                    </SelectGroup>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"

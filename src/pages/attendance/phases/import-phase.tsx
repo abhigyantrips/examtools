@@ -1,5 +1,6 @@
 import { Upload } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -10,10 +11,17 @@ import {
 
 interface ImportPhaseProps {
   zipFileName: string | null;
+  zipTimestamps?: { updated?: string; created?: string } | null;
   onImport: (file: File | null) => Promise<void>;
+  onReset: () => void;
 }
 
-export function ImportPhase({ zipFileName, onImport }: ImportPhaseProps) {
+export function ImportPhase({
+  zipFileName,
+  zipTimestamps,
+  onImport,
+  onReset,
+}: ImportPhaseProps) {
   return (
     <Card>
       <CardHeader>
@@ -55,6 +63,23 @@ export function ImportPhase({ zipFileName, onImport }: ImportPhaseProps) {
               </div>
             </div>
           </div>
+          {zipFileName && (
+            <div className="mt-2 flex items-center justify-between">
+              <div className="text-muted-foreground text-sm">
+                <div className="font-medium">{zipFileName}</div>
+                {zipTimestamps?.updated && (
+                  <div className="text-xs">
+                    Last updated: {zipTimestamps.updated}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Button variant="destructive" size="sm" onClick={onReset}>
+                  Reset ZIP
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

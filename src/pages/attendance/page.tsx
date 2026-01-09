@@ -15,21 +15,31 @@ import type { Assignment, DutySlot, Faculty, SlotAttendance } from '@/types';
 
 import {
   createEmptyAttendance,
-  loadZip,
   readAssignmentsFromZip,
   readMetadataFaculty,
   readMetadataSlots,
   readSlotAttendance,
+  saveSlotAttendance,
 } from '@/lib/attendance';
 import { cn } from '@/lib/utils';
+import { loadZip } from '@/lib/zip';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toaster } from '@/components/ui/sonner';
 
 import { ImportPhase } from './phases/import-phase';
-import { LinkPhase } from './phases/link-phase';
 import { MarkPhase } from './phases/mark-phase';
 import { ReviewPhase } from './phases/review-phase';
 import { SlotSelectionPhase } from './phases/slot-selection-phase';
@@ -40,7 +50,15 @@ export function AttendancePage() {
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
+  const [zipTimestamps, setZipTimestamps] = useState<{
+    updated?: string;
+    created?: string;
+  } | null>(null);
   const [selected, setSelected] = useState<{
+    day: number;
+    slot: number;
+  } | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{
     day: number;
     slot: number;
   } | null>(null);
@@ -48,16 +66,17 @@ export function AttendancePage() {
   const [assignedList, setAssignedList] = useState<
     Array<Pick<Assignment, 'facultyId' | 'role'>>
   >([]);
-  const [phase, setPhase] = useState<
-    'import' | 'select' | 'mark' | 'link' | 'review'
-  >('import');
+  const [phase, setPhase] = useState<'import' | 'select' | 'mark' | 'review'>(
+    'import'
+  );
   const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
   const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
 
-  type Phase = 'import' | 'select' | 'mark' | 'link' | 'review';
+  type Phase = 'import' | 'select' | 'mark' | 'review';
 
   const getPhaseCompletion = useCallback(
     (p: Phase) => {
@@ -69,20 +88,6 @@ export function AttendancePage() {
           return selected !== null;
         case 'mark':
           return attendance !== null && attendance.entries.length > 0;
-        case 'link':
-          // Complete if all assigned faculty are either present or have a replacement
-          if (!attendance) return false;
-          const unlinkedAbsentees = attendance.entries.filter(
-            (e) =>
-              e.status === 'absent' &&
-              e.role !== 'buffer' &&
-              !attendance.entries.some(
-                (en) =>
-                  en.status === 'replacement' &&
-                  en.replacementFrom === e.facultyId
-              )
-          );
-          return unlinkedAbsentees.length === 0;
         case 'review':
           return attendance !== null;
         default:
@@ -97,7 +102,7 @@ export function AttendancePage() {
     [getPhaseCompletion]
   );
 
-  const phases: Phase[] = ['import', 'select', 'mark', 'link', 'review'];
+  const phases: Phase[] = ['import', 'select', 'mark', 'review'];
 
   const getNextPhase = (current: Phase): Phase | null => {
     const idx = phases.indexOf(current);
@@ -115,6 +120,42 @@ export function AttendancePage() {
       return;
     }
     const next = getNextPhase(phase);
+    if (phase === 'review') {
+      // Reset selected and attendance to allow new slot selection
+      setSelected(null);
+      setAttendance(null);
+      // Update marked map to reflect newly marked slot
+      if (selected) {
+        setMarkedMap((prev) => ({
+          ...prev,
+          [`${selected.day}-${selected.slot}`]: true,
+        }));
+      }
+      if (!zipInstance || !attendance) {
+        toast.error('No ZIP instance or attendance data found.');
+        return;
+      } else {
+        // Make a copy of zipInstance to modify
+        var zip = zipInstance;
+        // Update zip blob
+        saveSlotAttendance(zip as any, attendance)
+          .then(() => {
+            console.log('Saved attendance to ZIP');
+          })
+          .catch((err) => {
+            console.error('Failed to save attendance to ZIP', err);
+            toast.error('Failed to save attendance data to ZIP.');
+          });
+        setZipInstance(zip);
+      }
+
+      toast.success(
+        'Attendance data saved successfully. You can mark another slot now.'
+      );
+      // Move to select phase
+      setPhase('select');
+      return;
+    }
     if (next) setPhase(next);
   }, [phase, canProceedToNext]);
 
@@ -123,12 +164,54 @@ export function AttendancePage() {
     if (prev) setPhase(prev);
   }, [phase]);
 
+  const onZipReset = useCallback(() => {
+    // clear persisted zip and reset state
+    localStorage.removeItem('attendance:zip:dataUrl');
+    localStorage.removeItem('attendance:zip:name');
+    setZipInstance(null);
+    setZipFileName(null);
+    setZipSlots(null);
+    setMarkedMap({});
+    setZipTimestamps(null);
+    setPhase('import');
+  }, []);
+
   const onImportZip = useCallback(async (f: File | null) => {
     if (!f) return;
+    setLoading(true);
     try {
       const zip = await loadZip(f);
       setZipInstance(zip as any);
       setZipFileName(f.name);
+      // persist ZIP in localStorage as data URL so it survives reloads
+      try {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const dataUrl = reader.result as string;
+            localStorage.setItem('attendance:zip:dataUrl', dataUrl);
+            localStorage.setItem('attendance:zip:name', f.name);
+          } catch (err) {
+            console.warn('Failed to persist ZIP to localStorage', err);
+          }
+        };
+        reader.readAsDataURL(f);
+      } catch (err) {
+        console.warn('Failed to create data URL for ZIP', err);
+      }
+
+      // read last_modified.txt if present and expose to import UI
+      try {
+        const lm =
+          zip.file('last_modified.txt') ||
+          zip.file('internal/last_modified.txt');
+        if (lm) {
+          const text = await lm.async('string');
+          setZipTimestamps({ updated: text });
+        }
+      } catch (err) {
+        // ignore
+      }
 
       // load metadata slots (if the zip contains internal/metadata.json)
       try {
@@ -173,12 +256,71 @@ export function AttendancePage() {
         console.warn('Failed to read metadata slots from zip', err);
       }
 
+      // Also attempt to read faculty metadata regardless of slots
+      try {
+        const facultyMeta = await readMetadataFaculty(zip as any);
+        if (facultyMeta && facultyMeta.length > 0) {
+          setFacultyList(facultyMeta);
+        }
+      } catch (err) {
+        // ignore
+      }
+
       console.log('Loaded ZIP');
       // move to select phase after import
       setPhase('select');
     } catch (err) {
       console.error('Failed to load ZIP', err);
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  // on mount, try to restore persisted zip from localStorage
+  useEffect(() => {
+    const dataUrl = localStorage.getItem('attendance:zip:dataUrl');
+    const name = localStorage.getItem('attendance:zip:name');
+    if (!dataUrl) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const resp = await fetch(dataUrl);
+        const buffer = await resp.arrayBuffer();
+        const f = new File([buffer], name || 'attendance.zip', {
+          type: 'application/zip',
+        });
+        const zip = await loadZip(f);
+        setZipInstance(zip as any);
+        setZipFileName(name || 'attendance.zip');
+        // read metadata slots if present
+        try {
+          const meta = await readMetadataSlots(zip as any);
+          if (meta && meta.length > 0) {
+            const mapped = meta.map((s: any) => ({
+              ...s,
+              date: new Date(s.date),
+            }));
+            setZipSlots(mapped);
+          }
+        } catch (err) {
+          // ignore
+        }
+        // read last_modified
+        try {
+          const lm =
+            zip.file('last_modified.txt') ||
+            zip.file('internal/last_modified.txt');
+          if (lm) {
+            const text = await lm.async('string');
+            setZipTimestamps({ updated: text });
+          }
+        } catch (err) {}
+        setPhase('select');
+      } catch (err) {
+        console.warn('Failed to restore ZIP from storage', err);
+      }
+      setLoading(false);
+    })();
   }, []);
 
   // recompute marked map when zipInstance or slots change (fallback if no metadata)
@@ -191,6 +333,7 @@ export function AttendancePage() {
       }
       const mm: Record<string, boolean> = {};
       const iterate = slots && slots.length > 0 ? slots : [];
+      setLoading(true);
       await Promise.all(
         iterate.map(async (s: any) => {
           try {
@@ -211,6 +354,7 @@ export function AttendancePage() {
         })
       );
       if (!cancelled) setMarkedMap(mm);
+      setLoading(false);
     }
     compute();
     return () => {
@@ -218,29 +362,56 @@ export function AttendancePage() {
     };
   }, [zipInstance, slots]);
 
+  // Ensure faculty list is populated when a ZIP is loaded (restore path or external set)
+  useEffect(() => {
+    if (!zipInstance) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const meta = await readMetadataFaculty(zipInstance as any);
+        if (!cancelled && meta && meta.length > 0) setFacultyList(meta);
+      } catch (err) {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [zipInstance]);
+
   const onSelectSlot = useCallback(
     async (day: number, slot: number) => {
       setSelected({ day, slot });
+      setLoading(true);
       // load or create attendance
       const ds = slots.find((s) => s.day === day && s.slot === slot);
 
-      if (zipInstance) {
-        const existing = await readSlotAttendance(zipInstance, day, slot);
-        const fromZip = await readAssignmentsFromZip(zipInstance, day, slot);
-        const localAssignedList = fromZip.map((r) => ({
+      try {
+        if (!zipInstance) {
+          throw new Error('No ZIP instance loaded');
+        }
+
+        // Read attendance and assignments in parallel to reduce blocking time
+        const [existing, fromZip] = await Promise.all([
+          readSlotAttendance(zipInstance, day, slot),
+          readAssignmentsFromZip(zipInstance, day, slot),
+        ]);
+
+        const localAssignedList = (fromZip || []).map((r) => ({
           facultyId: r.facultyId,
           role: (String(r.role) as Assignment['role']) || 'regular',
         }));
         setAssignedList(localAssignedList);
+
         const attendanceData = createEmptyAttendance(
           day,
           slot,
           ds ? ds.date.toISOString() : new Date().toISOString(),
           ds ? `${ds.startTime} - ${ds.endTime}` : undefined
         );
-        // if existing attendance found in zip, use it to prefill
+
         if (existing) {
-          attendanceData.entries = existing.entries;
+          attendanceData.entries = existing.entries.slice();
           // Ensure all assigned faculty are included (excluding buffers)
           localAssignedList
             .filter((a) => a.role !== 'buffer')
@@ -248,7 +419,6 @@ export function AttendancePage() {
               if (
                 !attendanceData.entries.some((e) => e.facultyId === a.facultyId)
               ) {
-                // Add missing assigned faculty as absent by default
                 attendanceData.entries.push({
                   facultyId: a.facultyId,
                   status: 'absent',
@@ -267,28 +437,41 @@ export function AttendancePage() {
           });
         }
 
-        console.log('After adding', attendanceData);
-
         setAttendance(attendanceData);
         setPhase('mark');
-      } else {
-        setError(new Error('No ZIP instance loaded'));
-        return;
+      } catch (err) {
+        console.error('Failed to select slot', err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setLoading(false);
       }
     },
     [zipInstance, slots]
   );
 
-  // if (loading) {
-  //   return (
-  //     <div className="flex min-h-screen items-center justify-center">
-  //       <div className="space-y-4 text-center">
-  //         <div className="border-primary mx-auto size-8 animate-spin rounded-full border-2 border-t-transparent" />
-  //         <p className="text-muted-foreground">Loading exam data...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  const attemptSelectSlot = useCallback(
+    (day: number, slot: number) => {
+      const key = `${day}-${slot}`;
+      if (markedMap && markedMap[key]) {
+        setPendingSelection({ day, slot });
+        return;
+      }
+      // proceed directly
+      onSelectSlot(day, slot);
+    },
+    [markedMap, onSelectSlot]
+  );
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <div className="border-primary mx-auto size-8 animate-spin rounded-full border-2 border-t-transparent" />
+          <p className="text-muted-foreground">Processing...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -322,7 +505,6 @@ export function AttendancePage() {
               { key: 'import', label: 'Import', icon: Users },
               { key: 'select', label: 'Select Slot', icon: Settings },
               { key: 'mark', label: 'Mark', icon: Calendar },
-              { key: 'link', label: 'Link', icon: CheckCircle },
               { key: 'review', label: 'Review', icon: CheckCircle },
             ].map(({ key, label, icon: Icon }, index) => {
               const isActive = phase === key;
@@ -370,9 +552,11 @@ export function AttendancePage() {
 
             <Button
               onClick={handleContinue}
-              disabled={!canProceedToNext(phase) || phase === 'review'}
+              disabled={!canProceedToNext(phase)}
             >
-              Continue <ArrowRight className="ml-2 size-4" />
+              {/* Iterative Marking */}
+              {phase === 'review' ? 'Mark Another Slot' : 'Continue'}
+              <ArrowRight className="ml-2 size-4" />
             </Button>
           </div>
         </div>
@@ -381,26 +565,23 @@ export function AttendancePage() {
       {/* Phase Content */}
       <main className="container mx-auto px-4 py-6">
         {phase === 'import' && (
-          <ImportPhase zipFileName={zipFileName} onImport={onImportZip} />
+          <ImportPhase
+            zipFileName={zipFileName}
+            zipTimestamps={zipTimestamps}
+            onImport={onImportZip}
+            onReset={onZipReset}
+          />
         )}
         {phase === 'select' && (
           <SlotSelectionPhase
             slots={slots}
             selected={selected}
-            onSelect={onSelectSlot}
+            onSelect={attemptSelectSlot}
             markedMap={markedMap}
           />
         )}
         {phase === 'mark' && (
           <MarkPhase
-            attendance={attendance}
-            assignedList={assignedList}
-            examFaculty={facultyList}
-            onSetAttendance={(next) => setAttendance(next)}
-          />
-        )}
-        {phase === 'link' && (
-          <LinkPhase
             attendance={attendance}
             assignedList={assignedList}
             examFaculty={facultyList}
@@ -420,6 +601,48 @@ export function AttendancePage() {
 
       <Toaster />
       <PWAPrompt />
+
+      {/* Confirm dialog when editing already-marked slot */}
+      <AlertDialog
+        open={!!pendingSelection}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingSelection(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit existing attendance?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This slot already has attendance recorded. Are you sure you want
+              to edit it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setPendingSelection(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (pendingSelection) {
+                  await onSelectSlot(
+                    pendingSelection.day,
+                    pendingSelection.slot
+                  );
+                }
+                setPendingSelection(null);
+              }}
+            >
+              Edit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
