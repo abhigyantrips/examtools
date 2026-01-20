@@ -128,6 +128,7 @@ export function ConfigurationPhase({
       startTime: newSlotIndex === 0 ? '9:00 AM' : '2:00 PM',
       endTime: newSlotIndex === 0 ? '12:00 PM' : '5:00 PM',
       subjectCode: '',
+      subjectNames: '',
       regularDuties: 10,
       relieverDuties: 2,
       squadDuties: 2,

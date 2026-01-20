@@ -45,25 +45,37 @@ interface SlotEditDialogProps {
   onSave: (slot: DutySlot) => void;
 }
 
-const timeOptions = [
-  '8:00 AM',
-  '9:00 AM',
-  '10:00 AM',
-  '11:00 AM',
-  '12:00 PM',
-  '1:00 PM',
-  '2:00 PM',
-  '3:00 PM',
-  '4:00 PM',
-  '5:00 PM',
-  '6:00 PM',
-];
+// Generate time options between startHour and endHour (inclusive)
+const createTimeOptions = (
+  startHour = 8,
+  endHour = 18,
+  stepMinutes = 30,
+  startAtStep = false
+): string[] => {
+  const times: string[] = [];
+  const startMins = startHour * 60 + (startAtStep ? stepMinutes : 0);
+  const endMins = endHour * 60; // inclusive end
+
+  for (let mins = startMins; mins <= endMins; mins += stepMinutes) {
+    const h24 = Math.floor(mins / 60);
+    const m = mins % 60;
+    const period = h24 >= 12 ? 'PM' : 'AM';
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    times.push(`${h12}:${m.toString().padStart(2, '0')} ${period}`);
+  }
+
+  return times;
+};
+
+const timeOptions = createTimeOptions(8, 18, 30, false);
 
 const formSchema = z
   .object({
     startTime: z.string().min(1, 'Start time is required'),
     endTime: z.string().min(1, 'End time is required'),
     subjectCode: z.string().optional(),
+    subjectNames: z.string().optional(),
     regularDuties: z.number().min(1, 'Regular duties must be at least 1'),
     relieverDuties: z.number().min(0, 'Reliever duties cannot be negative'),
     squadDuties: z.number().min(0, 'Squad duties cannot be negative'),
@@ -95,6 +107,7 @@ export function SlotEditDialog({
       startTime: slot.startTime,
       endTime: slot.endTime,
       subjectCode: slot.subjectCode || '',
+      subjectNames: slot.subjectNames || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -111,6 +124,7 @@ export function SlotEditDialog({
       startTime: slot.startTime,
       endTime: slot.endTime,
       subjectCode: slot.subjectCode || '',
+      subjectNames: slot.subjectNames || '',
       regularDuties: slot.regularDuties,
       relieverDuties: slot.relieverDuties || 0,
       squadDuties: slot.squadDuties || 0,
@@ -184,6 +198,7 @@ export function SlotEditDialog({
       ...slot,
       startTime: data.startTime,
       subjectCode: data.subjectCode,
+      subjectNames: data.subjectNames,
       endTime: data.endTime,
       regularDuties: data.regularDuties,
       relieverDuties: data.relieverDuties,
@@ -287,6 +302,26 @@ export function SlotEditDialog({
                     <Input
                       {...field}
                       placeholder="e.g. CSE_1010"
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </div>
+
+            <div className="mt-2">
+              <Controller
+                control={form.control}
+                name="subjectNames"
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel>Subject Names</FieldLabel>
+                    <Input
+                      {...field}
+                      placeholder="e.g. Data Structures, Algorithms"
                       aria-invalid={fieldState.invalid}
                     />
                     {fieldState.invalid && (
