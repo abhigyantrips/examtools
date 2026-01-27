@@ -1,31 +1,31 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
+
+import type { RenumerationRoleEntry } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-type RoleEntry = {
-  id: string;
-  name: string;
-  rate: number;
-};
+interface AdditionalInfoPhaseProps {
+  roles: RenumerationRoleEntry[];
+  setRoles: React.Dispatch<React.SetStateAction<RenumerationRoleEntry[]>>;
+}
 
-export function AdditionalInfoPhase() {
-  const [roles, setRoles] = useState<RoleEntry[]>([]);
-
+export function AdditionalInfoPhase({
+  roles,
+  setRoles,
+}: AdditionalInfoPhaseProps) {
   const addRole = () => {
     setRoles((r) => [
       ...r,
-      {
-        id: Math.random().toString(36).substring(2, 9),
-        name: '',
-        rate: 0,
-      },
+      { id: Math.random().toString(36).substring(2, 9), name: '', rate: 0 },
     ]);
   };
 
-  const updateRole = (id: string, patch: Partial<RoleEntry>) => {
-    setRoles((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const updateRole = (id: string, patch: Partial<RenumerationRoleEntry>) => {
+    setRoles((r: any[]) =>
+      r.map((x) => (x.id === id ? { ...x, ...patch } : x))
+    );
   };
 
   const removeRole = (id: string) => {
@@ -54,7 +54,7 @@ export function AdditionalInfoPhase() {
             )}
 
             {roles.map((role) => (
-              <div key={role.id} className="flex items-center gap-2">
+              <div key={role.id} className="flex items-start gap-2">
                 <div className="flex-1">
                   <label className="text-muted-foreground text-xs">Role</label>
                   <Input
@@ -81,9 +81,10 @@ export function AdditionalInfoPhase() {
                   />
                 </div>
 
-                <div>
+                <div className="mt-6 self-end">
                   <Button
                     variant="destructive"
+                    size="sm"
                     onClick={() => removeRole(role.id)}
                   >
                     Remove

@@ -10,9 +10,9 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
-import type { Faculty } from '@/types';
+import type { Faculty, RenumerationRoleEntry } from '@/types';
 
-import { readSlotAttendance } from '@/lib/renumeration';
+import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
 import { readTextFile } from '@/lib/zip';
 import { loadZip } from '@/lib/zip';
@@ -46,6 +46,13 @@ export function RenumerationPage() {
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [importChecks, setImportChecks] = useState<any | null>(null);
 
+  // Role data
+  const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
+  // Store mapping of ZIP role name to RenumerationRoleEntry ID
+  const [roleNameToIdMap, setRoleNameToIdMap] = useState<
+    Record<string, string>
+  >({});
+
   const phases: Phase[] = ['import', 'info', 'assign', 'review'];
 
   const getNextPhase = (current: Phase): Phase | null => {
@@ -58,22 +65,65 @@ export function RenumerationPage() {
     return idx > 0 ? phases[idx - 1] : null;
   };
 
-  const getPhaseCompletion = useCallback((phase: Phase): boolean => {
-    // Placeholder logic; replace with actual completion checks
-    switch (phase) {
-      case 'import':
-        // Need to configure the additional checks we are running onImportZip
-        return zipInstance !== null;
-      case 'info':
-        return true;
-      case 'assign':
-        return true;
-      case 'review':
-        return false;
-      default:
-        return false;
-    }
-  }, []);
+  const getPhaseCompletion = useCallback(
+    (phase: Phase): boolean => {
+      // Placeholder logic; replace with actual completion checks
+      switch (phase) {
+        case 'import':
+          // console.log('importChecks', importChecks);
+          if (!importChecks) {
+            // Import checks haven't run yet
+            return false;
+          }
+          if (importChecks.progress.attendance?.state !== 'done') {
+            // Attendance check not done
+            return false;
+          }
+          if (importChecks.progress.subjectInfo?.state !== 'done') {
+            // Subject info check not done
+            return false;
+          }
+          if (
+            importChecks.missingAttendanceSlots &&
+            importChecks.missingAttendanceSlots.length > 0
+          ) {
+            // Missing attendance slots or check not done
+            return false;
+          }
+          if (
+            importChecks.missingSubjectInfoSlots &&
+            importChecks.missingSubjectInfoSlots.length > 0
+          ) {
+            // Missing subject info on slots or not done
+            return false;
+          }
+          if (!facultyList || facultyList.length === 0) {
+            // No faculty loaded or not done
+            return false;
+          }
+          return zipInstance !== null;
+        case 'info':
+          // require at least one role defined and all roles to have a name and rate
+          if (roles.length === 0) {
+            return false;
+          }
+          for (const r of roles) {
+            if (!r.name || r.rate == null || isNaN(r.rate)) {
+              return false;
+            }
+          }
+          console.log('Roles complete:', roles);
+          return true;
+        case 'assign':
+          return true;
+        case 'review':
+          return false;
+        default:
+          return false;
+      }
+    },
+    [zipInstance, facultyList, importChecks, roles]
+  );
 
   const canProceedToNext = (current: Phase): boolean => {
     const next = getNextPhase(current);
@@ -137,6 +187,21 @@ export function RenumerationPage() {
       // populate faculty list if present
       if (checks && checks.faculty && checks.faculty.length > 0) {
         setFacultyList(checks.faculty);
+      }
+      // populate roles from assignments in the zip
+      try {
+        const rolesFromZip = await readRolesFromZip(zip as any);
+        if (rolesFromZip && rolesFromZip.length > 0) {
+          // Generate mapping of role name to ID
+          const nameToIdMap: Record<string, string> = {};
+          rolesFromZip.forEach((r) => {
+            nameToIdMap[r.name] = r.id;
+          });
+          setRoleNameToIdMap(nameToIdMap);
+          setRoles(rolesFromZip);
+        }
+      } catch (err) {
+        // ignore role loading errors
       }
       console.log('Loaded ZIP');
     } catch (err) {
@@ -316,6 +381,19 @@ export function RenumerationPage() {
           if (checks && checks.faculty && checks.faculty.length > 0) {
             setFacultyList(checks.faculty);
           }
+          try {
+            const rolesFromZip = await readRolesFromZip(zip as any);
+            if (rolesFromZip && rolesFromZip.length > 0) {
+              const nameToIdMap: Record<string, string> = {};
+              rolesFromZip.forEach((r) => {
+                nameToIdMap[r.name] = r.id;
+              });
+              setRoleNameToIdMap(nameToIdMap);
+              setRoles(rolesFromZip);
+            }
+          } catch (err) {
+            /* ignore */
+          }
         } catch (err) {
           console.warn('Failed to run import checks on restore', err);
         }
@@ -437,7 +515,9 @@ export function RenumerationPage() {
             facultyList={facultyList}
           />
         )}
-        {phase === 'info' && <AdditionalInfoPhase />}
+        {phase === 'info' && (
+          <AdditionalInfoPhase roles={roles} setRoles={setRoles} />
+        )}
         {phase === 'assign' && <AdditionalAssignmentsPhase />}
         {phase === 'review' && <ReviewPhase />}
       </main>

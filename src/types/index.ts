@@ -132,3 +132,9 @@ export interface SlotAttendance {
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
+
+export type RenumerationRoleEntry = {
+  id: string;
+  name: string;
+  rate: number;
+};
