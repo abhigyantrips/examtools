@@ -1,3 +1,5 @@
+import { GripVertical } from 'lucide-react';
+
 import React, { useMemo } from 'react';
 
 import type { RenumerationRoleEntry } from '@/types';
@@ -5,8 +7,14 @@ import type { RenumerationRoleEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { GripVertical } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface AdditionalInfoPhaseProps {
   roles: RenumerationRoleEntry[];
@@ -75,7 +83,9 @@ export function AdditionalInfoPhase({
 
           <div className="space-y-3">
             {roles.length === 0 ? (
-              <div className="text-muted-foreground text-sm">No roles defined yet.</div>
+              <div className="text-muted-foreground text-sm">
+                No roles defined yet.
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -103,7 +113,9 @@ export function AdditionalInfoPhase({
                       <TableCell>
                         <Input
                           value={role.name}
-                          onChange={(e) => updateRole(role.id, { name: e.target.value })}
+                          onChange={(e) =>
+                            updateRole(role.id, { name: e.target.value })
+                          }
                           placeholder="e.g. Invigilator, Head Examiner"
                         />
                       </TableCell>
@@ -111,12 +123,21 @@ export function AdditionalInfoPhase({
                         <Input
                           type="number"
                           value={String(role.rate)}
-                          onChange={(e) => updateRole(role.id, { rate: Number(e.target.value || 0) })}
+                          onChange={(e) =>
+                            updateRole(role.id, {
+                              rate: Number(e.target.value || 0),
+                            })
+                          }
                         />
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="destructive" size="sm" onClick={() => removeRole(role.id)} disabled={!!role.imported}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeRole(role.id)}
+                            disabled={!!role.imported}
+                          >
                             Remove
                           </Button>
                         </div>

@@ -3,8 +3,8 @@ import type JSZip from 'jszip';
 // Read unique roles from assignment.json inside the ZIP and return RenumerationRoleEntry[]
 import type { RenumerationRoleEntry } from '@/types';
 
-import { readTextFile } from './zip';
 import { capitalize } from './utils';
+import { readTextFile } from './zip';
 
 export {
   readSlotAttendance,

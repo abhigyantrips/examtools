@@ -1,5 +1,4 @@
 import { Check, CircleAlert, CircleDotDashed, Upload } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ImportPhaseProps {
   zipFileName: string | null;
@@ -115,7 +115,9 @@ export function ImportPhase({
                   )}
                   Slots found: {checks?.slotsCount ?? 'Pending'}
                   {checks?.progress?.metadata?.state === 'processing' && (
-                    <span className="ml-2 text-xs text-muted-foreground">{checks.progress.metadata.message}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.metadata.message}
+                    </span>
                   )}
                 </li>
 
@@ -133,7 +135,9 @@ export function ImportPhase({
                   )}
                   Faculty entries: {checks?.facultyCount ?? 'Pending'}
                   {checks?.progress?.faculty?.state === 'processing' && (
-                    <span className="ml-2 text-xs text-muted-foreground">{checks.progress.faculty.message}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.faculty.message}
+                    </span>
                   )}
                 </li>
 
@@ -156,7 +160,9 @@ export function ImportPhase({
                     : 'Pending'}{' '}
                   missing
                   {checks?.progress?.attendance?.state === 'processing' && (
-                    <span className="ml-2 text-xs text-muted-foreground">{checks.progress.attendance.message}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.attendance.message}
+                    </span>
                   )}
                 </li>
 
@@ -179,7 +185,9 @@ export function ImportPhase({
                     : 'Pending'}{' '}
                   issues
                   {checks?.progress?.subjectInfo?.state === 'processing' && (
-                    <span className="ml-2 text-xs text-muted-foreground">{checks.progress.subjectInfo.message}</span>
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.subjectInfo.message}
+                    </span>
                   )}
                 </li>
               </ul>
