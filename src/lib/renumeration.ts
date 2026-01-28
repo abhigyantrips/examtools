@@ -4,6 +4,7 @@ import type JSZip from 'jszip';
 import type { RenumerationRoleEntry } from '@/types';
 
 import { readTextFile } from './zip';
+import { capitalize } from './utils';
 
 export {
   readSlotAttendance,
@@ -41,10 +42,12 @@ export async function readRolesFromZip(
       if (a && a.role) uniq.add(String(a.role));
     }
 
-    const out: RenumerationRoleEntry[] = Array.from(uniq).map((r) => ({
+    const out: RenumerationRoleEntry[] = Array.from(uniq).map((r, i) => ({
       id: Math.random().toString(36).slice(2, 9),
-      name: r,
+      name: capitalize(r),
       rate: 0,
+      order: i,
+      imported: true,
     }));
 
     return out;

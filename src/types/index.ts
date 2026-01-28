@@ -137,4 +137,6 @@ export type RenumerationRoleEntry = {
   id: string;
   name: string;
   rate: number;
+  order?: number; // ordering of roles for export
+  imported?: boolean; // true if role came from ZIP (cannot be removed)
 };

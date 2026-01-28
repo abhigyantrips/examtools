@@ -27,3 +27,12 @@ export function facultyCompare(
   const ib = b?.facultyId ?? '';
   return ia.localeCompare(ib);
 }
+
+export function capitalize(s: string) {
+  return String(s || '')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w[0]?.toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
