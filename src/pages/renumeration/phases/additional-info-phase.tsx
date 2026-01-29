@@ -45,7 +45,7 @@ export function AdditionalInfoPhase({
   };
 
   const removeRole = (id: string) => {
-    setRoles((r) => r.filter((x) => x.id !== id && !x.imported));
+    setRoles((r) => r.filter((x) => x.id !== id));
   };
 
   // drag and drop handlers

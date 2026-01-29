@@ -108,7 +108,7 @@ export function RenumerationPage() {
             return false;
           }
           for (const r of roles) {
-            if (!r.name || r.rate == null || isNaN(r.rate)) {
+            if (!r.name || r.rate == null || isNaN(r.rate) || r.rate < 1) {
               return false;
             }
           }

@@ -42,6 +42,9 @@ export async function readRolesFromZip(
       if (a && a.role) uniq.add(String(a.role));
     }
 
+    // Drop the buffer role
+    uniq.delete('buffer');
+
     const out: RenumerationRoleEntry[] = Array.from(uniq).map((r, i) => ({
       id: Math.random().toString(36).slice(2, 9),
       name: capitalize(r),
