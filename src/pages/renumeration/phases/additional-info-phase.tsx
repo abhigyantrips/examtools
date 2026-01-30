@@ -6,6 +6,21 @@ import type { RenumerationRoleEntry } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -34,6 +49,8 @@ export function AdditionalInfoPhase({
         rate: 0,
         order: r.length,
         imported: false,
+        slotWiseAssignment: true,
+        nonSlotWiseSubjectInfo: null,
       },
     ]);
   };
@@ -68,6 +85,37 @@ export function AdditionalInfoPhase({
   };
 
   const totalRoles = useMemo(() => roles.length, [roles]);
+
+  const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [tempSubjectCode, setTempSubjectCode] = React.useState('');
+
+  const openSubjectDialogFor = (roleId: string) => {
+    const role = roles.find((r) => r.id === roleId);
+    setTempSubjectCode(role?.nonSlotWiseSubjectInfo ?? '');
+    setEditingRoleId(roleId);
+    setDialogOpen(true);
+  };
+
+  const confirmSubjectDialog = () => {
+    if (!editingRoleId) {
+      setDialogOpen(false);
+      return;
+    }
+    updateRole(editingRoleId, {
+      nonSlotWiseSubjectInfo: tempSubjectCode,
+      slotWiseAssignment: false,
+    });
+    setDialogOpen(false);
+    setEditingRoleId(null);
+    setTempSubjectCode('');
+  };
+
+  const cancelSubjectDialog = () => {
+    setDialogOpen(false);
+    setEditingRoleId(null);
+    setTempSubjectCode('');
+  };
 
   return (
     <Card>
@@ -131,16 +179,48 @@ export function AdditionalInfoPhase({
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeRole(role.id)}
-                            disabled={!!role.imported}
-                          >
-                            Remove
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm">Actions</Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {role.imported ? (
+                              <DropdownMenuItem disabled>
+                                Imported role
+                              </DropdownMenuItem>
+                            ) : (
+                              <>
+                                {role.slotWiseAssignment ? (
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      openSubjectDialogFor(role.id)
+                                    }
+                                  >
+                                    Disable slot-wise (set subject code)
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      updateRole(role.id, {
+                                        slotWiseAssignment: true,
+                                        nonSlotWiseSubjectInfo: null,
+                                      })
+                                    }
+                                  >
+                                    Enable slot-wise
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={() => removeRole(role.id)}
+                                >
+                                  Remove role
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -152,6 +232,41 @@ export function AdditionalInfoPhase({
           <div className="text-muted-foreground text-xs">
             Role order affects exported Excel column order.
           </div>
+
+          {/* Subject code dialog for enabling non-slot-wise subject info */}
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(v) =>
+              v ? setDialogOpen(true) : cancelSubjectDialog()
+            }
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Non-slot-wise Subject Code</DialogTitle>
+                <DialogDescription>
+                  Enter the subject code to use for this role when it is not
+                  assigned slot-wise.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div>
+                <Input
+                  value={tempSubjectCode}
+                  onChange={(e) => setTempSubjectCode(e.target.value)}
+                  placeholder="e.g. CS101"
+                />
+              </div>
+
+              <DialogFooter>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={cancelSubjectDialog}>
+                    Cancel
+                  </Button>
+                  <Button onClick={confirmSubjectDialog}>Confirm</Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="flex items-center justify-between">
             <div className="text-muted-foreground text-sm">

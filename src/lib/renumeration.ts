@@ -51,6 +51,8 @@ export async function readRolesFromZip(
       rate: 0,
       order: i,
       imported: true,
+      slotWiseAssignment: true,
+      nonSlotWiseSubjectInfo: null,
     }));
 
     return out;

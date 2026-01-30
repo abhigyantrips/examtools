@@ -137,6 +137,8 @@ export type RenumerationRoleEntry = {
   id: string;
   name: string;
   rate: number;
-  order?: number; // ordering of roles for export
-  imported?: boolean; // true if role came from ZIP (cannot be removed)
+  order: number; // ordering of roles for export
+  imported: boolean; // true if role came from ZIP (cannot be removed)
+  slotWiseAssignment: boolean; // true if role is assigned per slot (used to help set subject codes in renumeration export)
+  nonSlotWiseSubjectInfo: string | null; // subject info to use for non-slot-wise assignments
 };
