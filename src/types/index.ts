@@ -10,6 +10,12 @@ export interface Faculty {
   phoneNo: string;
 }
 
+export interface AdditionalStaff {
+  uuid: string;
+  staffName: string;
+  staffId: string;
+}
+
 export interface DutySlot {
   day: number; // 0-indexed
   slot: number; // 0-indexed

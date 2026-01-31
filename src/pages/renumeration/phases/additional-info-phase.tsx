@@ -1,11 +1,19 @@
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Upload } from 'lucide-react';
 
 import React, { useMemo } from 'react';
 
-import type { RenumerationRoleEntry } from '@/types';
+import type { AdditionalStaff, RenumerationRoleEntry } from '@/types';
+
+import { parseFacultyExcel } from '@/lib/excel';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -34,11 +42,15 @@ import {
 interface AdditionalInfoPhaseProps {
   roles: RenumerationRoleEntry[];
   setRoles: React.Dispatch<React.SetStateAction<RenumerationRoleEntry[]>>;
+  staffList: AdditionalStaff[];
+  setStaffList: React.Dispatch<React.SetStateAction<AdditionalStaff[]>>;
 }
 
 export function AdditionalInfoPhase({
   roles,
   setRoles,
+  staffList,
+  setStaffList,
 }: AdditionalInfoPhaseProps) {
   const addRole = () => {
     setRoles((r) => [
@@ -89,12 +101,38 @@ export function AdditionalInfoPhase({
   const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [tempSubjectCode, setTempSubjectCode] = React.useState('');
+  const [fileLoading, setFileLoading] = React.useState(false);
+  const [fileError, setFileError] = React.useState<string | null>(null);
 
   const openSubjectDialogFor = (roleId: string) => {
     const role = roles.find((r) => r.id === roleId);
     setTempSubjectCode(role?.nonSlotWiseSubjectInfo ?? '');
     setEditingRoleId(roleId);
     setDialogOpen(true);
+  };
+
+  const handleStaffFile = async (f: File | null) => {
+    if (!f) return;
+    setFileError(null);
+    setFileLoading(true);
+    try {
+      const res = await parseFacultyExcel(f);
+      if (!res || !Array.isArray(res.data)) {
+        setFileError('No data parsed from file');
+        return;
+      }
+      const list: AdditionalStaff[] = res.data.map((r) => ({
+        uuid: Math.random().toString(36).slice(2, 9),
+        staffName: String(r.facultyName || ''),
+        staffId: String(r.facultyId || ''),
+      }));
+      setStaffList(list);
+    } catch (err) {
+      console.error('Failed to parse staff Excel', err);
+      setFileError(String(err instanceof Error ? err.message : err));
+    } finally {
+      setFileLoading(false);
+    }
   };
 
   const confirmSubjectDialog = () => {
@@ -118,166 +156,223 @@ export function AdditionalInfoPhase({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Additional Roles & Rates</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Define extra roles that faculty can be assigned for duties and the
-            per-duty rate for each role.
-          </p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Additional Roles & Rates</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Define extra roles that faculty can be assigned for duties and the
+              per-duty rate for each role.
+            </p>
 
-          <div className="space-y-3">
-            {roles.length === 0 ? (
-              <div className="text-muted-foreground text-sm">
-                No roles defined yet.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-6" />
-                    <TableHead>Role</TableHead>
-                    <TableHead className="w-40">Rate (₹)</TableHead>
-                    <TableHead className="w-36">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roles.map((role, idx) => (
-                    <TableRow
-                      key={role.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, idx)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDrop(e, idx)}
-                    >
-                      <TableCell>
-                        <div className="opacity-70">
-                          <GripVertical className="size-4 cursor-grab" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={role.name}
-                          onChange={(e) =>
-                            updateRole(role.id, { name: e.target.value })
-                          }
-                          placeholder="e.g. Invigilator, Head Examiner"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={String(role.rate)}
-                          onChange={(e) =>
-                            updateRole(role.id, {
-                              rate: Number(e.target.value || 0),
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm">Actions</Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {role.imported ? (
-                              <DropdownMenuItem disabled>
-                                Imported role
-                              </DropdownMenuItem>
-                            ) : (
-                              <>
-                                {role.slotWiseAssignment ? (
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      openSubjectDialogFor(role.id)
-                                    }
-                                  >
-                                    Disable slot-wise (set subject code)
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      updateRole(role.id, {
-                                        slotWiseAssignment: true,
-                                        nonSlotWiseSubjectInfo: null,
-                                      })
-                                    }
-                                  >
-                                    Enable slot-wise
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  onSelect={() => removeRole(role.id)}
-                                >
-                                  Remove role
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-
-          <div className="text-muted-foreground text-xs">
-            Role order affects exported Excel column order.
-          </div>
-
-          {/* Subject code dialog for enabling non-slot-wise subject info */}
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(v) =>
-              v ? setDialogOpen(true) : cancelSubjectDialog()
-            }
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Non-slot-wise Subject Code</DialogTitle>
-                <DialogDescription>
-                  Enter the subject code to use for this role when it is not
-                  assigned slot-wise.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div>
-                <Input
-                  value={tempSubjectCode}
-                  onChange={(e) => setTempSubjectCode(e.target.value)}
-                  placeholder="e.g. CS101"
-                />
-              </div>
-
-              <DialogFooter>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={cancelSubjectDialog}>
-                    Cancel
-                  </Button>
-                  <Button onClick={confirmSubjectDialog}>Confirm</Button>
+            <div className="space-y-3">
+              {roles.length === 0 ? (
+                <div className="text-muted-foreground text-sm">
+                  No roles defined yet.
                 </div>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <div className="flex items-center justify-between">
-            <div className="text-muted-foreground text-sm">
-              Total roles: {totalRoles}
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-6" />
+                      <TableHead>Role</TableHead>
+                      <TableHead className="w-40">Rate (₹)</TableHead>
+                      <TableHead className="w-36">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {roles.map((role, idx) => (
+                      <TableRow
+                        key={role.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => handleDrop(e, idx)}
+                      >
+                        <TableCell>
+                          <div className="opacity-70">
+                            <GripVertical className="size-4 cursor-grab" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={role.name}
+                            onChange={(e) =>
+                              updateRole(role.id, { name: e.target.value })
+                            }
+                            placeholder="e.g. Invigilator, Head Examiner"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={String(role.rate)}
+                            onChange={(e) =>
+                              updateRole(role.id, {
+                                rate: Number(e.target.value || 0),
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm">Actions</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              {role.imported ? (
+                                <DropdownMenuItem disabled>
+                                  Imported role
+                                </DropdownMenuItem>
+                              ) : (
+                                <>
+                                  {role.slotWiseAssignment ? (
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        openSubjectDialogFor(role.id)
+                                      }
+                                    >
+                                      Disable slot-wise (set subject code)
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        updateRole(role.id, {
+                                          slotWiseAssignment: true,
+                                          nonSlotWiseSubjectInfo: null,
+                                        })
+                                      }
+                                    >
+                                      Enable slot-wise
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => removeRole(role.id)}
+                                  >
+                                    Remove role
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Button onClick={addRole}>Add role</Button>
+
+            <div className="text-muted-foreground text-xs">
+              Role order affects exported Excel column order.
+            </div>
+
+            {/* Subject code dialog for enabling non-slot-wise subject info */}
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(v) =>
+                v ? setDialogOpen(true) : cancelSubjectDialog()
+              }
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Non-slot-wise Subject Code</DialogTitle>
+                  <DialogDescription>
+                    Enter the subject code to use for this role when it is not
+                    assigned slot-wise.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div>
+                  <Input
+                    value={tempSubjectCode}
+                    onChange={(e) => setTempSubjectCode(e.target.value)}
+                    placeholder="e.g. CS101"
+                  />
+                </div>
+
+                <DialogFooter>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={cancelSubjectDialog}>
+                      Cancel
+                    </Button>
+                    <Button onClick={confirmSubjectDialog}>Confirm</Button>
+                  </div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div className="flex items-center justify-between">
+              <div className="text-muted-foreground text-sm">
+                Total roles: {totalRoles}
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={addRole}>Add role</Button>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Additional Staff List Import</CardTitle>
+          <CardDescription>
+            Import list of additional staff from an Excel file for linking to
+            extra duties.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div
+              className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                /* highlight when dragging */
+                'border-muted-foreground/25 hover:border-muted-foreground/50'
+              }`}
+            >
+              <input
+                id="zipfile"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) =>
+                  handleStaffFile(e.target.files ? e.target.files[0] : null)
+                }
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+
+              <div className="space-y-3">
+                <Upload className="text-muted-foreground mx-auto size-12" />
+                <div>
+                  <p className="text-sm font-medium">
+                    Drag and drop your Excel file here
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    or click to browse files (.xlsx, .xls)
+                  </p>
+                </div>
+              </div>
+            </div>
+            {fileLoading && (
+              <div className="text-muted-foreground text-sm">Parsing...</div>
+            )}
+            {fileError && (
+              <div className="text-sm text-red-600">{fileError}</div>
+            )}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="text-muted-foreground text-sm">
+                <div className="font-medium">
+                  Imported staff entries: {staffList.length}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -10,7 +10,7 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
-import type { Faculty, RenumerationRoleEntry } from '@/types';
+import type { AdditionalStaff, Faculty, RenumerationRoleEntry } from '@/types';
 
 import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,8 @@ export function RenumerationPage() {
 
   // Role data
   const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
+  // Staff list imported from an Excel sheet in the Additional Info phase
+  const [staffList, setStaffList] = useState<AdditionalStaff[]>([]);
   // Store mapping of ZIP role name to RenumerationRoleEntry ID
   const [roleNameToIdMap, setRoleNameToIdMap] = useState<
     Record<string, string>
@@ -516,7 +518,12 @@ export function RenumerationPage() {
           />
         )}
         {phase === 'info' && (
-          <AdditionalInfoPhase roles={roles} setRoles={setRoles} />
+          <AdditionalInfoPhase
+            roles={roles}
+            setRoles={setRoles}
+            staffList={staffList}
+            setStaffList={setStaffList}
+          />
         )}
         {phase === 'assign' && <AdditionalAssignmentsPhase />}
         {phase === 'review' && <ReviewPhase />}
