@@ -1,4 +1,12 @@
-import { GripVertical, Upload } from 'lucide-react';
+import {
+  Check,
+  CheckCircle,
+  Edit2,
+  GripVertical,
+  Trash2,
+  Upload,
+  Users,
+} from 'lucide-react';
 
 import React, { useMemo } from 'react';
 
@@ -22,13 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -103,6 +104,7 @@ export function AdditionalInfoPhase({
   const [tempSubjectCode, setTempSubjectCode] = React.useState('');
   const [fileLoading, setFileLoading] = React.useState(false);
   const [fileError, setFileError] = React.useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = React.useState(false);
 
   const openSubjectDialogFor = (roleId: string) => {
     const role = roles.find((r) => r.id === roleId);
@@ -127,6 +129,7 @@ export function AdditionalInfoPhase({
         staffId: String(r.facultyId || ''),
       }));
       setStaffList(list);
+      setUploadSuccess(true);
     } catch (err) {
       console.error('Failed to parse staff Excel', err);
       setFileError(String(err instanceof Error ? err.message : err));
@@ -166,6 +169,12 @@ export function AdditionalInfoPhase({
             <p className="text-muted-foreground text-sm">
               Define extra roles that faculty can be assigned for duties and the
               per-duty rate for each role.
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Note: a "slot-wise" role means the role is assigned per exam slot
+              (requires explicit mapping of user and slot). Disabling slot-wise
+              lets you set a fixed subject code for the role instead and
+              manually assign duty counts per person.
             </p>
 
             <div className="space-y-3">
@@ -218,48 +227,51 @@ export function AdditionalInfoPhase({
                           />
                         </TableCell>
                         <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="sm">Actions</Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              {role.imported ? (
-                                <DropdownMenuItem disabled>
-                                  Imported role
-                                </DropdownMenuItem>
-                              ) : (
-                                <>
-                                  {role.slotWiseAssignment ? (
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        openSubjectDialogFor(role.id)
-                                      }
-                                    >
-                                      Disable slot-wise (set subject code)
-                                    </DropdownMenuItem>
-                                  ) : (
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        updateRole(role.id, {
-                                          slotWiseAssignment: true,
-                                          nonSlotWiseSubjectInfo: null,
-                                        })
-                                      }
-                                    >
-                                      Enable slot-wise
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={() => removeRole(role.id)}
+                          <div className="flex items-center gap-2">
+                            {role.imported ? (
+                              <div className="text-muted-foreground flex items-center gap-2">
+                                <Upload className="size-4" />
+                                <span className="text-sm">Imported</span>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Toggle slot-wise / set subject */}
+                                {role.slotWiseAssignment ? (
+                                  <button
+                                    title="Set a fixed subject code for this role (non slot-wise)"
+                                    className="hover:bg-muted/50 rounded p-1"
+                                    onClick={() =>
+                                      openSubjectDialogFor(role.id)
+                                    }
                                   >
-                                    Remove role
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                    <Edit2 className="size-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    title="Enable slot-wise assignment for this role"
+                                    className="hover:bg-muted/50 rounded p-1"
+                                    onClick={() =>
+                                      updateRole(role.id, {
+                                        slotWiseAssignment: true,
+                                        nonSlotWiseSubjectInfo: null,
+                                      })
+                                    }
+                                  >
+                                    <Check className="size-4" />
+                                  </button>
+                                )}
+
+                                {/* Remove role */}
+                                <button
+                                  title="Remove role"
+                                  className="rounded p-1 hover:bg-red-50"
+                                  onClick={() => removeRole(role.id)}
+                                >
+                                  <Trash2 className="text-destructive size-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -363,6 +375,65 @@ export function AdditionalInfoPhase({
             {fileError && (
               <div className="text-sm text-red-600">{fileError}</div>
             )}
+
+            {/* Post-upload success + preview */}
+            {staffList.length > 0 && (
+              <>
+                <Card>
+                  <CardHeader className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      {uploadSuccess && (
+                        <CheckCircle className="size-5 text-green-600" />
+                      )}
+                      <Users className="size-5" />
+                      Imported Staff
+                    </CardTitle>
+                    <div className="text-muted-foreground text-sm">
+                      Upload a new file to replace the current staff list.
+                    </div>
+                  </CardHeader>
+                </Card>
+
+                {/* Show the full list in the table for verification */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Imported Staff List</CardTitle>
+                    <CardDescription>
+                      Complete list of imported staff members
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-96 overflow-auto rounded-lg border">
+                      <Table>
+                        <TableHeader className="bg-muted/50 sticky top-0">
+                          <TableRow>
+                            <TableHead className="w-16">S. No.</TableHead>
+                            <TableHead>Staff Name</TableHead>
+                            <TableHead>Staff ID</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {staffList.map((s, index) => (
+                            <TableRow key={s.uuid}>
+                              <TableCell className="font-medium">
+                                {index + 1}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {s.staffName}
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-xs">{s.staffId}</code>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
             <div className="mt-2 flex items-center justify-between">
               <div className="text-muted-foreground text-sm">
                 <div className="font-medium">
