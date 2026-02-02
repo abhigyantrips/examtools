@@ -50,6 +50,10 @@ export function RenumerationPage() {
   const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
   // Staff list imported from an Excel sheet in the Additional Info phase
   const [staffList, setStaffList] = useState<AdditionalStaff[]>([]);
+  // Non-slot-wise assignments: map roleId -> list of {personId,name,source,count}
+  const [nonSlotAssignments, setNonSlotAssignments] = useState<
+    Record<string, Array<{ personId: string; name: string; source: string; count: number }>>
+  >({});
   // Store mapping of ZIP role name to RenumerationRoleEntry ID
   const [roleNameToIdMap, setRoleNameToIdMap] = useState<
     Record<string, string>
@@ -525,7 +529,15 @@ export function RenumerationPage() {
             setStaffList={setStaffList}
           />
         )}
-        {phase === 'assign' && <AdditionalAssignmentsPhase />}
+        {phase === 'assign' && (
+          <AdditionalAssignmentsPhase
+            roles={roles}
+            facultyList={facultyList}
+            staffList={staffList}
+            nonSlotAssignments={nonSlotAssignments}
+            setNonSlotAssignments={setNonSlotAssignments}
+          />
+        )}
         {phase === 'review' && <ReviewPhase />}
       </main>
 
