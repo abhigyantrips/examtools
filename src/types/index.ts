@@ -148,3 +148,16 @@ export type RenumerationRoleEntry = {
   slotWiseAssignment: boolean; // true if role is assigned per slot (used to help set subject codes in renumeration export)
   nonSlotWiseSubjectInfo: string | null; // subject info to use for non-slot-wise assignments
 };
+
+export type NonSlotWiseAssignmentEntry = {
+  roleId: string;
+  personId: string;
+  source: 'faculty' | 'staff';
+  count: number;
+};
+
+export type Person = {
+  id: string;
+  name: string;
+  source: 'faculty' | 'staff';
+}
