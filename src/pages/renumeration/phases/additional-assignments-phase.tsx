@@ -1,31 +1,29 @@
+import { Plus } from 'lucide-react';
+
 import { useMemo } from 'react';
 
-import type { AdditionalStaff, Faculty, RenumerationRoleEntry } from '@/types';
+import type {
+  AdditionalStaff,
+  Faculty,
+  NonSlotWiseAssignmentEntry,
+  Person,
+  RenumerationRoleEntry,
+} from '@/types';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from '@/components/ui/table';
-import { Plus } from 'lucide-react';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+
+import { AdditionalAssignmentsDialog } from './additional-assignments-dialog';
 
 interface AdditionalAssignmentsPhaseProps {
   roles: RenumerationRoleEntry[];
   facultyList: Faculty[];
   staffList: AdditionalStaff[];
-  nonSlotAssignments: Record<
-    string,
-    Array<{ personId: string; name: string; source: string; count: number }>
-  >;
+  nonSlotAssignments: Record<string, Array<NonSlotWiseAssignmentEntry>>;
   setNonSlotAssignments: (
-    v: Record<
-      string,
-      Array<{ personId: string; name: string; source: string; count: number }>
-    >
+    v: Record<string, Array<NonSlotWiseAssignmentEntry>>
   ) => void;
 }
 
@@ -38,7 +36,7 @@ export function AdditionalAssignmentsPhase({
 }: AdditionalAssignmentsPhaseProps) {
   const getEntries = (roleId: string) => nonSlotAssignments[roleId] || [];
 
-  const personOptions = useMemo(() => {
+  const personOptions: Person[] = useMemo(() => {
     const f = (facultyList || []).map((x) => ({
       id: x.facultyId,
       name: x.facultyName,
@@ -71,6 +69,7 @@ export function AdditionalAssignmentsPhase({
                     .filter((r) => !r.slotWiseAssignment)
                     .map((role) => {
                       const entries = getEntries(role.id);
+                      const unavilableIds = entries.map((e) => e.personId);
                       const total = entries.reduce(
                         (s, e) => s + Number(e.count || 0),
                         0
@@ -83,7 +82,7 @@ export function AdditionalAssignmentsPhase({
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold">{role.name}</span>
                                   <span className="text-muted-foreground">
-                                    {role.imported ? '(imported)' : '(manual)'}
+                                    {`Assigning - ${role.nonSlotWiseSubjectInfo}`}
                                   </span>
                                 </div>
                                 <Badge variant="outline">
@@ -93,17 +92,42 @@ export function AdditionalAssignmentsPhase({
                             </TableCell>
                           </TableRow>
                           <TableRow className="bg-muted/10 hover:bg-muted/20">
-                            <TableCell colSpan={6}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-2 text-xs"
-                              >
-                                <Plus className="size-3" />
-                                Add Duty
-                              </Button>
+                            <TableCell colSpan={6} className="pl-8">
+                              <AdditionalAssignmentsDialog
+                                role={role}
+                                staff={personOptions}
+                                unavailablePersonIds={unavilableIds}
+                                onAdd={(entry) => {
+                                  const current = getEntries(role.id);
+                                  const updated = {
+                                    ...nonSlotAssignments,
+                                    [role.id]: [...current, entry],
+                                  };
+                                  setNonSlotAssignments(updated);
+                                }}
+                              />
                             </TableCell>
                           </TableRow>
+                          {entries.map((entry, idx) => {
+                            const person = personOptions.find(
+                              (p) => p.id === entry.personId
+                            );
+                            return (
+                              <TableRow
+                                key={idx}
+                                className="bg-muted/10 hover:bg-muted/20"
+                              >
+                                <TableCell className="pl-8">
+                                  {person?.name || entry.personId}
+                                </TableCell>
+                                <TableCell>
+                                  {entry.source.charAt(0).toUpperCase() +
+                                    entry.source.slice(1)}
+                                </TableCell>
+                                <TableCell>{entry.count}</TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </>
                       );
                     })}

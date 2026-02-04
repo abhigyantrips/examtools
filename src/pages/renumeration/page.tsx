@@ -10,7 +10,7 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AdditionalStaff, Faculty, RenumerationRoleEntry } from '@/types';
+import type { AdditionalStaff, Faculty, NonSlotWiseAssignmentEntry, RenumerationRoleEntry } from '@/types';
 
 import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,7 @@ export function RenumerationPage() {
   const [staffList, setStaffList] = useState<AdditionalStaff[]>([]);
   // Non-slot-wise assignments: map roleId -> list of {personId,name,source,count}
   const [nonSlotAssignments, setNonSlotAssignments] = useState<
-    Record<string, Array<{ personId: string; name: string; source: string; count: number }>>
+    Record<string, Array<NonSlotWiseAssignmentEntry>>
   >({});
   // Store mapping of ZIP role name to RenumerationRoleEntry ID
   const [roleNameToIdMap, setRoleNameToIdMap] = useState<
