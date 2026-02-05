@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 import { useMemo } from 'react';
 
@@ -11,7 +11,6 @@ import type {
 } from '@/types';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
@@ -69,7 +68,7 @@ export function AdditionalAssignmentsPhase({
                     .filter((r) => !r.slotWiseAssignment)
                     .map((role) => {
                       const entries = getEntries(role.id);
-                      const unavilableIds = entries.map((e) => e.personId);
+                      const unavailableIds = entries.map((e) => e.personId);
                       const total = entries.reduce(
                         (s, e) => s + Number(e.count || 0),
                         0
@@ -96,7 +95,7 @@ export function AdditionalAssignmentsPhase({
                               <AdditionalAssignmentsDialog
                                 role={role}
                                 staff={personOptions}
-                                unavailablePersonIds={unavilableIds}
+                                unavailablePersonIds={unavailableIds}
                                 onAdd={(entry) => {
                                   const current = getEntries(role.id);
                                   const updated = {
@@ -125,6 +124,28 @@ export function AdditionalAssignmentsPhase({
                                     entry.source.slice(1)}
                                 </TableCell>
                                 <TableCell>{entry.count}</TableCell>
+                                <TableCell className="text-right">
+                                  <button
+                                    className="hover:bg-destructive/10 text-destructive rounded p-1"
+                                    onClick={() => {
+                                      const current = getEntries(role.id);
+                                      const updatedEntries = current.filter(
+                                        (e) =>
+                                          !(
+                                            e.personId === entry.personId &&
+                                            e.source === entry.source
+                                          )
+                                      );
+                                      const updated = {
+                                        ...nonSlotAssignments,
+                                        [role.id]: updatedEntries,
+                                      };
+                                      setNonSlotAssignments(updated);
+                                    }}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </TableCell>
                               </TableRow>
                             );
                           })}
