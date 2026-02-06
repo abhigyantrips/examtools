@@ -42,7 +42,7 @@ import {
 
 interface AdditionalInfoPhaseProps {
   roles: RenumerationRoleEntry[];
-  setRoles: React.Dispatch<React.SetStateAction<RenumerationRoleEntry[]>>;
+  setRoles: (newRoles: RenumerationRoleEntry[]) => void;
   staffList: AdditionalStaff[];
   setStaffList: React.Dispatch<React.SetStateAction<AdditionalStaff[]>>;
 }
@@ -54,28 +54,33 @@ export function AdditionalInfoPhase({
   setStaffList,
 }: AdditionalInfoPhaseProps) {
   const addRole = () => {
-    setRoles((r) => [
-      ...r,
-      {
-        id: Math.random().toString(36).substring(2, 9),
-        name: '',
-        rate: 0,
-        order: r.length,
-        imported: false,
-        slotWiseAssignment: true,
-        nonSlotWiseSubjectInfo: null,
-      },
-    ]);
+    roles.push({
+      id: Math.random().toString(36).substring(2, 9),
+      name: '',
+      rate: 0,
+      order: roles.length,
+      imported: false,
+      slotWiseAssignment: true,
+      nonSlotWiseSubjectInfo: null,
+    });
+    setRoles([...roles]);
   };
 
   const updateRole = (id: string, patch: Partial<RenumerationRoleEntry>) => {
-    setRoles((r: any[]) =>
-      r.map((x) => (x.id === id ? { ...x, ...patch } : x))
-    );
+    roles.forEach((x) => {
+      if (x.id === id) {
+        Object.assign(x, patch);
+      }
+    });
+    setRoles([...roles]);
   };
 
   const removeRole = (id: string) => {
-    setRoles((r) => r.filter((x) => x.id !== id));
+    const idx = roles.findIndex((x) => x.id === id);
+    if (idx === -1) return;
+    roles.splice(idx, 1);
+    // reassign order after deletion
+    setRoles(roles.map((x, i) => ({ ...x, order: i })));
   };
 
   // drag and drop handlers
@@ -88,13 +93,11 @@ export function AdditionalInfoPhase({
     e.preventDefault();
     const from = Number(e.dataTransfer.getData('text/plain'));
     if (Number.isNaN(from)) return;
-    setRoles((prev) => {
-      const next = prev.slice();
-      const [moved] = next.splice(from, 1);
-      next.splice(toIdx, 0, moved);
-      // reassign order
-      return next.map((x, i) => ({ ...x, order: i }));
-    });
+    const updated = [...roles];
+    const [moved] = updated.splice(from, 1);
+    updated.splice(toIdx, 0, moved);
+    // reassign order after rearranging
+    setRoles(updated.map((x, i) => ({ ...x, order: i })));
   };
 
   const totalRoles = useMemo(() => roles.length, [roles]);

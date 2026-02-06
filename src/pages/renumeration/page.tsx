@@ -10,7 +10,12 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AdditionalStaff, Faculty, NonSlotWiseAssignmentEntry, RenumerationRoleEntry } from '@/types';
+import type {
+  AdditionalStaff,
+  Faculty,
+  NonSlotWiseAssignmentEntry,
+  RenumerationRoleEntry,
+} from '@/types';
 
 import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
@@ -357,12 +362,23 @@ export function RenumerationPage() {
     // clear persisted zip and reset state
     localStorage.removeItem('renumeration:zip:dataUrl');
     localStorage.removeItem('renumeration:zip:name');
+    localStorage.removeItem('renumeration:roles');
     setZipInstance(null);
     setZipFileName(null);
     setZipTimestamps(null);
     setImportChecks(null);
     setPhase('import');
   }, []);
+
+  // Functions to wrap setRoles and persist to localStorage
+  const setRolesAndPersist = (newRoles: RenumerationRoleEntry[]) => {
+    setRoles(newRoles);
+    try {
+      localStorage.setItem('renumeration:roles', JSON.stringify(newRoles));
+    } catch (err) {
+      console.warn('Failed to persist roles to localStorage', err);
+    }
+  };
 
   // on mount, try to restore persisted zip from localStorage
   useEffect(() => {
@@ -399,6 +415,18 @@ export function RenumerationPage() {
             }
           } catch (err) {
             /* ignore */
+          }
+          // Attempt to restore role data
+          try {
+            const raw = localStorage.getItem('renumeration:roles');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setRoles(parsed);
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to restore persisted roles', err);
           }
         } catch (err) {
           console.warn('Failed to run import checks on restore', err);
@@ -524,7 +552,7 @@ export function RenumerationPage() {
         {phase === 'info' && (
           <AdditionalInfoPhase
             roles={roles}
-            setRoles={setRoles}
+            setRoles={setRolesAndPersist}
             staffList={staffList}
             setStaffList={setStaffList}
           />
