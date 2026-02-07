@@ -44,7 +44,7 @@ interface AdditionalInfoPhaseProps {
   roles: RenumerationRoleEntry[];
   setRoles: (newRoles: RenumerationRoleEntry[]) => void;
   staffList: AdditionalStaff[];
-  setStaffList: React.Dispatch<React.SetStateAction<AdditionalStaff[]>>;
+  setStaffList: (newList: AdditionalStaff[]) => void;
 }
 
 export function AdditionalInfoPhase({

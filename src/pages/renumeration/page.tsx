@@ -363,6 +363,7 @@ export function RenumerationPage() {
     localStorage.removeItem('renumeration:zip:dataUrl');
     localStorage.removeItem('renumeration:zip:name');
     localStorage.removeItem('renumeration:roles');
+    localStorage.removeItem('renumeration:staffList');
     setZipInstance(null);
     setZipFileName(null);
     setZipTimestamps(null);
@@ -377,6 +378,16 @@ export function RenumerationPage() {
       localStorage.setItem('renumeration:roles', JSON.stringify(newRoles));
     } catch (err) {
       console.warn('Failed to persist roles to localStorage', err);
+    }
+  };
+
+  // Functions to wrap setStaffList and persist to localStorage
+  const setStaffListAndPersist = (newList: AdditionalStaff[]) => {
+    setStaffList(newList);
+    try {
+      localStorage.setItem('renumeration:staffList', JSON.stringify(newList));
+    } catch (err) {
+      console.warn('Failed to persist staffList to localStorage', err);
     }
   };
 
@@ -424,6 +435,18 @@ export function RenumerationPage() {
               if (Array.isArray(parsed) && parsed.length > 0) {
                 setRoles(parsed);
               }
+            }
+            // Attempt to restore persisted staff list as well
+            try {
+              const rawStaff = localStorage.getItem('renumeration:staffList');
+              if (rawStaff) {
+                const parsedStaff = JSON.parse(rawStaff);
+                if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
+                  setStaffList(parsedStaff);
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to restore persisted staffList', err);
             }
           } catch (err) {
             console.warn('Failed to restore persisted roles', err);
@@ -554,7 +577,7 @@ export function RenumerationPage() {
             roles={roles}
             setRoles={setRolesAndPersist}
             staffList={staffList}
-            setStaffList={setStaffList}
+            setStaffList={setStaffListAndPersist}
           />
         )}
         {phase === 'assign' && (
