@@ -364,6 +364,7 @@ export function RenumerationPage() {
     localStorage.removeItem('renumeration:zip:name');
     localStorage.removeItem('renumeration:roles');
     localStorage.removeItem('renumeration:staffList');
+    localStorage.removeItem('renumeration:nonSlotAssignments');
     setZipInstance(null);
     setZipFileName(null);
     setZipTimestamps(null);
@@ -388,6 +389,21 @@ export function RenumerationPage() {
       localStorage.setItem('renumeration:staffList', JSON.stringify(newList));
     } catch (err) {
       console.warn('Failed to persist staffList to localStorage', err);
+    }
+  };
+
+  // Functions to wrap nonSlotAssignments and persist to localStorage
+  const setNonSlotAssignmentsAndPersist = (
+    newMap: Record<string, Array<NonSlotWiseAssignmentEntry>>
+  ) => {
+    setNonSlotAssignments(newMap);
+    try {
+      localStorage.setItem(
+        'renumeration:nonSlotAssignments',
+        JSON.stringify(newMap)
+      );
+    } catch (err) {
+      console.warn('Failed to persist nonSlotAssignments to localStorage', err);
     }
   };
 
@@ -447,6 +463,24 @@ export function RenumerationPage() {
               }
             } catch (err) {
               console.warn('Failed to restore persisted staffList', err);
+            }
+            // Attempt to restore persisted non-slot assignments
+            try {
+              const rawNonSlot = localStorage.getItem(
+                'renumeration:nonSlotAssignments'
+              );
+              if (rawNonSlot) {
+                const parsedNonSlot = JSON.parse(rawNonSlot);
+                if (
+                  parsedNonSlot &&
+                  typeof parsedNonSlot === 'object' &&
+                  Object.keys(parsedNonSlot).length > 0
+                ) {
+                  setNonSlotAssignments(parsedNonSlot);
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to restore persisted nonSlotAssignments', err);
             }
           } catch (err) {
             console.warn('Failed to restore persisted roles', err);
@@ -586,7 +620,7 @@ export function RenumerationPage() {
             facultyList={facultyList}
             staffList={staffList}
             nonSlotAssignments={nonSlotAssignments}
-            setNonSlotAssignments={setNonSlotAssignments}
+            setNonSlotAssignments={setNonSlotAssignmentsAndPersist}
           />
         )}
         {phase === 'review' && <ReviewPhase />}
