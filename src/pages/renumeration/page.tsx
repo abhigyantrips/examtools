@@ -15,6 +15,7 @@ import type {
   Faculty,
   NonSlotWiseAssignmentEntry,
   RenumerationRoleEntry,
+  SlotWiseAssignmentEntry,
 } from '@/types';
 
 import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
@@ -55,6 +56,10 @@ export function RenumerationPage() {
   const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
   // Staff list imported from an Excel sheet in the Additional Info phase
   const [staffList, setStaffList] = useState<AdditionalStaff[]>([]);
+  // Slot wise assignments
+  const [slotWiseAssignments, setSlotWiseAssignments] = useState<
+    Record<string, Array<SlotWiseAssignmentEntry>>
+  >({});
   // Non-slot-wise assignments: map roleId -> list of {personId,name,source,count}
   const [nonSlotAssignments, setNonSlotAssignments] = useState<
     Record<string, Array<NonSlotWiseAssignmentEntry>>
@@ -364,6 +369,7 @@ export function RenumerationPage() {
     localStorage.removeItem('renumeration:zip:name');
     localStorage.removeItem('renumeration:roles');
     localStorage.removeItem('renumeration:staffList');
+    localStorage.removeItem('renumeration:slotWiseAssignments');
     localStorage.removeItem('renumeration:nonSlotAssignments');
     setZipInstance(null);
     setZipFileName(null);
@@ -389,6 +395,24 @@ export function RenumerationPage() {
       localStorage.setItem('renumeration:staffList', JSON.stringify(newList));
     } catch (err) {
       console.warn('Failed to persist staffList to localStorage', err);
+    }
+  };
+
+  // Functions to wrap setSlotAssignments and persist to localStorage
+  const setSlotWiseAssignmentsAndPersist = (
+    newMap: Record<string, Array<SlotWiseAssignmentEntry>>
+  ) => {
+    setSlotWiseAssignments(newMap);
+    try {
+      localStorage.setItem(
+        'renumeration:slotWiseAssignments',
+        JSON.stringify(newMap)
+      );
+    } catch (err) {
+      console.warn(
+        'Failed to persist slotWiseAssignments to localStorage',
+        err
+      );
     }
   };
 
@@ -452,38 +476,59 @@ export function RenumerationPage() {
                 setRoles(parsed);
               }
             }
-            // Attempt to restore persisted staff list as well
-            try {
-              const rawStaff = localStorage.getItem('renumeration:staffList');
-              if (rawStaff) {
-                const parsedStaff = JSON.parse(rawStaff);
-                if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
-                  setStaffList(parsedStaff);
-                }
-              }
-            } catch (err) {
-              console.warn('Failed to restore persisted staffList', err);
-            }
-            // Attempt to restore persisted non-slot assignments
-            try {
-              const rawNonSlot = localStorage.getItem(
-                'renumeration:nonSlotAssignments'
-              );
-              if (rawNonSlot) {
-                const parsedNonSlot = JSON.parse(rawNonSlot);
-                if (
-                  parsedNonSlot &&
-                  typeof parsedNonSlot === 'object' &&
-                  Object.keys(parsedNonSlot).length > 0
-                ) {
-                  setNonSlotAssignments(parsedNonSlot);
-                }
-              }
-            } catch (err) {
-              console.warn('Failed to restore persisted nonSlotAssignments', err);
-            }
           } catch (err) {
             console.warn('Failed to restore persisted roles', err);
+          }
+          // Attempt to restore persisted staff list as well
+          try {
+            const rawStaff = localStorage.getItem('renumeration:staffList');
+            if (rawStaff) {
+              const parsedStaff = JSON.parse(rawStaff);
+              if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
+                setStaffList(parsedStaff);
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to restore persisted staffList', err);
+          }
+          // Attempt to restore persisted non-slot assignments
+          try {
+            const rawNonSlot = localStorage.getItem(
+              'renumeration:nonSlotAssignments'
+            );
+            if (rawNonSlot) {
+              const parsedNonSlot = JSON.parse(rawNonSlot);
+              if (
+                parsedNonSlot &&
+                typeof parsedNonSlot === 'object' &&
+                Object.keys(parsedNonSlot).length > 0
+              ) {
+                setNonSlotAssignments(parsedNonSlot);
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to restore persisted nonSlotAssignments', err);
+          }
+          // Attempt to restore persisted slot-wise assignments
+          try {
+            const rawSlotWise = localStorage.getItem(
+              'renumeration:slotWiseAssignments'
+            );
+            if (rawSlotWise) {
+              const parsedSlotWise = JSON.parse(rawSlotWise);
+              if (
+                parsedSlotWise &&
+                typeof parsedSlotWise === 'object' &&
+                Object.keys(parsedSlotWise).length > 0
+              ) {
+                setSlotWiseAssignments(parsedSlotWise);
+              }
+            }
+          } catch (err) {
+            console.warn(
+              'Failed to restore persisted slotWiseAssignments',
+              err
+            );
           }
         } catch (err) {
           console.warn('Failed to run import checks on restore', err);
@@ -621,6 +666,8 @@ export function RenumerationPage() {
             staffList={staffList}
             nonSlotAssignments={nonSlotAssignments}
             setNonSlotAssignments={setNonSlotAssignmentsAndPersist}
+            slotWiseAssignments={slotWiseAssignments}
+            setSlotWiseAssignments={setSlotWiseAssignmentsAndPersist}
           />
         )}
         {phase === 'review' && <ReviewPhase />}

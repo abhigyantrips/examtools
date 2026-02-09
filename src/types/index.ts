@@ -156,6 +156,12 @@ export type NonSlotWiseAssignmentEntry = {
   count: number;
 };
 
+export type SlotWiseAssignmentEntry = {
+  roleId: string;
+  personId: string;
+  source: 'faculty' | 'staff';
+};
+
 export type Person = {
   id: string;
   name: string;

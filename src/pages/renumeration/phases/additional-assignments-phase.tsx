@@ -8,6 +8,7 @@ import type {
   NonSlotWiseAssignmentEntry,
   Person,
   RenumerationRoleEntry,
+  SlotWiseAssignmentEntry,
 } from '@/types';
 
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,10 @@ interface AdditionalAssignmentsPhaseProps {
   setNonSlotAssignments: (
     v: Record<string, Array<NonSlotWiseAssignmentEntry>>
   ) => void;
+  slotWiseAssignments: Record<string, Array<SlotWiseAssignmentEntry>>;
+  setSlotWiseAssignments: (
+    v: Record<string, Array<SlotWiseAssignmentEntry>>
+  ) => void;
 }
 
 export function AdditionalAssignmentsPhase({
@@ -32,6 +37,8 @@ export function AdditionalAssignmentsPhase({
   staffList,
   nonSlotAssignments,
   setNonSlotAssignments,
+  slotWiseAssignments,
+  setSlotWiseAssignments,
 }: AdditionalAssignmentsPhaseProps) {
   const getEntries = (roleId: string) => nonSlotAssignments[roleId] || [];
 
