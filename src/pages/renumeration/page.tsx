@@ -12,13 +12,18 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type {
   AdditionalStaff,
+  DutySlot,
   Faculty,
   NonSlotWiseAssignmentEntry,
   RenumerationRoleEntry,
   SlotWiseAssignmentEntry,
 } from '@/types';
 
-import { readRolesFromZip, readSlotAttendance } from '@/lib/renumeration';
+import {
+  readMetadataSlots,
+  readRolesFromZip,
+  readSlotAttendance,
+} from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
 import { readTextFile } from '@/lib/zip';
 import { loadZip } from '@/lib/zip';
@@ -51,6 +56,9 @@ export function RenumerationPage() {
   // Imported data state
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [importChecks, setImportChecks] = useState<any | null>(null);
+
+  // Slot data
+  const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
 
   // Role data
   const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
@@ -218,6 +226,20 @@ export function RenumerationPage() {
         }
       } catch (err) {
         // ignore role loading errors
+      }
+      // Load slot data
+      try {
+        const meta = await readMetadataSlots(zip as any);
+        if (meta && meta.length > 0) {
+          // convert date strings to Date objects for display
+          const mapped = meta.map((s: any) => ({
+            ...s,
+            date: new Date(s.date),
+          }));
+          setZipSlots(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to read metadata slots from zip', err);
       }
       console.log('Loaded ZIP');
     } catch (err) {
@@ -467,6 +489,20 @@ export function RenumerationPage() {
           } catch (err) {
             /* ignore */
           }
+          // Load slot data
+          try {
+            const meta = await readMetadataSlots(zip as any);
+            if (meta && meta.length > 0) {
+              // convert date strings to Date objects for display
+              const mapped = meta.map((s: any) => ({
+                ...s,
+                date: new Date(s.date),
+              }));
+              setZipSlots(mapped);
+            }
+          } catch (err) {
+            console.warn('Failed to read metadata slots from zip', err);
+          }
           // Attempt to restore role data
           try {
             const raw = localStorage.getItem('renumeration:roles');
@@ -668,6 +704,7 @@ export function RenumerationPage() {
             setNonSlotAssignments={setNonSlotAssignmentsAndPersist}
             slotWiseAssignments={slotWiseAssignments}
             setSlotWiseAssignments={setSlotWiseAssignmentsAndPersist}
+            zipSlots={zipSlots!}
           />
         )}
         {phase === 'review' && <ReviewPhase />}

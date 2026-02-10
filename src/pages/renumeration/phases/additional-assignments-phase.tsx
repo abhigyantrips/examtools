@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import type {
   AdditionalStaff,
+  DutySlot,
   Faculty,
   NonSlotWiseAssignmentEntry,
   Person,
@@ -29,6 +30,7 @@ interface AdditionalAssignmentsPhaseProps {
   setSlotWiseAssignments: (
     v: Record<string, Array<SlotWiseAssignmentEntry>>
   ) => void;
+  zipSlots: DutySlot[];
 }
 
 export function AdditionalAssignmentsPhase({
@@ -39,6 +41,7 @@ export function AdditionalAssignmentsPhase({
   setNonSlotAssignments,
   slotWiseAssignments,
   setSlotWiseAssignments,
+  zipSlots,
 }: AdditionalAssignmentsPhaseProps) {
   const getEntries = (roleId: string) => nonSlotAssignments[roleId] || [];
 
