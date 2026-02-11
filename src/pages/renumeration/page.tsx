@@ -169,8 +169,10 @@ export function RenumerationPage() {
     setLoading(true);
     try {
       const zip = await loadZip(f);
-      setZipInstance(zip as any);
-      setZipFileName(f.name);
+      // process zip
+      await processZip(zip, f.name, (partial: any) => {
+        setImportChecks(partial);
+      });
       // persist ZIP in localStorage
       try {
         const reader = new FileReader();
@@ -249,6 +251,70 @@ export function RenumerationPage() {
       setLoading(false);
     }
   }, []);
+
+  // Zip processing function shared between import and restore
+  const processZip = useCallback(
+    async (zip: JSZip, name?: string, onProgress?: (partial: any) => void) => {
+      setZipInstance(zip as any);
+      if (name) setZipFileName(name);
+
+      // read last_modified timestamp
+      try {
+        const lm =
+          zip.file('last_modified.txt') ||
+          zip.file('internal/last_modified.txt');
+        if (lm) {
+          const text = await lm.async('string');
+          setZipTimestamps({ updated: text });
+        }
+      } catch (err) {
+        // ignore
+      }
+
+      // Extract data from ZIP and run verification checks with progressive updates
+      setImportChecks(null);
+      const checks = await runImportChecks(zip as any, onProgress);
+      setImportChecks(checks);
+      // populate faculty list if present
+      if (checks && checks.faculty && checks.faculty.length > 0) {
+        setFacultyList(checks.faculty);
+      }
+
+      // populate roles from assignments in the zip
+      try {
+        const rolesFromZip = await readRolesFromZip(zip as any);
+        if (rolesFromZip && rolesFromZip.length > 0) {
+          // Generate mapping of role name to ID
+          const nameToIdMap: Record<string, string> = {};
+          rolesFromZip.forEach((r) => {
+            nameToIdMap[r.name] = r.id;
+          });
+          setRoleNameToIdMap(nameToIdMap);
+          setRoles(rolesFromZip);
+        }
+      } catch (err) {
+        // ignore role loading errors
+      }
+
+      // Load slot data
+      try {
+        const meta = await readMetadataSlots(zip as any);
+        if (meta && meta.length > 0) {
+          // convert date strings to Date objects for display
+          const mapped = meta.map((s: any) => ({
+            ...s,
+            date: new Date(s.date),
+          }));
+          setZipSlots(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to read metadata slots from zip', err);
+      }
+
+      return checks;
+    },
+    []
+  );
 
   // Run a set of verification checks against the zip's metadata
   const runImportChecks = async (
@@ -467,107 +533,67 @@ export function RenumerationPage() {
           type: 'application/zip',
         });
         const zip = await loadZip(f);
-        setZipInstance(zip as any);
-        setZipFileName(name || 'attendance.zip');
-        // Restore state in a similar manner to onImportZip
+        // Use shared processor to restore state similar to import flow
+        await processZip(zip, name || 'attendance.zip');
+        // Attempt to restore role data
         try {
-          const checks = await runImportChecks(zip as any);
-          setImportChecks(checks);
-          if (checks && checks.faculty && checks.faculty.length > 0) {
-            setFacultyList(checks.faculty);
-          }
-          try {
-            const rolesFromZip = await readRolesFromZip(zip as any);
-            if (rolesFromZip && rolesFromZip.length > 0) {
-              const nameToIdMap: Record<string, string> = {};
-              rolesFromZip.forEach((r) => {
-                nameToIdMap[r.name] = r.id;
-              });
-              setRoleNameToIdMap(nameToIdMap);
-              setRoles(rolesFromZip);
+          const raw = localStorage.getItem('renumeration:roles');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setRoles(parsed);
             }
-          } catch (err) {
-            /* ignore */
-          }
-          // Load slot data
-          try {
-            const meta = await readMetadataSlots(zip as any);
-            if (meta && meta.length > 0) {
-              // convert date strings to Date objects for display
-              const mapped = meta.map((s: any) => ({
-                ...s,
-                date: new Date(s.date),
-              }));
-              setZipSlots(mapped);
-            }
-          } catch (err) {
-            console.warn('Failed to read metadata slots from zip', err);
-          }
-          // Attempt to restore role data
-          try {
-            const raw = localStorage.getItem('renumeration:roles');
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                setRoles(parsed);
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to restore persisted roles', err);
-          }
-          // Attempt to restore persisted staff list as well
-          try {
-            const rawStaff = localStorage.getItem('renumeration:staffList');
-            if (rawStaff) {
-              const parsedStaff = JSON.parse(rawStaff);
-              if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
-                setStaffList(parsedStaff);
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to restore persisted staffList', err);
-          }
-          // Attempt to restore persisted non-slot assignments
-          try {
-            const rawNonSlot = localStorage.getItem(
-              'renumeration:nonSlotAssignments'
-            );
-            if (rawNonSlot) {
-              const parsedNonSlot = JSON.parse(rawNonSlot);
-              if (
-                parsedNonSlot &&
-                typeof parsedNonSlot === 'object' &&
-                Object.keys(parsedNonSlot).length > 0
-              ) {
-                setNonSlotAssignments(parsedNonSlot);
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to restore persisted nonSlotAssignments', err);
-          }
-          // Attempt to restore persisted slot-wise assignments
-          try {
-            const rawSlotWise = localStorage.getItem(
-              'renumeration:slotWiseAssignments'
-            );
-            if (rawSlotWise) {
-              const parsedSlotWise = JSON.parse(rawSlotWise);
-              if (
-                parsedSlotWise &&
-                typeof parsedSlotWise === 'object' &&
-                Object.keys(parsedSlotWise).length > 0
-              ) {
-                setSlotWiseAssignments(parsedSlotWise);
-              }
-            }
-          } catch (err) {
-            console.warn(
-              'Failed to restore persisted slotWiseAssignments',
-              err
-            );
           }
         } catch (err) {
-          console.warn('Failed to run import checks on restore', err);
+          console.warn('Failed to restore persisted roles', err);
+        }
+        // Attempt to restore persisted staff list as well
+        try {
+          const rawStaff = localStorage.getItem('renumeration:staffList');
+          if (rawStaff) {
+            const parsedStaff = JSON.parse(rawStaff);
+            if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
+              setStaffList(parsedStaff);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to restore persisted staffList', err);
+        }
+        // Attempt to restore persisted non-slot assignments
+        try {
+          const rawNonSlot = localStorage.getItem(
+            'renumeration:nonSlotAssignments'
+          );
+          if (rawNonSlot) {
+            const parsedNonSlot = JSON.parse(rawNonSlot);
+            if (
+              parsedNonSlot &&
+              typeof parsedNonSlot === 'object' &&
+              Object.keys(parsedNonSlot).length > 0
+            ) {
+              setNonSlotAssignments(parsedNonSlot);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to restore persisted nonSlotAssignments', err);
+        }
+        // Attempt to restore persisted slot-wise assignments
+        try {
+          const rawSlotWise = localStorage.getItem(
+            'renumeration:slotWiseAssignments'
+          );
+          if (rawSlotWise) {
+            const parsedSlotWise = JSON.parse(rawSlotWise);
+            if (
+              parsedSlotWise &&
+              typeof parsedSlotWise === 'object' &&
+              Object.keys(parsedSlotWise).length > 0
+            ) {
+              setSlotWiseAssignments(parsedSlotWise);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to restore persisted slotWiseAssignments', err);
         }
       } catch (err) {
         console.warn('Failed to restore ZIP from storage', err);
