@@ -271,7 +271,7 @@ export function RenumerationPage() {
         // ignore
       }
 
-      // Extract data from ZIP and run verification checks with progressive updates
+      // run verification checks with progressive updates
       setImportChecks(null);
       const checks = await runImportChecks(zip as any, onProgress);
       setImportChecks(checks);
@@ -284,7 +284,6 @@ export function RenumerationPage() {
       try {
         const rolesFromZip = await readRolesFromZip(zip as any);
         if (rolesFromZip && rolesFromZip.length > 0) {
-          // Generate mapping of role name to ID
           const nameToIdMap: Record<string, string> = {};
           rolesFromZip.forEach((r) => {
             nameToIdMap[r.name] = r.id;
@@ -300,7 +299,6 @@ export function RenumerationPage() {
       try {
         const meta = await readMetadataSlots(zip as any);
         if (meta && meta.length > 0) {
-          // convert date strings to Date objects for display
           const mapped = meta.map((s: any) => ({
             ...s,
             date: new Date(s.date),
@@ -316,7 +314,6 @@ export function RenumerationPage() {
     []
   );
 
-  // Run a set of verification checks against the zip's metadata
   const runImportChecks = async (
     zip: JSZip,
     onProgress?: (partial: any) => void
@@ -519,6 +516,69 @@ export function RenumerationPage() {
     }
   };
 
+  // restore persisted state from localStorage (roles, staff, assignments)
+  function restorePersistedState() {
+    try {
+      const raw = localStorage.getItem('renumeration:roles');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRoles(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to restore persisted roles', err);
+    }
+
+    try {
+      const rawStaff = localStorage.getItem('renumeration:staffList');
+      if (rawStaff) {
+        const parsedStaff = JSON.parse(rawStaff);
+        if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
+          setStaffList(parsedStaff);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to restore persisted staffList', err);
+    }
+
+    try {
+      const rawNonSlot = localStorage.getItem(
+        'renumeration:nonSlotAssignments'
+      );
+      if (rawNonSlot) {
+        const parsedNonSlot = JSON.parse(rawNonSlot);
+        if (
+          parsedNonSlot &&
+          typeof parsedNonSlot === 'object' &&
+          Object.keys(parsedNonSlot).length > 0
+        ) {
+          setNonSlotAssignments(parsedNonSlot);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to restore persisted nonSlotAssignments', err);
+    }
+
+    try {
+      const rawSlotWise = localStorage.getItem(
+        'renumeration:slotWiseAssignments'
+      );
+      if (rawSlotWise) {
+        const parsedSlotWise = JSON.parse(rawSlotWise);
+        if (
+          parsedSlotWise &&
+          typeof parsedSlotWise === 'object' &&
+          Object.keys(parsedSlotWise).length > 0
+        ) {
+          setSlotWiseAssignments(parsedSlotWise);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to restore persisted slotWiseAssignments', err);
+    }
+  }
+
   // on mount, try to restore persisted zip from localStorage
   useEffect(() => {
     const dataUrl = localStorage.getItem('renumeration:zip:dataUrl');
@@ -535,66 +595,9 @@ export function RenumerationPage() {
         const zip = await loadZip(f);
         // Use shared processor to restore state similar to import flow
         await processZip(zip, name || 'attendance.zip');
-        // Attempt to restore role data
-        try {
-          const raw = localStorage.getItem('renumeration:roles');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setRoles(parsed);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to restore persisted roles', err);
-        }
-        // Attempt to restore persisted staff list as well
-        try {
-          const rawStaff = localStorage.getItem('renumeration:staffList');
-          if (rawStaff) {
-            const parsedStaff = JSON.parse(rawStaff);
-            if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
-              setStaffList(parsedStaff);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to restore persisted staffList', err);
-        }
-        // Attempt to restore persisted non-slot assignments
-        try {
-          const rawNonSlot = localStorage.getItem(
-            'renumeration:nonSlotAssignments'
-          );
-          if (rawNonSlot) {
-            const parsedNonSlot = JSON.parse(rawNonSlot);
-            if (
-              parsedNonSlot &&
-              typeof parsedNonSlot === 'object' &&
-              Object.keys(parsedNonSlot).length > 0
-            ) {
-              setNonSlotAssignments(parsedNonSlot);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to restore persisted nonSlotAssignments', err);
-        }
-        // Attempt to restore persisted slot-wise assignments
-        try {
-          const rawSlotWise = localStorage.getItem(
-            'renumeration:slotWiseAssignments'
-          );
-          if (rawSlotWise) {
-            const parsedSlotWise = JSON.parse(rawSlotWise);
-            if (
-              parsedSlotWise &&
-              typeof parsedSlotWise === 'object' &&
-              Object.keys(parsedSlotWise).length > 0
-            ) {
-              setSlotWiseAssignments(parsedSlotWise);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to restore persisted slotWiseAssignments', err);
-        }
+
+        // Restore persisted application state (roles, staff, assignments)
+        restorePersistedState();
       } catch (err) {
         console.warn('Failed to restore ZIP from storage', err);
       }
