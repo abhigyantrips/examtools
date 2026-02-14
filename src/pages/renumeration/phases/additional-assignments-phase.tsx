@@ -63,6 +63,100 @@ export function AdditionalAssignmentsPhase({
     <div className="space-y-6">
       <Card>
         <CardHeader>
+          <CardTitle>Assign Slot-wise Roles</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {roles.filter((r) => r.slotWiseAssignment && !r.imported).length ===
+            0 ? (
+              <div className="text-muted-foreground">
+                No slot-wise roles defined.
+              </div>
+            ) : (
+              <Table>
+                <TableBody>
+                  {zipSlots.map((slot) => {
+                    const entries =
+                      slotWiseAssignments[`d${slot.day}-s${slot.slot}`] || [];
+                    return (
+                      <>
+                        <TableRow className="bg-muted/30 hover:bg-muted/50 border-t">
+                          <TableCell colSpan={6} className="font-medium">
+                            <div className="flex items-center justify-between pl-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold">
+                                  Day {slot.day + 1}, Slot {slot.slot + 1}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {new Date(slot.date).toLocaleDateString()} •{' '}
+                                  {slot.startTime} - {slot.endTime}
+                                </span>
+                              </div>
+                              <Badge variant="outline">
+                                {entries.length} Assignments
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {/* Table Row for the "Add Assignment" button */}
+                        <TableRow className="bg-muted/10 hover:bg-muted/20">
+                          <TableCell colSpan={6} className="pl-8"></TableCell>
+                        </TableRow>
+                        {/* Display the added duties */}
+                        {entries.map((entry, idx) => {
+                          const person = personOptions.find(
+                            (p) => p.id === entry.personId
+                          );
+                          return (
+                            <TableRow
+                              key={idx}
+                              className="bg-muted/10 hover:bg-muted/20"
+                            >
+                              <TableCell className="pl-8">
+                                {person?.name || entry.personId}
+                              </TableCell>
+                              <TableCell>{entry.roleId}</TableCell>
+                              <TableCell className="text-right">
+                                <button
+                                  className="hover:bg-destructive/10 text-destructive rounded p-1"
+                                  onClick={() => {
+                                    const current =
+                                      slotWiseAssignments[
+                                        `d${slot.day}-s${slot.slot}`
+                                      ] || [];
+                                    const updatedEntries = current.filter(
+                                      (e) =>
+                                        !(
+                                          e.personId === entry.personId &&
+                                          e.source === entry.source &&
+                                          e.roleId === entry.roleId
+                                        )
+                                    );
+                                    const updated = {
+                                      ...slotWiseAssignments,
+                                      [`d${slot.day}-s${slot.slot}`]:
+                                        updatedEntries,
+                                    };
+                                    setSlotWiseAssignments(updated);
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <CardTitle>Assign Additional Roles</CardTitle>
         </CardHeader>
         <CardContent>
