@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
 import { AdditionalAssignmentsDialog } from './additional-assignments-dialog';
+import { AdditionalAssignmentsSlotDialog } from './additional-assignments-slot-dialog';
 
 interface AdditionalAssignmentsPhaseProps {
   roles: RenumerationRoleEntry[];
@@ -59,6 +60,10 @@ export function AdditionalAssignmentsPhase({
     return [...f, ...s];
   }, [facultyList, staffList]);
 
+  const slotWiseRoles = roles.filter(
+    (r) => r.slotWiseAssignment && !r.imported
+  );
+
   return (
     <div className="space-y-6">
       <Card>
@@ -67,8 +72,7 @@ export function AdditionalAssignmentsPhase({
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {roles.filter((r) => r.slotWiseAssignment && !r.imported).length ===
-            0 ? (
+            {slotWiseRoles.length === 0 ? (
               <div className="text-muted-foreground">
                 No slot-wise roles defined.
               </div>
@@ -76,8 +80,8 @@ export function AdditionalAssignmentsPhase({
               <Table>
                 <TableBody>
                   {zipSlots.map((slot) => {
-                    const entries =
-                      slotWiseAssignments[`d${slot.day}-s${slot.slot}`] || [];
+                    const key = `d${slot.day}-s${slot.slot}`;
+                    const entries = slotWiseAssignments[key] || [];
                     return (
                       <>
                         <TableRow className="bg-muted/30 hover:bg-muted/50 border-t">
@@ -98,11 +102,27 @@ export function AdditionalAssignmentsPhase({
                             </div>
                           </TableCell>
                         </TableRow>
-                        {/* Table Row for the "Add Assignment" button */}
+
                         <TableRow className="bg-muted/10 hover:bg-muted/20">
-                          <TableCell colSpan={6} className="pl-8"></TableCell>
+                          <TableCell colSpan={6} className="pl-8">
+                            <AdditionalAssignmentsSlotDialog
+                              roles={slotWiseRoles}
+                              staff={personOptions}
+                              unavailablePersonIds={entries.map(
+                                (e) => e.personId
+                              )}
+                              onAdd={(sEntry) => {
+                                const current = slotWiseAssignments[key] || [];
+                                const updated = {
+                                  ...slotWiseAssignments,
+                                  [key]: [...current, sEntry],
+                                };
+                                setSlotWiseAssignments(updated);
+                              }}
+                            />
+                          </TableCell>
                         </TableRow>
-                        {/* Display the added duties */}
+
                         {entries.map((entry, idx) => {
                           const person = personOptions.find(
                             (p) => p.id === entry.personId
@@ -115,15 +135,16 @@ export function AdditionalAssignmentsPhase({
                               <TableCell className="pl-8">
                                 {person?.name || entry.personId}
                               </TableCell>
-                              <TableCell>{entry.roleId}</TableCell>
+                              <TableCell>
+                                {roles.find((r) => r.id === entry.roleId)
+                                  ?.name || 'Unknown Role'}
+                              </TableCell>
                               <TableCell className="text-right">
                                 <button
                                   className="hover:bg-destructive/10 text-destructive rounded p-1"
                                   onClick={() => {
                                     const current =
-                                      slotWiseAssignments[
-                                        `d${slot.day}-s${slot.slot}`
-                                      ] || [];
+                                      slotWiseAssignments[key] || [];
                                     const updatedEntries = current.filter(
                                       (e) =>
                                         !(
@@ -134,8 +155,7 @@ export function AdditionalAssignmentsPhase({
                                     );
                                     const updated = {
                                       ...slotWiseAssignments,
-                                      [`d${slot.day}-s${slot.slot}`]:
-                                        updatedEntries,
+                                      [key]: updatedEntries,
                                     };
                                     setSlotWiseAssignments(updated);
                                   }}
@@ -155,6 +175,7 @@ export function AdditionalAssignmentsPhase({
           </div>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Assign Additional Roles</CardTitle>
@@ -184,9 +205,7 @@ export function AdditionalAssignmentsPhase({
                               <div className="flex items-center justify-between pl-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold">{role.name}</span>
-                                  <span className="text-muted-foreground">
-                                    {`Assigning - ${role.nonSlotWiseSubjectInfo}`}
-                                  </span>
+                                  <span className="text-muted-foreground">{`Assigning - ${role.nonSlotWiseSubjectInfo}`}</span>
                                 </div>
                                 <Badge variant="outline">
                                   {total} Assignments
@@ -194,6 +213,7 @@ export function AdditionalAssignmentsPhase({
                               </div>
                             </TableCell>
                           </TableRow>
+
                           <TableRow className="bg-muted/10 hover:bg-muted/20">
                             <TableCell colSpan={6} className="pl-8">
                               <AdditionalAssignmentsDialog
@@ -201,16 +221,19 @@ export function AdditionalAssignmentsPhase({
                                 staff={personOptions}
                                 unavailablePersonIds={unavailableIds}
                                 onAdd={(entry) => {
+                                  const nEntry =
+                                    entry as NonSlotWiseAssignmentEntry;
                                   const current = getEntries(role.id);
                                   const updated = {
                                     ...nonSlotAssignments,
-                                    [role.id]: [...current, entry],
+                                    [role.id]: [...current, nEntry],
                                   };
                                   setNonSlotAssignments(updated);
                                 }}
                               />
                             </TableCell>
                           </TableRow>
+
                           {entries.map((entry, idx) => {
                             const person = personOptions.find(
                               (p) => p.id === entry.personId
