@@ -3,7 +3,11 @@ import { toast } from 'sonner';
 
 import { useState } from 'react';
 
-import type { Person, RenumerationRoleEntry, SlotWiseAssignmentEntry } from '@/types';
+import type {
+  Person,
+  RenumerationRoleEntry,
+  SlotWiseAssignmentEntry,
+} from '@/types';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -92,7 +96,9 @@ export function AdditionalAssignmentsSlotDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add Slot-wise Duty</DialogTitle>
-          <DialogDescription>Add a faculty and role for this slot.</DialogDescription>
+          <DialogDescription>
+            Add a faculty and role for this slot.
+          </DialogDescription>
         </DialogHeader>
 
         <FieldGroup>
@@ -146,7 +152,8 @@ export function AdditionalAssignmentsSlotDialog({
 
                   <SelectGroup>
                     <SelectLabel>
-                      Faculty ({staff.filter((s) => s.source === 'faculty').length})
+                      Faculty (
+                      {staff.filter((s) => s.source === 'faculty').length})
                     </SelectLabel>
                     {staff
                       .filter((s) => s.source === 'faculty')
