@@ -213,6 +213,8 @@ export function RenumerationPage() {
       // populate faculty list if present
       if (checks && checks.faculty && checks.faculty.length > 0) {
         setFacultyList(checks.faculty);
+      } else {
+        setFacultyList([]);
       }
       // populate roles from assignments in the zip
       try {
