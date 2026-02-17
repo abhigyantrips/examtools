@@ -166,7 +166,6 @@ export function RenumerationPage() {
 
   const onImportZip = useCallback(async (f: File | null) => {
     if (!f) return;
-    setLoading(true);
     try {
       const zip = await loadZip(f);
       // process zip
@@ -249,8 +248,6 @@ export function RenumerationPage() {
     } catch (err) {
       console.error('Failed to load ZIP', err);
       setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -273,12 +270,15 @@ export function RenumerationPage() {
         // ignore
       }
 
-      // run verification checks with progressive updates
+      // reset previous checks and state data
       setImportChecks(null);
+      setFacultyList([]);
+
+      // run verification checks with progressive updates
       const checks = await runImportChecks(zip as any, onProgress);
       setImportChecks(checks);
       // populate faculty list if present
-      if (checks && checks.faculty && checks.faculty.length > 0) {
+      if (checks && checks.faculty) {
         setFacultyList(checks.faculty);
       }
 
@@ -320,6 +320,9 @@ export function RenumerationPage() {
     zip: JSZip,
     onProgress?: (partial: any) => void
   ) => {
+    const DELAY_MS = 1000;
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
     const result: any = {
       slotsFound: false,
       slotsCount: 0,
@@ -339,12 +342,16 @@ export function RenumerationPage() {
       },
     };
 
+    // Emit initial pending state immediately
+    onProgress?.(result);
+
     try {
       result.progress.metadata = {
         state: 'processing',
         message: 'Parsing metadata',
       };
       onProgress?.(result);
+      await sleep(DELAY_MS);
 
       const metaText =
         (await readTextFile(zip as any, 'internal/metadata.json')) ||
@@ -352,14 +359,42 @@ export function RenumerationPage() {
       if (!metaText) {
         result.progress.metadata = {
           state: 'failed',
-          message: 'No metadata found',
+          message: 'No metadata found - invalid ZIP file',
         };
+        result.progress.faculty.state = 'failed';
+        result.progress.attendance.state = 'failed';
+        result.progress.subjectInfo.state = 'failed';
         onProgress?.(result);
         return result;
       }
-      const obj = JSON.parse(metaText);
+
+      let obj;
+      try {
+        obj = JSON.parse(metaText);
+      } catch (parseErr) {
+        result.progress.metadata = {
+          state: 'failed',
+          message: 'Invalid metadata format - not a valid exam duty ZIP',
+        };
+        result.progress.faculty.state = 'failed';
+        result.progress.attendance.state = 'failed';
+        result.progress.subjectInfo.state = 'failed';
+        onProgress?.(result);
+        return result;
+      }
+
       result.progress.metadata = { state: 'done', message: 'Metadata parsed' };
       onProgress?.(result);
+      await sleep(DELAY_MS);
+
+      // Set faculty processing state before computing
+      result.progress.faculty = {
+        state: 'processing',
+        message: 'Loading faculty data',
+      };
+      onProgress?.(result);
+      await sleep(DELAY_MS);
+
       const slots = Array.isArray(obj.slots)
         ? obj.slots
         : Array.isArray(obj.dutySlots)
@@ -383,11 +418,31 @@ export function RenumerationPage() {
         phoneNo: String(f.phoneNo || ''),
       }));
 
-      result.progress.faculty = {
-        state: 'done',
-        message: `${result.facultyCount} faculty entries`,
-      };
+      // Check if we have valid data
+      if (slots.length === 0) {
+        result.progress.faculty = {
+          state: 'failed',
+          message: 'No exam slots found in metadata',
+        };
+        result.progress.attendance.state = 'failed';
+        result.progress.subjectInfo.state = 'failed';
+        onProgress?.(result);
+        return result;
+      }
+
+      if (facultyArr.length === 0) {
+        result.progress.faculty = {
+          state: 'failed',
+          message: 'No faculty data found',
+        };
+      } else {
+        result.progress.faculty = {
+          state: 'done',
+          message: `${result.facultyCount} faculty entries`,
+        };
+      }
       onProgress?.(result);
+      await sleep(DELAY_MS);
 
       // Check each slot for attendance and subject info (sequentially to provide progress updates)
       result.progress.attendance = {
@@ -399,6 +454,7 @@ export function RenumerationPage() {
         message: 'Checking subject info',
       };
       onProgress?.(result);
+      await sleep(DELAY_MS);
 
       for (let i = 0; i < slots.length; i++) {
         const s = slots[i];
@@ -443,8 +499,36 @@ export function RenumerationPage() {
         message: 'Subject info check complete',
       };
       onProgress?.(result);
+      // give a short pause after all slot checks complete
+      await sleep(DELAY_MS);
     } catch (err) {
-      console.warn('runImportChecks failed', err);
+      console.error('runImportChecks failed', err);
+      // Mark all incomplete phases as failed
+      if (result.progress.metadata.state === 'processing') {
+        result.progress.metadata = {
+          state: 'failed',
+          message: 'Error reading ZIP file',
+        };
+      }
+      if (result.progress.faculty.state === 'processing' || result.progress.faculty.state === 'pending') {
+        result.progress.faculty = {
+          state: 'failed',
+          message: 'Failed to load faculty data',
+        };
+      }
+      if (result.progress.attendance.state === 'processing' || result.progress.attendance.state === 'pending') {
+        result.progress.attendance = {
+          state: 'failed',
+          message: 'Failed to check attendance',
+        };
+      }
+      if (result.progress.subjectInfo.state === 'processing' || result.progress.subjectInfo.state === 'pending') {
+        result.progress.subjectInfo = {
+          state: 'failed',
+          message: 'Failed to check subject info',
+        };
+      }
+      onProgress?.(result);
     }
 
     return result;

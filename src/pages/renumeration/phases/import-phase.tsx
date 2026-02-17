@@ -108,14 +108,31 @@ export function ImportPhase({
                     <span className="mr-2 inline-block align-middle">
                       <Spinner />
                     </span>
-                  ) : checks.slotsFound ? (
-                    <Check className="mr-2 inline-block size-4 text-green-600" />
-                  ) : (
+                  ) : checks.progress?.metadata?.state === 'failed' ? (
                     <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : checks.progress?.metadata?.state === 'done' &&
+                    checks.slotsFound ? (
+                    <Check className="mr-2 inline-block size-4 text-green-600" />
+                  ) : checks.progress?.metadata?.state === 'done' ? (
+                    <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : (
+                    <CircleDotDashed className="text-muted-foreground mr-2 inline-block size-4" />
                   )}
-                  Slots found: {checks?.slotsCount ?? 'Pending'}
+                  Slots found:{' '}
+                  {checks?.progress?.metadata?.state === 'done'
+                    ? checks.slotsCount
+                    : checks?.progress?.metadata?.state === 'failed'
+                      ? 'Failed'
+                      : checks?.progress?.metadata?.state === 'processing'
+                        ? 'Processing...'
+                        : 'Pending'}
                   {checks?.progress?.metadata?.state === 'processing' && (
                     <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.metadata.message}
+                    </span>
+                  )}
+                  {checks?.progress?.metadata?.state === 'failed' && (
+                    <span className="ml-2 text-xs text-red-600">
                       {checks.progress.metadata.message}
                     </span>
                   )}
@@ -128,14 +145,31 @@ export function ImportPhase({
                     <span className="mr-2 inline-block align-middle">
                       <Spinner />
                     </span>
-                  ) : checks.facultyCount && checks.facultyCount > 0 ? (
-                    <Check className="mr-2 inline-block size-4 text-green-600" />
-                  ) : (
+                  ) : checks.progress?.faculty?.state === 'failed' ? (
                     <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : checks.progress?.faculty?.state === 'done' &&
+                    checks.facultyCount > 0 ? (
+                    <Check className="mr-2 inline-block size-4 text-green-600" />
+                  ) : checks.progress?.faculty?.state === 'done' ? (
+                    <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : (
+                    <CircleDotDashed className="text-muted-foreground mr-2 inline-block size-4" />
                   )}
-                  Faculty entries: {checks?.facultyCount ?? 'Pending'}
+                  Faculty entries:{' '}
+                  {checks?.progress?.faculty?.state === 'done'
+                    ? checks.facultyCount
+                    : checks?.progress?.faculty?.state === 'failed'
+                      ? 'Failed'
+                      : checks?.progress?.faculty?.state === 'processing'
+                        ? 'Processing...'
+                        : 'Pending'}
                   {checks?.progress?.faculty?.state === 'processing' && (
                     <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.faculty.message}
+                    </span>
+                  )}
+                  {checks?.progress?.faculty?.state === 'failed' && (
+                    <span className="ml-2 text-xs text-red-600">
                       {checks.progress.faculty.message}
                     </span>
                   )}
@@ -148,19 +182,31 @@ export function ImportPhase({
                     <span className="mr-2 inline-block align-middle">
                       <Spinner />
                     </span>
-                  ) : checks.missingAttendanceSlots &&
-                    checks.missingAttendanceSlots.length === 0 ? (
-                    <Check className="mr-2 inline-block size-4 text-green-600" />
-                  ) : (
+                  ) : checks.progress?.attendance?.state === 'failed' ? (
                     <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : checks.progress?.attendance?.state === 'done' &&
+                    checks.missingAttendanceSlots?.length === 0 ? (
+                    <Check className="mr-2 inline-block size-4 text-green-600" />
+                  ) : checks.progress?.attendance?.state === 'done' ? (
+                    <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : (
+                    <CircleDotDashed className="text-muted-foreground mr-2 inline-block size-4" />
                   )}
                   Attendance present for all slots:{' '}
-                  {checks
-                    ? (checks.missingAttendanceSlots?.length ?? 0)
-                    : 'Pending'}{' '}
-                  missing
+                  {checks?.progress?.attendance?.state === 'done'
+                    ? `${checks.missingAttendanceSlots?.length ?? 0} missing`
+                    : checks?.progress?.attendance?.state === 'failed'
+                      ? 'Failed'
+                      : checks?.progress?.attendance?.state === 'processing'
+                        ? 'Processing...'
+                        : 'Pending'}
                   {checks?.progress?.attendance?.state === 'processing' && (
                     <span className="text-muted-foreground ml-2 text-xs">
+                      {checks.progress.attendance.message}
+                    </span>
+                  )}
+                  {checks?.progress?.attendance?.state === 'failed' && (
+                    <span className="ml-2 text-xs text-red-600">
                       {checks.progress.attendance.message}
                     </span>
                   )}
@@ -173,24 +219,54 @@ export function ImportPhase({
                     <span className="mr-2 inline-block align-middle">
                       <Spinner />
                     </span>
-                  ) : checks.missingSubjectInfoSlots &&
-                    checks.missingSubjectInfoSlots.length === 0 ? (
-                    <Check className="mr-2 inline-block size-4 text-green-600" />
-                  ) : (
+                  ) : checks.progress?.subjectInfo?.state === 'failed' ? (
                     <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : checks.progress?.subjectInfo?.state === 'done' &&
+                    checks.missingSubjectInfoSlots?.length === 0 ? (
+                    <Check className="mr-2 inline-block size-4 text-green-600" />
+                  ) : checks.progress?.subjectInfo?.state === 'done' ? (
+                    <CircleAlert className="mr-2 inline-block size-4 text-red-600" />
+                  ) : (
+                    <CircleDotDashed className="text-muted-foreground mr-2 inline-block size-4" />
                   )}
                   Subject info complete:{' '}
-                  {checks
-                    ? (checks.missingSubjectInfoSlots?.length ?? 0)
-                    : 'Pending'}{' '}
-                  issues
+                  {checks?.progress?.subjectInfo?.state === 'done'
+                    ? `${checks.missingSubjectInfoSlots?.length ?? 0} issues`
+                    : checks?.progress?.subjectInfo?.state === 'failed'
+                      ? 'Failed'
+                      : checks?.progress?.subjectInfo?.state === 'processing'
+                        ? 'Processing...'
+                        : 'Pending'}
                   {checks?.progress?.subjectInfo?.state === 'processing' && (
                     <span className="text-muted-foreground ml-2 text-xs">
                       {checks.progress.subjectInfo.message}
                     </span>
                   )}
+                  {checks?.progress?.subjectInfo?.state === 'failed' && (
+                    <span className="ml-2 text-xs text-red-600">
+                      {checks.progress.subjectInfo.message}
+                    </span>
+                  )}
                 </li>
               </ul>
+
+              {/* Show warning banner for invalid ZIP */}
+              {checks &&
+                (checks.progress?.metadata?.state === 'failed' ||
+                  checks.progress?.faculty?.state === 'failed' ||
+                  checks.progress?.attendance?.state === 'failed' ||
+                  checks.progress?.subjectInfo?.state === 'failed') && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Invalid or Incompatible ZIP File
+                    </p>
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-300">
+                      This ZIP file doesn't appear to be a valid exam duty
+                      attendance export. Please ensure you're uploading the
+                      correct ZIP file from the attendance marking phase.
+                    </p>
+                  </div>
+                )}
 
               {checks &&
                 checks.missingAttendanceSlots &&
