@@ -163,7 +163,8 @@ export type SlotWiseAssignmentEntry = {
 };
 
 export type Person = {
-  id: string;
+  refId: string;
+  staffId: string;
   name: string;
   source: 'faculty' | 'staff';
 };

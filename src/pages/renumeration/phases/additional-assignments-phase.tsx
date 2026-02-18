@@ -14,7 +14,14 @@ import type {
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 import { AdditionalAssignmentsDialog } from './additional-assignments-dialog';
 import { AdditionalAssignmentsSlotDialog } from './additional-assignments-slot-dialog';
@@ -48,12 +55,14 @@ export function AdditionalAssignmentsPhase({
 
   const personOptions: Person[] = useMemo(() => {
     const f = (facultyList || []).map((x) => ({
-      id: x.facultyId,
+      refId: x.facultyId,
+      staffId: x.facultyId,
       name: x.facultyName,
       source: 'faculty' as const,
     }));
     const s = (staffList || []).map((x) => ({
-      id: x.uuid,
+      refId: x.uuid,
+      staffId: x.staffId,
       name: x.staffName,
       source: 'staff' as const,
     }));
@@ -78,10 +87,27 @@ export function AdditionalAssignmentsPhase({
               </div>
             ) : (
               <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {zipSlots.map((slot) => {
                     const key = `d${slot.day}-s${slot.slot}`;
                     const entries = slotWiseAssignments[key] || [];
+                    
+                    // Sort entries by role name
+                    const sortedEntries = [...entries].sort((a, b) => {
+                      const roleA = roles.find((r) => r.id === a.roleId)?.name || '';
+                      const roleB = roles.find((r) => r.id === b.roleId)?.name || '';
+                      return roleA.localeCompare(roleB);
+                    });
+
                     return (
                       <>
                         <TableRow className="bg-muted/30 hover:bg-muted/50 border-t">
@@ -123,9 +149,9 @@ export function AdditionalAssignmentsPhase({
                           </TableCell>
                         </TableRow>
 
-                        {entries.map((entry, idx) => {
+                        {sortedEntries.map((entry, idx) => {
                           const person = personOptions.find(
-                            (p) => p.id === entry.personId
+                            (p) => p.refId === entry.personId
                           );
                           return (
                             <TableRow
@@ -134,6 +160,14 @@ export function AdditionalAssignmentsPhase({
                             >
                               <TableCell className="pl-8">
                                 {person?.name || entry.personId}
+                              </TableCell>
+                              <TableCell>
+                                {person?.staffId || entry.personId}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="text-xs">
+                                  {entry.source === 'faculty' ? 'Faculty' : 'Staff'}
+                                </Badge>
                               </TableCell>
                               <TableCell>
                                 {roles.find((r) => r.id === entry.roleId)
@@ -236,7 +270,7 @@ export function AdditionalAssignmentsPhase({
 
                           {entries.map((entry, idx) => {
                             const person = personOptions.find(
-                              (p) => p.id === entry.personId
+                              (p) => p.refId === entry.personId
                             );
                             return (
                               <TableRow
