@@ -89,11 +89,11 @@ export function AdditionalAssignmentsPhase({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[250px]">Name</TableHead>
+                    <TableHead className="w-[150px]">ID</TableHead>
+                    <TableHead className="w-[100px]">Type</TableHead>
+                    <TableHead className="w-[200px]">Role</TableHead>
+                    <TableHead className="w-[80px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -222,6 +222,15 @@ export function AdditionalAssignmentsPhase({
               </div>
             ) : (
               <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[250px]">Name</TableHead>
+                    <TableHead className="w-[150px]">ID</TableHead>
+                    <TableHead className="w-[100px]">Type</TableHead>
+                    <TableHead className="w-[200px]">Count</TableHead>
+                    <TableHead className="w-[80px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {roles
                     .filter((r) => !r.slotWiseAssignment)
@@ -235,7 +244,7 @@ export function AdditionalAssignmentsPhase({
                       return (
                         <>
                           <TableRow className="bg-muted/30 hover:bg-muted/50 border-t">
-                            <TableCell colSpan={6} className="font-medium">
+                            <TableCell colSpan={5} className="font-medium">
                               <div className="flex items-center justify-between pl-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold">{role.name}</span>
@@ -249,7 +258,7 @@ export function AdditionalAssignmentsPhase({
                           </TableRow>
 
                           <TableRow className="bg-muted/10 hover:bg-muted/20">
-                            <TableCell colSpan={6} className="pl-8">
+                            <TableCell colSpan={5} className="pl-8">
                               <AdditionalAssignmentsDialog
                                 role={role}
                                 staff={personOptions}
@@ -281,8 +290,12 @@ export function AdditionalAssignmentsPhase({
                                   {person?.name || entry.personId}
                                 </TableCell>
                                 <TableCell>
-                                  {entry.source.charAt(0).toUpperCase() +
-                                    entry.source.slice(1)}
+                                  {person?.staffId || entry.personId}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {entry.source === 'faculty' ? 'Faculty' : 'Staff'}
+                                  </Badge>
                                 </TableCell>
                                 <TableCell>{entry.count}</TableCell>
                                 <TableCell className="text-right">
