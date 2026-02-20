@@ -56,7 +56,7 @@ export function AdditionalAssignmentsSlotDialog({
 
   const handleFacultyChange = (value: string) => {
     setPersonId(value);
-    const selectedPerson = staff.find((s) => s.id === value);
+    const selectedPerson = staff.find((s) => s.refId === value);
     setSource(selectedPerson!.source);
   };
 
@@ -139,11 +139,11 @@ export function AdditionalAssignmentsSlotDialog({
                       .filter((s) => s.source === 'staff')
                       .map((s) => (
                         <SelectItem
-                          key={s.id}
-                          value={s.id}
-                          disabled={unavailablePersonIds.includes(s.id)}
+                          key={s.refId}
+                          value={s.refId}
+                          disabled={unavailablePersonIds.includes(s.refId)}
                         >
-                          {s.name}
+                          {s.name} ({s.staffId})
                         </SelectItem>
                       ))}
                   </SelectGroup>
@@ -159,11 +159,11 @@ export function AdditionalAssignmentsSlotDialog({
                       .filter((s) => s.source === 'faculty')
                       .map((s) => (
                         <SelectItem
-                          key={s.id}
-                          value={s.id}
-                          disabled={unavailablePersonIds.includes(s.id)}
+                          key={s.refId}
+                          value={s.refId}
+                          disabled={unavailablePersonIds.includes(s.refId)}
                         >
-                          {s.name} ({s.id})
+                          {s.name} ({s.staffId})
                         </SelectItem>
                       ))}
                   </SelectGroup>
