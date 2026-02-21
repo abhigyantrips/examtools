@@ -1,7 +1,12 @@
 import type JSZip from 'jszip';
 
 // Read unique roles from assignment.json inside the ZIP and return RenumerationRoleEntry[]
-import type { RenumerationRoleEntry } from '@/types';
+import type {
+  AdditionalStaff,
+  Faculty,
+  Person,
+  RenumerationRoleEntry,
+} from '@/types';
 
 import { capitalize } from './utils';
 import { readTextFile } from './zip';
@@ -59,4 +64,23 @@ export async function readRolesFromZip(
   } catch (err) {
     return [];
   }
+}
+
+export function getPersonOptions(
+  facultyList: Faculty[] | null,
+  staffList: AdditionalStaff[] | null
+): Person[] {
+  const f = (facultyList || []).map((x) => ({
+    refId: x.facultyId,
+    staffId: x.facultyId,
+    name: x.facultyName,
+    source: 'faculty' as const,
+  }));
+  const s = (staffList || []).map((x) => ({
+    refId: x.uuid,
+    staffId: x.staffId,
+    name: x.staffName,
+    source: 'staff' as const,
+  }));
+  return [...f, ...s];
 }

@@ -12,6 +12,8 @@ import type {
   SlotWiseAssignmentEntry,
 } from '@/types';
 
+import { getPersonOptions } from '@/lib/renumeration';
+
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -54,19 +56,7 @@ export function AdditionalAssignmentsPhase({
   const getEntries = (roleId: string) => nonSlotAssignments[roleId] || [];
 
   const personOptions: Person[] = useMemo(() => {
-    const f = (facultyList || []).map((x) => ({
-      refId: x.facultyId,
-      staffId: x.facultyId,
-      name: x.facultyName,
-      source: 'faculty' as const,
-    }));
-    const s = (staffList || []).map((x) => ({
-      refId: x.uuid,
-      staffId: x.staffId,
-      name: x.staffName,
-      source: 'staff' as const,
-    }));
-    return [...f, ...s];
+    return getPersonOptions(facultyList, staffList);
   }, [facultyList, staffList]);
 
   const slotWiseRoles = roles.filter(
@@ -93,18 +83,22 @@ export function AdditionalAssignmentsPhase({
                     <TableHead className="w-[150px]">ID</TableHead>
                     <TableHead className="w-[100px]">Type</TableHead>
                     <TableHead className="w-[200px]">Role</TableHead>
-                    <TableHead className="w-[80px] text-right">Actions</TableHead>
+                    <TableHead className="w-[80px] text-right">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {zipSlots.map((slot) => {
                     const key = `d${slot.day}-s${slot.slot}`;
                     const entries = slotWiseAssignments[key] || [];
-                    
+
                     // Sort entries by role name
                     const sortedEntries = [...entries].sort((a, b) => {
-                      const roleA = roles.find((r) => r.id === a.roleId)?.name || '';
-                      const roleB = roles.find((r) => r.id === b.roleId)?.name || '';
+                      const roleA =
+                        roles.find((r) => r.id === a.roleId)?.name || '';
+                      const roleB =
+                        roles.find((r) => r.id === b.roleId)?.name || '';
                       return roleA.localeCompare(roleB);
                     });
 
@@ -166,7 +160,9 @@ export function AdditionalAssignmentsPhase({
                               </TableCell>
                               <TableCell>
                                 <Badge variant="secondary" className="text-xs">
-                                  {entry.source === 'faculty' ? 'Faculty' : 'Staff'}
+                                  {entry.source === 'faculty'
+                                    ? 'Faculty'
+                                    : 'Staff'}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -228,7 +224,9 @@ export function AdditionalAssignmentsPhase({
                     <TableHead className="w-[150px]">ID</TableHead>
                     <TableHead className="w-[100px]">Type</TableHead>
                     <TableHead className="w-[200px]">Count</TableHead>
-                    <TableHead className="w-[80px] text-right">Actions</TableHead>
+                    <TableHead className="w-[80px] text-right">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -293,8 +291,13 @@ export function AdditionalAssignmentsPhase({
                                   {person?.staffId || entry.personId}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {entry.source === 'faculty' ? 'Faculty' : 'Staff'}
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {entry.source === 'faculty'
+                                      ? 'Faculty'
+                                      : 'Staff'}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>{entry.count}</TableCell>
