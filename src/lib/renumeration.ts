@@ -3,11 +3,16 @@ import type JSZip from 'jszip';
 // Read unique roles from assignment.json inside the ZIP and return RenumerationRoleEntry[]
 import type {
   AdditionalStaff,
+  DutySlot,
   Faculty,
+  NonSlotWiseAssignmentEntry,
   Person,
   RenumerationRoleEntry,
+  SlotAttendance,
+  SlotWiseAssignmentEntry,
 } from '@/types';
 
+import { readSlotAttendance } from './json-files';
 import { capitalize } from './utils';
 import { readTextFile } from './zip';
 
@@ -66,7 +71,7 @@ export async function readRolesFromZip(
   }
 }
 
-export function getPersonOptions(
+function getPersonOptions(
   facultyList: Faculty[] | null,
   staffList: AdditionalStaff[] | null
 ): Person[] {
@@ -84,3 +89,64 @@ export function getPersonOptions(
   }));
   return [...f, ...s];
 }
+
+async function loadAttendanceBySlot(
+  zip: JSZip,
+  slots: DutySlot[]
+): Promise<Record<string, SlotAttendance | null>> {
+  const out: Record<string, SlotAttendance | null> = {};
+  for (const slot of slots) {
+    const key = `d${slot.day}-s${slot.slot}`;
+    try {
+      const att = await readSlotAttendance(zip as any, slot.day, slot.slot);
+      out[key] = att;
+    } catch (err) {
+      out[key] = null;
+    }
+  }
+  return out;
+}
+
+function computeSummary(
+  zipInstance: JSZip,
+  zipSlots: DutySlot[] | null,
+  roles: RenumerationRoleEntry[],
+  facultyList: Faculty[],
+  staffList: AdditionalStaff[],
+  slotWiseAssignments: Record<string, Array<SlotWiseAssignmentEntry>>,
+  nonSlotAssignments: Record<string, Array<NonSlotWiseAssignmentEntry>>,
+  roleNameToIdMap: Record<string, string>
+): void {
+  const personList = getPersonOptions(facultyList, staffList);
+  const personMap: Record<string, Person> = {};
+  for (const p of personList) {
+    personMap[p.refId] = p;
+  }
+
+  const roleMap: Record<string, RenumerationRoleEntry> = {};
+  for (const r of roles) {
+    roleMap[r.id] = r;
+  }
+  // debug log all variables
+  console.log('Computing summary with:');
+  console.log('Roles:', roles);
+  // console.log('Faculty List:', facultyList);
+  // console.log('Staff List:', staffList);
+  console.log('Slot-wise Assignments:', slotWiseAssignments);
+  console.log('Non-slot-wise Assignments:', nonSlotAssignments);
+  console.log('Role Name to ID Map:', roleNameToIdMap);
+
+  // Get attendance data for all slots
+  const attendanceData = loadAttendanceBySlot(zipInstance, zipSlots || []).then(
+    (data) => {
+      // After loading attendance data, we can compute summaries or do further processing if needed
+      console.log('Loaded attendance data for all slots:', data);
+      return data;
+    }
+  );
+  console.log(attendanceData);
+
+  console.log('Attendance data loading initiated, waiting for results...');
+}
+
+export { getPersonOptions, loadAttendanceBySlot, computeSummary };

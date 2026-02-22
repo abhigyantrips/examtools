@@ -168,3 +168,32 @@ export type Person = {
   name: string;
   source: 'faculty' | 'staff';
 };
+
+export type SlotSummary = {
+  key: string;
+  slot: DutySlot;
+  assignmentCount: number;
+  assignmentCost: number;
+  attendancePresent: number;
+  attendanceReplacement: number;
+};
+
+export type PersonSummary = {
+  refId: string;
+  staffId: string;
+  name: string;
+  source: 'faculty' | 'staff';
+  slotWiseCount: number;
+  slotWiseCost: number;
+  nonSlotCount: number;
+  nonSlotCost: number;
+  attendancePresent: number;
+  attendanceAbsent: number;
+  attendanceReplacement: number;
+  totalCost: number;
+};
+
+export type RenumerationSummary = {
+  slotSummaries: SlotSummary[];
+  personSummaries: PersonSummary[];
+};
