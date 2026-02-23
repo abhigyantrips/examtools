@@ -510,19 +510,28 @@ export function RenumerationPage() {
           message: 'Error reading ZIP file',
         };
       }
-      if (result.progress.faculty.state === 'processing' || result.progress.faculty.state === 'pending') {
+      if (
+        result.progress.faculty.state === 'processing' ||
+        result.progress.faculty.state === 'pending'
+      ) {
         result.progress.faculty = {
           state: 'failed',
           message: 'Failed to load faculty data',
         };
       }
-      if (result.progress.attendance.state === 'processing' || result.progress.attendance.state === 'pending') {
+      if (
+        result.progress.attendance.state === 'processing' ||
+        result.progress.attendance.state === 'pending'
+      ) {
         result.progress.attendance = {
           state: 'failed',
           message: 'Failed to check attendance',
         };
       }
-      if (result.progress.subjectInfo.state === 'processing' || result.progress.subjectInfo.state === 'pending') {
+      if (
+        result.progress.subjectInfo.state === 'processing' ||
+        result.progress.subjectInfo.state === 'pending'
+      ) {
         result.progress.subjectInfo = {
           state: 'failed',
           message: 'Failed to check subject info',
@@ -822,7 +831,18 @@ export function RenumerationPage() {
             zipSlots={zipSlots!}
           />
         )}
-        {phase === 'review' && <ReviewPhase />}
+        {phase === 'review' && (
+          <ReviewPhase
+            zipInstance={zipInstance}
+            zipSlots={zipSlots}
+            roles={roles}
+            facultyList={facultyList}
+            staffList={staffList}
+            slotWiseAssignments={slotWiseAssignments}
+            nonSlotAssignments={nonSlotAssignments}
+            roleNameToIdMap={roleNameToIdMap}
+          />
+        )}
       </main>
 
       <Toaster />
