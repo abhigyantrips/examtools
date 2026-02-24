@@ -7,8 +7,11 @@ import type {
   Faculty,
   NonSlotWiseAssignmentEntry,
   Person,
+  PersonSummary,
   RenumerationRoleEntry,
+  RenumerationSummary,
   SlotAttendance,
+  SlotSummary,
   SlotWiseAssignmentEntry,
 } from '@/types';
 
@@ -93,30 +96,26 @@ function getPersonOptions(
 async function loadAttendanceBySlot(
   zip: JSZip,
   slots: DutySlot[]
-): Promise<Record<string, SlotAttendance | null>> {
-  const out: Record<string, SlotAttendance | null> = {};
+): Promise<Record<string, SlotAttendance>> {
+  const out: Record<string, SlotAttendance> = {};
   for (const slot of slots) {
     const key = `d${slot.day}-s${slot.slot}`;
-    try {
-      const att = await readSlotAttendance(zip as any, slot.day, slot.slot);
-      out[key] = att;
-    } catch (err) {
-      out[key] = null;
-    }
+    const att = await readSlotAttendance(zip as any, slot.day, slot.slot);
+    out[key] = att!;
   }
   return out;
 }
 
-function computeSummary(
+async function computeSummary(
   zipInstance: JSZip,
-  zipSlots: DutySlot[] | null,
+  zipSlots: DutySlot[],
   roles: RenumerationRoleEntry[],
   facultyList: Faculty[],
   staffList: AdditionalStaff[],
   slotWiseAssignments: Record<string, Array<SlotWiseAssignmentEntry>>,
   nonSlotAssignments: Record<string, Array<NonSlotWiseAssignmentEntry>>,
   roleNameToIdMap: Record<string, string>
-): void {
+): Promise<RenumerationSummary> {
   const personList = getPersonOptions(facultyList, staffList);
   const personMap: Record<string, Person> = {};
   for (const p of personList) {
@@ -127,6 +126,9 @@ function computeSummary(
   for (const r of roles) {
     roleMap[r.id] = r;
   }
+  // Load attendance data for all slots
+  const attendanceBySlot = await loadAttendanceBySlot(zipInstance, zipSlots);
+
   // debug log all variables
   console.log('Computing summary with:');
   console.log('Roles:', roles);
@@ -135,18 +137,84 @@ function computeSummary(
   console.log('Slot-wise Assignments:', slotWiseAssignments);
   console.log('Non-slot-wise Assignments:', nonSlotAssignments);
   console.log('Role Name to ID Map:', roleNameToIdMap);
+  console.log('Attendance by slot:', attendanceBySlot);
 
-  // Get attendance data for all slots
-  const attendanceData = loadAttendanceBySlot(zipInstance, zipSlots || []).then(
-    (data) => {
-      // After loading attendance data, we can compute summaries or do further processing if needed
-      console.log('Loaded attendance data for all slots:', data);
-      return data;
+  // Setup summary data structure
+  var slotWiseSummary: Record<string, SlotSummary> = {};
+  var personWiseSummary: Record<string, PersonSummary> = {};
+
+  // Loop over zipSlots
+  for (const slot of zipSlots) {
+    const slotKey = `d${slot.day}-s${slot.slot}`;
+    const attendance: SlotAttendance = attendanceBySlot[slotKey];
+
+    // Initialize slot summary
+    slotWiseSummary[slotKey] = {
+      key: slotKey,
+      slot,
+      assignmentCount: 0,
+      assignmentCost: 0,
+      attendancePresent: 0,
+      attendanceReplacement: 0,
+    };
+
+    // Process attendance for this slot
+    for (const att of attendance.entries) {
+      var personStats: PersonSummary = personWiseSummary[att.facultyId];
+      if (!personStats) {
+        const contextPerson = personMap[att.facultyId];
+        personStats = {
+          refId: att.facultyId,
+          staffId: att.facultyId,
+          name: contextPerson.name,
+          source: 'faculty', // default as this is imported from attendance
+          slotWiseCount: 0,
+          nonSlotCount: 0,
+          attendancePresent: 0,
+          attendanceAbsent: 0,
+          attendanceReplacement: 0,
+          totalCost: 0,
+          subjectsCovered: [],
+        };
+      }
+      // Update basic stats
+      if (att.status === 'present') {
+        slotWiseSummary[slotKey].attendancePresent += 1;
+        personStats.attendancePresent += 1;
+      } else if (att.status === 'replacement') {
+        slotWiseSummary[slotKey].attendanceReplacement += 1;
+        personStats.attendanceReplacement += 1;
+      } else if (att.status === 'absent') {
+        personStats.attendanceAbsent += 1;
+        // Update person and break
+        personWiseSummary[att.facultyId] = personStats;
+        continue;
+      }
+
+      // Update subjects covered
+      personStats.subjectsCovered.push(slot.subjectCode!);
+
+      // Get role and its rate
+      const rate = roleMap[roleNameToIdMap[att.role]].rate;
+      // Update costs
+      slotWiseSummary[slotKey].assignmentCost += rate;
+      personStats.totalCost += rate;
+
+      // Update person stats based on attendance
+      personWiseSummary[att.facultyId] = personStats;
     }
-  );
-  console.log(attendanceData);
+  }
+  // Process manual non-slot-wise assignments
 
-  console.log('Attendance data loading initiated, waiting for results...');
+  // Process manual slot-wise assignments
+
+  // Finalize summary
+  const summary: RenumerationSummary = {
+    slotSummaries: Object.values(slotWiseSummary),
+    personSummaries: Object.values(personWiseSummary),
+  };
+
+  return summary;
 }
 
 export { getPersonOptions, loadAttendanceBySlot, computeSummary };

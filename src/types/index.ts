@@ -183,14 +183,13 @@ export type PersonSummary = {
   staffId: string;
   name: string;
   source: 'faculty' | 'staff';
-  slotWiseCount: number;
-  slotWiseCost: number;
-  nonSlotCount: number;
-  nonSlotCost: number;
+  slotWiseCount: number; // manual slot-wise only
+  nonSlotCount: number; // manual non-slot-wise only
   attendancePresent: number;
   attendanceAbsent: number;
   attendanceReplacement: number;
   totalCost: number;
+  subjectsCovered: string[]; // just push subject codes here, will concat during export
 };
 
 export type RenumerationSummary = {
