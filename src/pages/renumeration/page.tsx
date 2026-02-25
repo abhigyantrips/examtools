@@ -222,7 +222,7 @@ export function RenumerationPage() {
           // Generate mapping of role name to ID
           const nameToIdMap: Record<string, string> = {};
           rolesFromZip.forEach((r) => {
-            nameToIdMap[r.name] = r.id;
+            nameToIdMap[r.name.toLowerCase()] = r.id;
           });
           setRoleNameToIdMap(nameToIdMap);
           setRoles(rolesFromZip);
@@ -288,7 +288,7 @@ export function RenumerationPage() {
         if (rolesFromZip && rolesFromZip.length > 0) {
           const nameToIdMap: Record<string, string> = {};
           rolesFromZip.forEach((r) => {
-            nameToIdMap[r.name] = r.id;
+            nameToIdMap[r.name.toLowerCase()] = r.id;
           });
           setRoleNameToIdMap(nameToIdMap);
           setRoles(rolesFromZip);

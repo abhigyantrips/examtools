@@ -1,6 +1,6 @@
 import type JSZip from 'jszip';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import type {
   AdditionalStaff,
@@ -34,19 +34,28 @@ export function ReviewPhase({
   nonSlotAssignments,
   roleNameToIdMap,
 }: ReviewPhaseProps) {
+  const [summary, setSummary] = useState<Record<string, any> | null>(null);
+
   useEffect(() => {
-    if (zipInstance && zipSlots) {
-      computeSummary(
-        zipInstance,
-        zipSlots,
-        roles,
-        facultyList,
-        staffList,
-        slotWiseAssignments,
-        nonSlotAssignments,
-        roleNameToIdMap
-      );
-    }
+    if (!zipInstance || !zipSlots) return;
+
+    (async () => {
+      try {
+        const res = await computeSummary(
+          zipInstance,
+          zipSlots,
+          roles,
+          facultyList,
+          staffList,
+          slotWiseAssignments,
+          nonSlotAssignments,
+          roleNameToIdMap
+        );
+        setSummary(res as any);
+      } catch (err) {
+        setSummary({ error: String(err) });
+      }
+    })();
   }, [
     zipInstance,
     zipSlots,
@@ -55,7 +64,15 @@ export function ReviewPhase({
     staffList,
     slotWiseAssignments,
     nonSlotAssignments,
+    roleNameToIdMap,
   ]);
 
-  return <>Review Phase (WIP)</>;
+  return (
+    <>
+      <h3>Review Phase (WIP)</h3>
+      <pre style={{ whiteSpace: 'pre-wrap' }}>
+        {summary ? JSON.stringify(summary, null, 2) : 'Loading summary...'}
+      </pre>
+    </>
+  );
 }

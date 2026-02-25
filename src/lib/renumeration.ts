@@ -190,12 +190,23 @@ async function computeSummary(
         personWiseSummary[att.facultyId] = personStats;
         continue;
       }
+      slotWiseSummary[slotKey].assignmentCount += 1;
+
+      // If role is "attendance-override", find who they replaced and use that role instead
+      let roleName = att.role;
+      if (roleName === 'attendance-override') {
+        const replacedAtt = attendance.entries.find(
+          (e) => e.facultyId === att.replacementFrom
+        );
+        // Guaranteed to exist
+        roleName = replacedAtt!.role;
+      }
 
       // Update subjects covered
       personStats.subjectsCovered.push(slot.subjectCode!);
 
       // Get role and its rate
-      const rate = roleMap[roleNameToIdMap[att.role]].rate;
+      const rate = roleMap[roleNameToIdMap[roleName]].rate;
       // Update costs
       slotWiseSummary[slotKey].assignmentCost += rate;
       personStats.totalCost += rate;
