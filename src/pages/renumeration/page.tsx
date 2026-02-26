@@ -38,6 +38,7 @@ import { AdditionalInfoPhase } from '@/pages/renumeration/phases/additional-info
 import { ImportPhase } from '@/pages/renumeration/phases/import-phase';
 import { ReviewPhase } from '@/pages/renumeration/phases/review-phase';
 
+const DISABLE_DELAY = true;
 type Phase = 'import' | 'info' | 'assign' | 'review';
 
 export function RenumerationPage() {
@@ -136,7 +137,7 @@ export function RenumerationPage() {
               return false;
             }
           }
-          console.log('Roles complete:', roles);
+          // console.log('Roles complete:', roles);
           return true;
         case 'assign':
           return true;
@@ -290,7 +291,10 @@ export function RenumerationPage() {
           rolesFromZip.forEach((r) => {
             nameToIdMap[r.name.toLowerCase()] = r.id;
           });
-          setRoleNameToIdMap(nameToIdMap);
+          // Only set roleNameToIdMap if not already populated from localStorage
+          if (Object.keys(roleNameToIdMap).length === 0) {
+            setRoleNameToIdMap(nameToIdMap);
+          }
           setRoles(rolesFromZip);
         }
       } catch (err) {
@@ -321,7 +325,7 @@ export function RenumerationPage() {
     onProgress?: (partial: any) => void
   ) => {
     const DELAY_MS = 1000;
-    const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    const sleep = (ms: number) => new Promise((res) => setTimeout(res, DISABLE_DELAY ? 0 : ms));
 
     const result: any = {
       slotsFound: false,
@@ -551,6 +555,7 @@ export function RenumerationPage() {
     localStorage.removeItem('renumeration:staffList');
     localStorage.removeItem('renumeration:slotWiseAssignments');
     localStorage.removeItem('renumeration:nonSlotAssignments');
+    localStorage.removeItem('renumeration:roleNameToIdMap');
     setZipInstance(null);
     setZipFileName(null);
     setZipTimestamps(null);
@@ -671,6 +676,24 @@ export function RenumerationPage() {
       }
     } catch (err) {
       console.warn('Failed to restore persisted slotWiseAssignments', err);
+    }
+
+    try {
+      const rawRoleNameToIdMap = localStorage.getItem(
+        'renumeration:roleNameToIdMap'
+      );
+      if (rawRoleNameToIdMap) {
+        const parsedMap = JSON.parse(rawRoleNameToIdMap);
+        if (
+          parsedMap &&
+          typeof parsedMap === 'object' &&
+          Object.keys(parsedMap).length > 0
+        ) {
+          setRoleNameToIdMap(parsedMap);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to restore persisted roleNameToIdMap', err);
     }
   }
 
