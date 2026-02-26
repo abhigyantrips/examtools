@@ -176,6 +176,7 @@ export type SlotSummary = {
   assignmentCost: number;
   attendancePresent: number;
   attendanceReplacement: number;
+  attendanceAbsent: number;
 };
 
 export type PersonSummary = {
@@ -184,10 +185,13 @@ export type PersonSummary = {
   name: string;
   source: 'faculty' | 'staff';
   slotWiseCount: number; // manual slot-wise only
+  slotWiseCost: number; // cost for manual slot-wise assignments
   nonSlotCount: number; // manual non-slot-wise only
+  nonSlotCost: number; // cost for manual non-slot-wise assignments
   attendancePresent: number;
   attendanceAbsent: number;
   attendanceReplacement: number;
+  attendanceCost: number; // cost for pre-assigned duties (based on attendance)
   totalCost: number;
   subjectsCovered: string[]; // just push subject codes here, will concat during export
 };

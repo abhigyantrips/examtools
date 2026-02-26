@@ -130,14 +130,15 @@ async function computeSummary(
   const attendanceBySlot = await loadAttendanceBySlot(zipInstance, zipSlots);
 
   // debug log all variables
-  console.log('Computing summary with:');
-  console.log('Roles:', roles);
+  // console.log('Computing summary with:');
+  // console.log('Roles:', roles);
   // console.log('Faculty List:', facultyList);
   // console.log('Staff List:', staffList);
-  console.log('Slot-wise Assignments:', slotWiseAssignments);
-  console.log('Non-slot-wise Assignments:', nonSlotAssignments);
-  console.log('Role Name to ID Map:', roleNameToIdMap);
-  console.log('Attendance by slot:', attendanceBySlot);
+  // console.log('Slot-wise Assignments:', slotWiseAssignments);
+  // console.log('Non-slot-wise Assignments:', nonSlotAssignments);
+  // console.log('Role Name to ID Map:', roleNameToIdMap);
+  // console.log('Attendance by slot:', attendanceBySlot);
+  // console.log('Role Map:', roleMap);
 
   // Setup summary data structure
   var slotWiseSummary: Record<string, SlotSummary> = {};
@@ -156,6 +157,7 @@ async function computeSummary(
       assignmentCost: 0,
       attendancePresent: 0,
       attendanceReplacement: 0,
+      attendanceAbsent: 0,
     };
 
     // Process attendance for this slot
@@ -169,10 +171,13 @@ async function computeSummary(
           name: contextPerson.name,
           source: 'faculty', // default as this is imported from attendance
           slotWiseCount: 0,
+          slotWiseCost: 0,
           nonSlotCount: 0,
+          nonSlotCost: 0,
           attendancePresent: 0,
           attendanceAbsent: 0,
           attendanceReplacement: 0,
+          attendanceCost: 0,
           totalCost: 0,
           subjectsCovered: [],
         };
@@ -185,6 +190,7 @@ async function computeSummary(
         slotWiseSummary[slotKey].attendanceReplacement += 1;
         personStats.attendanceReplacement += 1;
       } else if (att.status === 'absent') {
+        slotWiseSummary[slotKey].attendanceAbsent += 1;
         personStats.attendanceAbsent += 1;
         // Update person and break
         personWiseSummary[att.facultyId] = personStats;
@@ -206,9 +212,11 @@ async function computeSummary(
       personStats.subjectsCovered.push(slot.subjectCode!);
 
       // Get role and its rate
+      console.log(roleName, roleNameToIdMap[roleName], roleMap[roleNameToIdMap[roleName]]);
       const rate = roleMap[roleNameToIdMap[roleName]].rate;
       // Update costs
       slotWiseSummary[slotKey].assignmentCost += rate;
+      personStats.attendanceCost += rate;
       personStats.totalCost += rate;
 
       // Update person stats based on attendance
