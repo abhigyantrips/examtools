@@ -224,6 +224,42 @@ async function computeSummary(
     }
   }
   // Process manual non-slot-wise assignments
+  console.log("Doing manual non-slot-wise assignments")
+  for (const assignments of Object.values(nonSlotAssignments)) {
+    for (const a of assignments) {
+      // Unpack assignment
+      const { roleId, personId, source, count } = a;
+          console.log(roleId, roleMap[roleId]);
+      const rate = roleMap[roleId].rate;
+
+      var personStats: PersonSummary = personWiseSummary[personId];
+      if (!personStats) {
+        const contextPerson = personMap[personId];
+        personStats = {
+          refId: contextPerson.refId,
+          staffId: contextPerson.staffId,
+          name: contextPerson.name,
+          source: source,
+          slotWiseCount: 0,
+          slotWiseCost: 0,
+          nonSlotCount: 0,
+          nonSlotCost: 0,
+          attendancePresent: 0,
+          attendanceAbsent: 0,
+          attendanceReplacement: 0,
+          attendanceCost: 0,
+          totalCost: 0,
+          subjectsCovered: [],
+        };
+      }
+      // Update stats for person
+      personStats.nonSlotCount += count;
+      personStats.nonSlotCost += rate * count;
+      personStats.totalCost += rate * count;
+      
+      // Update person
+      personWiseSummary[personId] = personStats;
+    }}
 
   // Process manual slot-wise assignments
 
