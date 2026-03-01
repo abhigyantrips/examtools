@@ -212,7 +212,7 @@ async function computeSummary(
       personStats.subjectsCovered.push(slot.subjectCode!);
 
       // Get role and its rate
-      console.log(roleName, roleNameToIdMap[roleName], roleMap[roleNameToIdMap[roleName]]);
+      // console.log(roleName, roleNameToIdMap[roleName], roleMap[roleNameToIdMap[roleName]]);
       const rate = roleMap[roleNameToIdMap[roleName]].rate;
       // Update costs
       slotWiseSummary[slotKey].assignmentCost += rate;
@@ -224,12 +224,12 @@ async function computeSummary(
     }
   }
   // Process manual non-slot-wise assignments
-  console.log("Doing manual non-slot-wise assignments")
+  console.log('Doing manual non-slot-wise assignments');
   for (const assignments of Object.values(nonSlotAssignments)) {
     for (const a of assignments) {
       // Unpack assignment
       const { roleId, personId, source, count } = a;
-          console.log(roleId, roleMap[roleId]);
+      console.log(roleId, roleMap[roleId]);
       const rate = roleMap[roleId].rate;
 
       var personStats: PersonSummary = personWiseSummary[personId];
@@ -256,12 +256,54 @@ async function computeSummary(
       personStats.nonSlotCount += count;
       personStats.nonSlotCost += rate * count;
       personStats.totalCost += rate * count;
-      
+
       // Update person
       personWiseSummary[personId] = personStats;
-    }}
+    }
+  }
 
   // Process manual slot-wise assignments
+  console.log('Doing manual slot-wise assignments');
+  for (const [slotKey, assignments] of Object.entries(slotWiseAssignments)) {
+    for (const a of assignments) {
+      // Unpack assignment
+      const { roleId, personId, source } = a;
+      // console.log(roleId, roleMap[roleId]);
+      const rate = roleMap[roleId].rate;
+
+      var personStats: PersonSummary = personWiseSummary[personId];
+      if (!personStats) {
+        const contextPerson = personMap[personId];
+        personStats = {
+          refId: contextPerson.refId,
+          staffId: contextPerson.staffId,
+          name: contextPerson.name,
+          source: source,
+          slotWiseCount: 0,
+          slotWiseCost: 0,
+          nonSlotCount: 0,
+          nonSlotCost: 0,
+          attendancePresent: 0,
+          attendanceAbsent: 0,
+          attendanceReplacement: 0,
+          attendanceCost: 0,
+          totalCost: 0,
+          subjectsCovered: [],
+        };
+      }
+      // Update stats for person
+      personStats.slotWiseCount += 1;
+      personStats.slotWiseCost += rate;
+      personStats.totalCost += rate;
+
+      // Update person
+      personWiseSummary[personId] = personStats;
+
+      // Update stats for slot
+      slotWiseSummary[slotKey].assignmentCount += 1;
+      slotWiseSummary[slotKey].assignmentCost += rate;
+    }
+  }
 
   // Finalize summary
   const summary: RenumerationSummary = {
