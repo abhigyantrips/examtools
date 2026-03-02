@@ -77,7 +77,9 @@ export function RenumerationPage() {
   const [roleNameToIdMap, setRoleNameToIdMap] = useState<
     Record<string, string>
   >({});
-
+  // Store if user has visited the assign phase to update its completion status
+  const [visitedAssignPhase, setVisitedAssignPhase] = useState(false);
+  
   const phases: Phase[] = ['import', 'info', 'assign', 'review'];
 
   const getNextPhase = (current: Phase): Phase | null => {
@@ -140,14 +142,14 @@ export function RenumerationPage() {
           // console.log('Roles complete:', roles);
           return true;
         case 'assign':
-          return true;
+          return visitedAssignPhase;
         case 'review':
           return false;
         default:
           return false;
       }
     },
-    [zipInstance, facultyList, importChecks, roles]
+    [zipInstance, facultyList, importChecks, roles, visitedAssignPhase]
   );
 
   const canProceedToNext = (current: Phase): boolean => {
@@ -157,8 +159,14 @@ export function RenumerationPage() {
 
   const handleContinue = useCallback(() => {
     const next = getNextPhase(phase);
-    if (next) setPhase(next);
-  }, [phase, getNextPhase]);
+    if (next) {
+      // Mark assign phase as visited when navigating to it
+      if (next === 'assign') {
+        setVisitedAssignPhase(true);
+      }
+      setPhase(next);
+    }
+  }, [phase]);
 
   const handleBack = useCallback(() => {
     const prev = getPreviousPhase(phase);
@@ -167,6 +175,8 @@ export function RenumerationPage() {
 
   const onImportZip = useCallback(async (f: File | null) => {
     if (!f) return;
+    // Reset state before processing new ZIP
+    onZipReset();
     try {
       const zip = await loadZip(f);
       // process zip
