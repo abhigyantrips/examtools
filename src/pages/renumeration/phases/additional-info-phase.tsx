@@ -371,6 +371,9 @@ export function AdditionalInfoPhase({
                   </p>
                 </div>
               </div>
+              <div className="text-muted-foreground mt-3 text-xs">
+                Required columns: S No, Faculty Name, Faculty ID
+              </div>
             </div>
             {fileLoading && (
               <div className="text-muted-foreground text-sm">Parsing...</div>
