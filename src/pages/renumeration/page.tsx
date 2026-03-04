@@ -495,7 +495,7 @@ export function RenumerationPage() {
 
         const missing: string[] = [];
         if (!s.subjectCode) missing.push('subjectCode');
-        if (!s.subjectNames && !s.subjectName) missing.push('subjectNames');
+        if (!s.subjectNames) missing.push('subjectNames');
         if (missing.length > 0) {
           result.missingSubjectInfoSlots.push({ day, slot, missing });
         }
