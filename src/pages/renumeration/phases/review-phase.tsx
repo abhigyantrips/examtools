@@ -1,4 +1,5 @@
 import type JSZip from 'jszip';
+import { Download } from 'lucide-react';
 
 import { useEffect, useState } from 'react';
 
@@ -13,9 +14,12 @@ import type {
   SlotWiseAssignmentEntry,
 } from '@/types';
 
+import { exportRenumerationWorkbook } from '@/lib/excel';
 import { computeSummary } from '@/lib/renumeration';
+import { loadAttendanceBySlot } from '@/lib/renumeration';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -48,6 +52,7 @@ export function ReviewPhase({
   roleNameToIdMap,
 }: ReviewPhaseProps) {
   const [summary, setSummary] = useState<Record<string, any> | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!zipInstance || !zipSlots) return;
@@ -64,6 +69,7 @@ export function ReviewPhase({
           nonSlotAssignments,
           roleNameToIdMap
         );
+        console.log(zipSlots);
         setSummary(res as any);
       } catch (err) {
         setSummary({ error: String(err) });
@@ -96,10 +102,50 @@ export function ReviewPhase({
     );
   }
 
+  const handleFinalExport = async () => {
+    if (!zipInstance || !zipSlots || zipSlots.length === 0 || exporting) {
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const attendanceBySlot = await loadAttendanceBySlot(zipInstance, zipSlots);
+      await exportRenumerationWorkbook({
+        zipSlots,
+        roles,
+        facultyList,
+        staffList,
+        attendanceBySlot,
+        slotWiseAssignments,
+        nonSlotAssignments,
+        roleNameToIdMap,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const slotSummaries: SlotSummary[] = summary.slotSummaries || [];
   const personSummaries: PersonSummary[] = summary.personSummaries || [];
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Final Export</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">
+              Export final remuneration statement as a formatted Excel workbook.
+            </p>
+            <Button onClick={handleFinalExport} disabled={exporting}>
+              <Download className="mr-2 size-4" />
+              {exporting ? 'Exporting...' : 'Export Workbook'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Slot Summary</CardTitle>
