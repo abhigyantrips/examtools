@@ -557,6 +557,12 @@ export async function exportRenumerationWorkbook(
   const personRoleRows = Array.from(perPersonRole.values())
     .filter((x) => x.count > 0 && roleMap.has(x.roleId))
     .sort((a, b) => {
+      // Role order
+      const orderA = roleMap.get(a.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = roleMap.get(b.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+
+      // Faculty ID
       const pa =
         a.source === 'faculty'
           ? facultyMap.get(a.personId)
@@ -566,14 +572,18 @@ export async function exportRenumerationWorkbook(
           ? facultyMap.get(b.personId)
           : staffMap.get(b.personId);
 
+      const idA = pa?.staffId || '';
+      const idB = pb?.staffId || '';
+      const idCompare = idA.localeCompare(idB, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (idCompare !== 0) return idCompare;
+
+      // name (as additional staff's visible ID is name of a management company)
       const nameA = pa?.name || '';
       const nameB = pb?.name || '';
-      const nameCompare = nameA.localeCompare(nameB);
-      if (nameCompare !== 0) return nameCompare;
-
-      const orderA = roleMap.get(a.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
-      const orderB = roleMap.get(b.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
-      return orderA - orderB;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
     });
 
   let sNo = 1;
