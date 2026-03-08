@@ -87,6 +87,8 @@ export async function readMetadataSlots(zip: JSZip): Promise<any[]> {
       bufferDuties: Number(s.bufferDuties || 0),
       subjectCode: s.subjectCode ? String(s.subjectCode) : null,
       subjectNames: s.subjectNames ? String(s.subjectNames) : null,
+      studentsAttended: s.studentsAttended ? Number(s.studentsAttended) : null,
+      rooms: s.rooms.slice(),
     }));
   } catch (err) {
     console.warn('Failed to parse metadata.json from zip', err);

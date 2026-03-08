@@ -416,7 +416,7 @@ export async function exportRenumerationWorkbook(
       slot.subjectNames || 'NA',
       slot.subjectCode || 'NA',
       `1/${slot.startTime} to ${slot.endTime}`,
-      presentAndReplacement,
+      slot.studentsAttended || 0,
       ...orderedRoles.map((r) => slotRoleCounts.get(r.id) || 0),
     ]);
     slotRow.eachCell((cell, colNumber) => {

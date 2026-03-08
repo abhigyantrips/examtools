@@ -29,6 +29,7 @@ export interface DutySlot {
   squadDuties: number;
   bufferDuties: number;
   rooms: string[]; // Room numbers
+  studentsAttended?: number;
   // totalDuties is implied: regularDuties + bufferDuties
 }
 
