@@ -570,6 +570,14 @@ export function RenumerationPage() {
     setZipFileName(null);
     setZipTimestamps(null);
     setImportChecks(null);
+    setFacultyList([]);
+    setRoles([]);
+    setStaffList([]);
+    setSlotWiseAssignments({});
+    setNonSlotAssignments({});
+    setRoleNameToIdMap({});
+    setVisitedAssignPhase(false);
+    setError(null);
     setPhase('import');
   }, []);
 
