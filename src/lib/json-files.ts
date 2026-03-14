@@ -123,6 +123,83 @@ export async function readMetadataFaculty(zip: JSZip): Promise<Array<Faculty>> {
   }
 }
 
+// Update optional slot metadata values in metadata.json for a specific slot
+export async function updateSlotMetadata(
+  zip: JSZip,
+  day: number,
+  slot: number,
+  metadata: {
+    subjectCode?: string;
+    subjectNames?: string;
+    studentsAttended?: number;
+  }
+): Promise<void> {
+  const readPath =
+    (await readTextFile(zip as any, 'internal/metadata.json')) != null
+      ? 'internal/metadata.json'
+      : (await readTextFile(zip as any, 'metadata.json')) != null
+        ? 'metadata.json'
+        : 'internal/metadata.json';
+
+  const text =
+    (await readTextFile(zip as any, 'internal/metadata.json')) ||
+    (await readTextFile(zip as any, 'metadata.json'));
+
+  if (!text) return;
+
+  try {
+    const obj = JSON.parse(text) as any;
+    const slots = Array.isArray(obj.slots)
+      ? obj.slots
+      : Array.isArray(obj.dutySlots)
+        ? obj.dutySlots
+        : null;
+
+    if (!slots) return;
+
+    const target = slots.find(
+      (s: any) => Number(s.day) === Number(day) && Number(s.slot) === Number(slot)
+    );
+
+    if (!target) return;
+
+    if (metadata.subjectCode && metadata.subjectCode.trim().length > 0) {
+      target.subjectCode = metadata.subjectCode;
+    } else {
+      delete target.subjectCode;
+    }
+
+    if (metadata.subjectNames && metadata.subjectNames.trim().length > 0) {
+      target.subjectNames = metadata.subjectNames;
+    } else {
+      delete target.subjectNames;
+    }
+
+    if (
+      typeof metadata.studentsAttended === 'number' &&
+      Number.isFinite(metadata.studentsAttended)
+    ) {
+      target.studentsAttended = metadata.studentsAttended;
+    } else {
+      delete target.studentsAttended;
+    }
+
+    const nextText = JSON.stringify(obj, null, 2);
+    writeTextFile(zip as any, readPath, nextText);
+
+    // keep mirrored location updated when internal file is used
+    if (readPath === 'internal/metadata.json') {
+      writeTextFile(zip as any, 'metadata.json', nextText);
+    }
+
+    const ts = new Date().toISOString();
+    writeTextFile(zip as any, 'last_modified.txt', ts);
+    writeTextFile(zip as any, 'internal/last_modified.txt', ts);
+  } catch (err) {
+    console.warn('Failed to update metadata.json slot fields', err);
+  }
+}
+
 // Save attendance object into the zip (mutates zip) and update last_modified.txt
 export async function saveSlotAttendance(
   zip: JSZip,

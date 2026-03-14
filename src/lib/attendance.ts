@@ -5,6 +5,7 @@ export {
   readAssignmentsFromZip,
   readMetadataSlots,
   readMetadataFaculty,
+  updateSlotMetadata,
   saveSlotAttendance,
 } from './json-files';
 
