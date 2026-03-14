@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 
 import type {
+  AdditionalStaff,
   Assignment,
   AssignmentJson,
   DutySlot,
@@ -9,6 +10,10 @@ import type {
   ExcelParseResult,
   Faculty,
   MetadataJson,
+  NonSlotWiseAssignmentEntry,
+  RenumerationRoleEntry,
+  SlotAttendance,
+  SlotWiseAssignmentEntry,
   UnavailableFaculty,
 } from '@/types';
 
@@ -229,6 +234,398 @@ export async function exportDaySlotAssignments(
   const filename = `day${dutySlot.day + 1}-slot${dutySlot.slot + 1}-${
     dutySlot.date.toISOString().split('T')[0]
   }.xlsx`;
+  await downloadWorkbook(workbook, filename);
+}
+
+type RenumerationWorkbookExportInput = {
+  zipSlots: DutySlot[];
+  roles: RenumerationRoleEntry[];
+  facultyList: Faculty[];
+  staffList: AdditionalStaff[];
+  attendanceBySlot: Record<string, SlotAttendance>;
+  slotWiseAssignments: Record<string, Array<SlotWiseAssignmentEntry>>;
+  nonSlotAssignments: Record<string, Array<NonSlotWiseAssignmentEntry>>;
+  roleNameToIdMap: Record<string, string>;
+};
+
+type PersonRoleAccumulator = {
+  personId: string;
+  source: 'faculty' | 'staff';
+  roleId: string;
+  count: number;
+  subjects: Set<string>;
+};
+
+export async function exportRenumerationWorkbook(
+  input: RenumerationWorkbookExportInput
+): Promise<void> {
+  const {
+    zipSlots,
+    roles,
+    facultyList,
+    staffList,
+    attendanceBySlot,
+    slotWiseAssignments,
+    nonSlotAssignments,
+    roleNameToIdMap,
+  } = input;
+
+  console.log(zipSlots);
+
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet('Work Done Statement');
+
+  const orderedRoles = [...roles].sort((a, b) => a.order - b.order);
+  const roleMap = new Map(orderedRoles.map((r) => [r.id, r]));
+  const roleTotals = new Map<string, number>(
+    orderedRoles.map((r) => [r.id, 0])
+  );
+
+  const roleIdFromName = (roleName: string): string | undefined => {
+    return roleNameToIdMap[roleName.toLowerCase()] || roleNameToIdMap[roleName];
+  };
+
+  const sortedSlots = [...zipSlots].sort((a, b) => {
+    if (a.day !== b.day) return a.day - b.day;
+    return a.slot - b.slot;
+  });
+
+  const firstDate = sortedSlots[0]?.date ? new Date(sortedSlots[0].date) : null;
+  const lastDate =
+    sortedSlots.length > 0
+      ? new Date(sortedSlots[sortedSlots.length - 1].date)
+      : null;
+  const rangeLabel =
+    firstDate && lastDate
+      ? `${firstDate.toLocaleDateString()} to ${lastDate.toLocaleDateString()}`
+      : 'Current Examination Window';
+
+  const topColumns = [
+    'Date',
+    'Sub.',
+    'Sub.code',
+    'No. of Sessions & Hours',
+    'No. of Students attended',
+    ...orderedRoles.map((r) => r.name),
+  ];
+
+  ws.addRow([`WORK DONE STATEMENT (${rangeLabel})`]);
+  ws.mergeCells(1, 1, 1, topColumns.length);
+  const titleCell = ws.getCell(1, 1);
+  titleCell.font = { bold: true, size: 14 };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  applyBorders(titleCell);
+
+  const topHeaderRow = ws.addRow(topColumns);
+  topHeaderRow.font = { bold: true };
+  topHeaderRow.eachCell((cell) => {
+    applyBorders(cell);
+    applyPadding(cell);
+    cell.alignment = {
+      ...cell.alignment,
+      horizontal: 'center',
+      wrapText: true,
+    };
+  });
+
+  const perPersonRole = new Map<string, PersonRoleAccumulator>();
+
+  const getOrCreatePersonRoleAcc = (
+    personId: string,
+    source: 'faculty' | 'staff',
+    roleId: string
+  ): PersonRoleAccumulator => {
+    const key = `${personId}::${roleId}`;
+    const existing = perPersonRole.get(key);
+    if (existing) return existing;
+
+    const next: PersonRoleAccumulator = {
+      personId,
+      source,
+      roleId,
+      count: 0,
+      subjects: new Set<string>(),
+    };
+    perPersonRole.set(key, next);
+    return next;
+  };
+
+  for (const slot of sortedSlots) {
+    const slotKey = `d${slot.day}-s${slot.slot}`;
+    const attendance = attendanceBySlot[slotKey];
+    const slotRoleCounts = new Map<string, number>(
+      orderedRoles.map((r) => [r.id, 0])
+    );
+
+    let presentAndReplacement = 0;
+
+    if (attendance?.entries?.length) {
+      for (const att of attendance.entries) {
+        if (att.status === 'absent') continue;
+
+        let roleName = att.role;
+        if (roleName === 'attendance-override') {
+          const replaced = attendance.entries.find(
+            (x) => x.facultyId === att.replacementFrom
+          );
+          if (replaced?.role) {
+            roleName = replaced.role;
+          }
+        }
+
+        const roleId = roleIdFromName(roleName);
+        if (!roleId || !roleMap.has(roleId)) continue;
+
+        presentAndReplacement += 1;
+        slotRoleCounts.set(roleId, (slotRoleCounts.get(roleId) || 0) + 1);
+        roleTotals.set(roleId, (roleTotals.get(roleId) || 0) + 1);
+
+        const acc = getOrCreatePersonRoleAcc(att.facultyId, 'faculty', roleId);
+        acc.count += 1;
+        if (slot.subjectCode) {
+          acc.subjects.add(slot.subjectCode);
+        }
+      }
+    }
+
+    const manualSlotAssignments = slotWiseAssignments[slotKey] || [];
+    for (const assignment of manualSlotAssignments) {
+      if (!roleMap.has(assignment.roleId)) continue;
+      slotRoleCounts.set(
+        assignment.roleId,
+        (slotRoleCounts.get(assignment.roleId) || 0) + 1
+      );
+      roleTotals.set(
+        assignment.roleId,
+        (roleTotals.get(assignment.roleId) || 0) + 1
+      );
+
+      const acc = getOrCreatePersonRoleAcc(
+        assignment.personId,
+        assignment.source,
+        assignment.roleId
+      );
+      acc.count += 1;
+      if (slot.subjectCode) {
+        acc.subjects.add(slot.subjectCode);
+      }
+    }
+
+    const slotRow = ws.addRow([
+      new Date(slot.date),
+      slot.subjectNames || 'NA',
+      slot.subjectCode || 'NA',
+      `1/${slot.startTime} to ${slot.endTime}`,
+      slot.studentsAttended || 0,
+      ...orderedRoles.map((r) => slotRoleCounts.get(r.id) || 0),
+    ]);
+    slotRow.eachCell((cell, colNumber) => {
+      applyBorders(cell);
+      applyPadding(cell);
+      if (colNumber === 1) {
+        cell.numFmt = 'dd-mmm-yyyy';
+      }
+    });
+  }
+
+  const totalsRow = ws.addRow([
+    '',
+    'Total',
+    '',
+    '',
+    '',
+    ...orderedRoles.map((r) => roleTotals.get(r.id) || 0),
+  ]);
+  totalsRow.font = { bold: true };
+  totalsRow.eachCell((cell) => {
+    applyBorders(cell);
+    applyPadding(cell);
+  });
+
+  ws.addRow([]);
+  ws.addRow([]);
+
+  const designationHeader = ws.addRow([
+    'Designation',
+    'Total Sessions',
+    'Rate per Session',
+    'Total Remn.',
+  ]);
+  designationHeader.font = { bold: true };
+  designationHeader.eachCell((cell) => {
+    applyBorders(cell);
+    applyPadding(cell);
+    cell.alignment = { ...cell.alignment, horizontal: 'center' };
+  });
+
+  let grandTotal = 0;
+  for (const role of orderedRoles) {
+    const fromTopTable = roleTotals.get(role.id) || 0;
+    const fromNonSlot = (nonSlotAssignments[role.id] || []).reduce(
+      (sum, entry) => sum + (entry.count || 0),
+      0
+    );
+    const sessions = fromTopTable + fromNonSlot;
+    const amount = sessions * (role.rate || 0);
+    grandTotal += amount;
+
+    const row = ws.addRow([role.name, sessions, role.rate || 0, amount]);
+    row.eachCell((cell, colNumber) => {
+      applyBorders(cell);
+      applyPadding(cell);
+      if (colNumber >= 2) {
+        cell.alignment = { ...cell.alignment, horizontal: 'right' };
+      }
+    });
+  }
+
+  const designationTotalRow = ws.addRow(['Grand Total', '', '', grandTotal]);
+  designationTotalRow.font = { bold: true };
+  designationTotalRow.eachCell((cell) => {
+    applyBorders(cell);
+    applyPadding(cell);
+  });
+
+  for (const [roleId, entries] of Object.entries(nonSlotAssignments)) {
+    if (!entries?.length || !roleMap.has(roleId)) continue;
+    const role = roleMap.get(roleId)!;
+
+    for (const entry of entries) {
+      if (!entry.count) continue;
+      const acc = getOrCreatePersonRoleAcc(
+        entry.personId,
+        entry.source,
+        roleId
+      );
+      acc.count += entry.count;
+      if (role.nonSlotWiseSubjectInfo) {
+        acc.subjects.add(role.nonSlotWiseSubjectInfo);
+      }
+    }
+  }
+
+  ws.addRow([]);
+  ws.addRow([]);
+
+  const consolidatedTitle = ws.addRow([
+    `Consolidated work list of staff who worked during ${rangeLabel}`,
+  ]);
+  ws.mergeCells(
+    consolidatedTitle.number,
+    1,
+    consolidatedTitle.number,
+    topColumns.length
+  );
+  const consolidatedTitleCell = ws.getCell(consolidatedTitle.number, 1);
+  consolidatedTitleCell.font = { bold: true };
+  consolidatedTitleCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+  const consolidatedHeader = ws.addRow([
+    'Sl. No.',
+    'Emp. Code',
+    'Name',
+    'Sub.',
+    'Designation',
+    'Total Amt.',
+  ]);
+  consolidatedHeader.font = { bold: true };
+  consolidatedHeader.eachCell((cell) => {
+    applyBorders(cell);
+    applyPadding(cell);
+    cell.alignment = { ...cell.alignment, horizontal: 'center' };
+  });
+
+  const facultyMap = new Map(
+    facultyList.map((f) => [
+      f.facultyId,
+      {
+        staffId: f.facultyId,
+        name: f.facultyName,
+      },
+    ])
+  );
+  const staffMap = new Map(
+    staffList.map((s) => [
+      s.uuid,
+      {
+        staffId: s.staffId,
+        name: s.staffName,
+      },
+    ])
+  );
+
+  const personRoleRows = Array.from(perPersonRole.values())
+    .filter((x) => x.count > 0 && roleMap.has(x.roleId))
+    .sort((a, b) => {
+      // Role order
+      const orderA = roleMap.get(a.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = roleMap.get(b.roleId)?.order ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+
+      // Faculty ID
+      const pa =
+        a.source === 'faculty'
+          ? facultyMap.get(a.personId)
+          : staffMap.get(a.personId);
+      const pb =
+        b.source === 'faculty'
+          ? facultyMap.get(b.personId)
+          : staffMap.get(b.personId);
+
+      const idA = pa?.staffId || '';
+      const idB = pb?.staffId || '';
+      const idCompare = idA.localeCompare(idB, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (idCompare !== 0) return idCompare;
+
+      // name (as additional staff's visible ID is name of a management company)
+      const nameA = pa?.name || '';
+      const nameB = pb?.name || '';
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
+    });
+
+  let sNo = 1;
+  for (const item of personRoleRows) {
+    const person =
+      item.source === 'faculty'
+        ? facultyMap.get(item.personId)
+        : staffMap.get(item.personId);
+    const role = roleMap.get(item.roleId);
+    if (!person || !role) continue;
+
+    const totalAmt = item.count * (role.rate || 0);
+    const subjects = Array.from(item.subjects).join('/') || 'NA';
+
+    const row = ws.addRow([
+      sNo++,
+      person.staffId,
+      person.name,
+      subjects,
+      role.name,
+      totalAmt,
+    ]);
+    row.eachCell((cell, colNumber) => {
+      applyBorders(cell);
+      applyPadding(cell);
+      if (colNumber === 1 || colNumber === 6) {
+        cell.alignment = { ...cell.alignment, horizontal: 'right' };
+      }
+    });
+  }
+
+  ws.columns = [
+    { width: 14 },
+    { width: 30 },
+    { width: 24 },
+    { width: 48 },
+    { width: 24 },
+    { width: 18 },
+    ...orderedRoles.map(() => ({ width: 12 })),
+  ];
+
+  const filename = `renumeration-work-done-statement-${new Date().toISOString().split('T')[0]}.xlsx`;
   await downloadWorkbook(workbook, filename);
 }
 

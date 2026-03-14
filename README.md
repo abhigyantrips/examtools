@@ -1,69 +1,57 @@
-# React + TypeScript + Vite
+# ExamTools (React + TypeScript + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ExamTools is a client-side web app to automate examination invigilation: duty allocation, attendance tracking, and remuneration export. It is built with React, TypeScript and Vite and provides ZIP/Excel import-export, IndexedDB persistence, and a constraint-based assignment engine.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Automatic duty assignment with hard and soft constraints, plus post-check validations
+- Attendance marking per slot and room with round-trip ZIP import/export
+- Excel generation for overview and per-slot worksheets; machine-readable JSON stored under `internal/` in exported ZIPs
+- Local persistence via IndexedDB for exam state and imports
 
-## Expanding the ESLint configuration
+## Tech stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Framework: React + TypeScript (Vite)
+- Excel: ExcelJS
+- ZIP packaging: JSZip
+- Persistence: IndexedDB (via `idb` wrapper)
+- Styling: Tailwind CSS
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Quick start
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Install dependencies:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```bash
+pnpm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Run development server:
 
-```js
-// eslint.config.js
-import reactDom from 'eslint-plugin-react-dom';
-import reactX from 'eslint-plugin-react-x';
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
+```bash
+pnpm dev
 ```
+
+3. Build for production:
+
+```bash
+pnpm build
+```
+
+4. Run tests (if present):
+
+```bash
+pnpm test
+```
+
+## Key files and locations
+
+- `src/lib/assignment.ts`: core assignment engine (`assignDuties`) and validation
+- `src/lib/excel.ts`: Excel generation and `exportBatchAssignments`
+- `src/lib/json-files.ts` and `src/lib/zip.ts`: ZIP + JSON import/export helpers
+- `src/hooks/use-exam-data.ts`: IndexedDB persistence and import flows
+- `src/pages/assignment/*`, `src/pages/attendance/*`, `src/pages/renumeration/*`: feature flows and UI
+- `src/types/index.ts`: shared TypeScript types and interfaces
+
+## Notes
+
+- Exports include `internal/metadata.json` and `internal/assignment.json` to support round-trip imports.
