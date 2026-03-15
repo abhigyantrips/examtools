@@ -20,6 +20,7 @@ import {
   readMetadataSlots,
   readSlotAttendance,
   saveSlotAttendance,
+  updateSlotMetadata,
 } from '@/lib/attendance';
 import { cn } from '@/lib/utils';
 import { loadZip } from '@/lib/zip';
@@ -410,8 +411,20 @@ export function AttendancePage() {
           ds ? `${ds.startTime} - ${ds.endTime}` : undefined
         );
 
+        // Prefill optional metadata from slot definition
+        attendanceData.subjectCode = ds?.subjectCode || undefined;
+        attendanceData.subjectNames = ds?.subjectNames || undefined;
+        attendanceData.studentsAttended = ds?.studentsAttended;
+
         if (existing) {
           attendanceData.entries = existing.entries.slice();
+          // Existing attendance metadata (if present) should take precedence
+          attendanceData.subjectCode =
+            existing.subjectCode ?? attendanceData.subjectCode;
+          attendanceData.subjectNames =
+            existing.subjectNames ?? attendanceData.subjectNames;
+          attendanceData.studentsAttended =
+            existing.studentsAttended ?? attendanceData.studentsAttended;
           // Ensure all assigned faculty are included (excluding buffers)
           localAssignedList
             .filter((a) => a.role !== 'buffer')
@@ -447,6 +460,49 @@ export function AttendancePage() {
       }
     },
     [zipInstance, slots]
+  );
+
+  const handleSetAttendance = useCallback(
+    (next: SlotAttendance) => {
+      const metadataChanged =
+        (attendance?.subjectCode ?? undefined) !==
+          (next.subjectCode ?? undefined) ||
+        (attendance?.subjectNames ?? undefined) !==
+          (next.subjectNames ?? undefined) ||
+        (attendance?.studentsAttended ?? undefined) !==
+          (next.studentsAttended ?? undefined);
+
+      setAttendance(next);
+
+      if (!metadataChanged) return;
+
+      // Keep in-memory slot metadata in sync for downstream checks and screens
+      setZipSlots((prev) => {
+        if (!prev) return prev;
+        return prev.map((s) =>
+          s.day === next.day && s.slot === next.slot
+            ? {
+                ...s,
+                subjectCode: next.subjectCode,
+                subjectNames: next.subjectNames,
+                studentsAttended: next.studentsAttended,
+              }
+            : s
+        );
+      });
+
+      if (!zipInstance) return;
+
+      updateSlotMetadata(zipInstance as any, next.day, next.slot, {
+        subjectCode: next.subjectCode,
+        subjectNames: next.subjectNames,
+        studentsAttended: next.studentsAttended,
+      }).catch((err) => {
+        console.error('Failed to update slot metadata in ZIP', err);
+        toast.error('Failed to update slot metadata in ZIP.');
+      });
+    },
+    [attendance, zipInstance]
   );
 
   const attemptSelectSlot = useCallback(
@@ -585,7 +641,7 @@ export function AttendancePage() {
             attendance={attendance}
             assignedList={assignedList}
             examFaculty={facultyList}
-            onSetAttendance={(next) => setAttendance(next)}
+            onSetAttendance={handleSetAttendance}
           />
         )}
         {phase === 'review' && (
@@ -593,6 +649,7 @@ export function AttendancePage() {
             attendance={attendance}
             assignedList={assignedList}
             examFaculty={facultyList}
+            onSetAttendance={handleSetAttendance}
             zipInstance={zipInstance}
             zipFileName={zipFileName ?? undefined}
           />

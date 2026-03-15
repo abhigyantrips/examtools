@@ -15,11 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 interface ReviewPhaseProps {
   attendance: SlotAttendance | null;
   assignedList: Array<Pick<Assignment, 'facultyId' | 'role'>>;
   examFaculty: Array<Faculty>;
+  onSetAttendance?: (next: SlotAttendance) => void;
   zipInstance?: JSZip | null;
   zipFileName?: string | null;
 }
@@ -28,6 +30,7 @@ export function ReviewPhase({
   attendance,
   assignedList,
   examFaculty,
+  onSetAttendance,
   zipInstance,
   zipFileName,
 }: ReviewPhaseProps) {
@@ -75,6 +78,30 @@ export function ReviewPhase({
 
   const getFacultyName = (id: string) =>
     examFaculty.find((f) => f.facultyId === id)?.facultyName || id;
+
+  function updateOptionalMetadata(
+    key: 'subjectCode' | 'subjectNames' | 'studentsAttended',
+    value: string
+  ) {
+    if (!attendance || !onSetAttendance) return;
+
+    const next: SlotAttendance = {
+      ...attendance,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (key === 'studentsAttended') {
+      const parsed = Number(value);
+      next.studentsAttended =
+        value.trim() === '' || !Number.isFinite(parsed)
+          ? undefined
+          : Math.max(0, parsed);
+    } else {
+      next[key] = value.trim() === '' ? undefined : value;
+    }
+
+    onSetAttendance(next);
+  }
 
   async function handleExport() {
     if (!attendance) return;
@@ -146,6 +173,51 @@ export function ReviewPhase({
             <div className="text-xl font-medium">{overrideCount}</div>
           </div>
         </div>
+
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-base">Optional Slot Metadata</CardTitle>
+            <CardDescription>
+              Add or update slot info used for downstream processing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Subject code</label>
+                <Input
+                  placeholder="e.g. CS301"
+                  value={attendance.subjectCode ?? ''}
+                  onChange={(e) =>
+                    updateOptionalMetadata('subjectCode', e.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Subject names</label>
+                <Input
+                  placeholder="e.g. Data Structures"
+                  value={attendance.subjectNames ?? ''}
+                  onChange={(e) =>
+                    updateOptionalMetadata('subjectNames', e.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Students attended</label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 120"
+                  value={attendance.studentsAttended ?? ''}
+                  onChange={(e) =>
+                    updateOptionalMetadata('studentsAttended', e.target.value)
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {replacementsCount > 0 && (
           <div className="mt-4">

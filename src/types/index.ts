@@ -135,6 +135,9 @@ export interface SlotAttendance {
   slot: number;
   date: string; // ISO string
   time?: string;
+  subjectCode?: string;
+  subjectNames?: string;
+  studentsAttended?: number;
   entries: AttendanceEntry[];
   createdAt: string; // ISO
   updatedAt: string; // ISO
