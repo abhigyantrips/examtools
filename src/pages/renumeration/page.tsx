@@ -335,7 +335,8 @@ export function RenumerationPage() {
     onProgress?: (partial: any) => void
   ) => {
     const DELAY_MS = 1000;
-    const sleep = (ms: number) => new Promise((res) => setTimeout(res, DISABLE_DELAY ? 0 : ms));
+    const sleep = (ms: number) =>
+      new Promise((res) => setTimeout(res, DISABLE_DELAY ? 0 : ms));
 
     const result: any = {
       slotsFound: false,
@@ -496,6 +497,7 @@ export function RenumerationPage() {
         const missing: string[] = [];
         if (!s.subjectCode) missing.push('subjectCode');
         if (!s.subjectNames) missing.push('subjectNames');
+        if (!s.studentsAttended) missing.push('studentsAttended');
         if (missing.length > 0) {
           result.missingSubjectInfoSlots.push({ day, slot, missing });
         }
