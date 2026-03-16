@@ -10,6 +10,12 @@ export interface Faculty {
   phoneNo: string;
 }
 
+export interface AdditionalStaff {
+  uuid: string;
+  staffName: string;
+  staffId: string;
+}
+
 export interface DutySlot {
   day: number; // 0-indexed
   slot: number; // 0-indexed
@@ -23,6 +29,7 @@ export interface DutySlot {
   squadDuties: number;
   bufferDuties: number;
   rooms: string[]; // Room numbers
+  studentsAttended?: number;
   // totalDuties is implied: regularDuties + bufferDuties
 }
 
@@ -128,7 +135,72 @@ export interface SlotAttendance {
   slot: number;
   date: string; // ISO string
   time?: string;
+  subjectCode?: string;
+  subjectNames?: string;
+  studentsAttended?: number;
   entries: AttendanceEntry[];
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
+
+export type RenumerationRoleEntry = {
+  id: string;
+  name: string;
+  rate: number;
+  order: number; // ordering of roles for export
+  imported: boolean; // true if role came from ZIP (cannot be removed)
+  slotWiseAssignment: boolean; // true if role is assigned per slot (used to help set subject codes in renumeration export)
+  nonSlotWiseSubjectInfo: string | null; // subject info to use for non-slot-wise assignments
+};
+
+export type NonSlotWiseAssignmentEntry = {
+  roleId: string;
+  personId: string;
+  source: 'faculty' | 'staff';
+  count: number;
+};
+
+export type SlotWiseAssignmentEntry = {
+  roleId: string;
+  personId: string;
+  source: 'faculty' | 'staff';
+};
+
+export type Person = {
+  refId: string;
+  staffId: string;
+  name: string;
+  source: 'faculty' | 'staff';
+};
+
+export type SlotSummary = {
+  key: string;
+  slot: DutySlot;
+  assignmentCount: number;
+  assignmentCost: number;
+  attendancePresent: number;
+  attendanceReplacement: number;
+  attendanceAbsent: number;
+};
+
+export type PersonSummary = {
+  refId: string;
+  staffId: string;
+  name: string;
+  source: 'faculty' | 'staff';
+  slotWiseCount: number; // manual slot-wise only
+  slotWiseCost: number; // cost for manual slot-wise assignments
+  nonSlotCount: number; // manual non-slot-wise only
+  nonSlotCost: number; // cost for manual non-slot-wise assignments
+  attendancePresent: number;
+  attendanceAbsent: number;
+  attendanceReplacement: number;
+  attendanceCost: number; // cost for pre-assigned duties (based on attendance)
+  totalCost: number;
+  subjectsCovered: string[]; // just push subject codes here, will concat during export
+};
+
+export type RenumerationSummary = {
+  slotSummaries: SlotSummary[];
+  personSummaries: PersonSummary[];
+};
