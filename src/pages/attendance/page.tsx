@@ -597,6 +597,7 @@ export function AttendancePage() {
             <ToolProjectSelector
               phase={phase}
               unlockedOnPhase="import"
+              tool="attendance"
               zipFileName={zipFileName}
             />
 

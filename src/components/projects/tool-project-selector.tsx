@@ -7,8 +7,10 @@ import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 import type { Project } from '@/types';
 
 import { importZipAsDraftProject } from '@/lib/project-import';
+import { type ToolKind, projectAvailableFor } from '@/lib/projects-db';
 import { cn } from '@/lib/utils';
 
+import { useProjectCapabilities } from '@/hooks/use-project-capabilities';
 import { useProjects } from '@/hooks/use-projects';
 
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,10 @@ interface ToolProjectSelectorProps {
   // `unlockedOnPhase`; afterwards it acts as a read-only label.
   phase: string;
   unlockedOnPhase: string;
+  // Identifies which tool this selector is rendered in. The popover hides
+  // projects that don't have the prerequisite data for this tool (e.g. the
+  // attendance selector won't list projects without assignment data).
+  tool: ToolKind;
   // Optional filename of the in-memory ZIP, surfaced when the active project
   // is a draft so the user can see what they're working from.
   zipFileName?: string | null;
@@ -41,14 +47,24 @@ interface ToolProjectSelectorProps {
 export function ToolProjectSelector({
   phase,
   unlockedOnPhase,
+  tool,
   zipFileName,
 }: ToolProjectSelectorProps) {
   const navigate = useNavigate();
   const { projects, activeProject, setActive, create } = useProjects();
+  const { capabilityFor } = useProjectCapabilities();
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importing, setImporting] = useState(false);
+
+  // Hide projects that don't satisfy this tool's prerequisites. The active
+  // project always remains visible (even when ineligible) so the user can see
+  // what they're currently in, with an accompanying disabled state.
+  const compatibleProjects = projects.filter((p) =>
+    projectAvailableFor(capabilityFor(p.id), tool)
+  );
+  const hiddenIneligibleCount = projects.length - compatibleProjects.length;
 
   const isDraft = !!activeProject?.isDraft;
   const unlocked = phase === unlockedOnPhase && !isDraft;
@@ -162,7 +178,7 @@ export function ToolProjectSelector({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="h-9 max-w-xs justify-start gap-2 px-2.5"
+            className="h-9 max-w-xs justify-start gap-2 pr-3 pl-1"
             disabled={importing}
           >
             {activeProject ? (
@@ -191,21 +207,36 @@ export function ToolProjectSelector({
           <div className="text-muted-foreground px-2 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide">
             Switch Project
           </div>
-          {projects.length === 0 ? (
-            <div className="text-muted-foreground px-2 py-3 text-xs">
-              No saved projects yet.
+          {compatibleProjects.length === 0 ? (
+            <div className="text-muted-foreground space-y-1 px-2 py-3 text-xs">
+              <p>No compatible projects.</p>
+              {hiddenIneligibleCount > 0 && (
+                <p className="text-[10px]">
+                  {hiddenIneligibleCount} project
+                  {hiddenIneligibleCount === 1 ? '' : 's'} hidden — they don't
+                  have the data this tool needs yet.
+                </p>
+              )}
             </div>
           ) : (
-            <div className="max-h-64 overflow-y-auto">
-              {projects.map((project) => (
-                <ProjectRow
-                  key={project.id}
-                  project={project}
-                  active={project.id === activeProject?.id}
-                  onSelect={() => onSelect(project.id)}
-                />
-              ))}
-            </div>
+            <>
+              <div className="max-h-64 overflow-y-auto">
+                {compatibleProjects.map((project) => (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    active={project.id === activeProject?.id}
+                    onSelect={() => onSelect(project.id)}
+                  />
+                ))}
+              </div>
+              {hiddenIneligibleCount > 0 && (
+                <p className="text-muted-foreground px-2 pt-1 text-[10px]">
+                  {hiddenIneligibleCount} hidden — needs data from a previous
+                  tool.
+                </p>
+              )}
+            </>
           )}
           <div className="bg-border my-1 h-px" />
           <Button

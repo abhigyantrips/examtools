@@ -712,6 +712,7 @@ export function RenumerationPage() {
             <ToolProjectSelector
               phase={phase}
               unlockedOnPhase="import"
+              tool="renumeration"
               zipFileName={zipFileName}
             />
 

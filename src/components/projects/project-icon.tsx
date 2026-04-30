@@ -9,7 +9,7 @@ type Size = 'sm' | 'md' | 'lg';
 
 const SIZE_CLASSES: Record<Size, { box: string; icon: string }> = {
   sm: { box: 'size-7 rounded-md', icon: 'size-3.5' },
-  md: { box: 'size-10 rounded-lg', icon: 'size-5' },
+  md: { box: 'size-11 rounded-lg', icon: 'size-5.5' },
   lg: { box: 'size-14 rounded-xl', icon: 'size-7' },
 };
 

@@ -1,12 +1,14 @@
 import { format } from 'date-fns';
 import {
   CheckCircle2,
+  CircleDotDashed,
   Clock,
   FileUp,
   FolderOpen,
   MoreHorizontal,
   Pencil,
   Plus,
+  StickyNote,
   Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -52,6 +54,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 
 import {
   ProjectFormDialog,
@@ -272,13 +279,15 @@ export function ProjectsSection() {
                               navigate(route);
                             }}
                           >
-                            <FolderOpen className="mr-2 size-4" />
-                            <span className="flex-1">{label}</span>
+                            {available ? <FolderOpen className="mr-2 size-4" /> : <CircleDotDashed className="mr-2 size-4" />}
+                            <span className="flex flex-col">{label}
                             {!available && requirement && (
-                              <span className="text-muted-foreground ml-2 text-[10px] uppercase tracking-wide">
+                              <span className="text-muted-foreground mt-0.5 text-[10px] uppercase tracking-wide">
                                 {requirement}
                               </span>
                             )}
+                            </span>
+                            
                           </DropdownMenuItem>
                         );
                       })}
@@ -292,34 +301,54 @@ export function ProjectsSection() {
                         variant="destructive"
                       >
                         <Trash2 className="mr-2 size-4" />
-                        Delete
+                        Delete Project
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary" className="capitalize">
+                    <Badge variant="secondary" className="capitalize rounded-sm">
                       {project.semesterParity} Semester
                     </Badge>
-                    {project.isDraft && <Badge variant="outline">Draft</Badge>}
-                    {isActive && <Badge>Active</Badge>}
+                    {project.isDraft && <Badge variant="outline" className="rounded-sm">Draft</Badge>}
+                    {isActive && <Badge className="rounded-sm">Active</Badge>}
                   </div>
-                  {project.notes && (
-                    <p className="text-muted-foreground line-clamp-3 text-sm">
-                      {project.notes}
-                    </p>
-                  )}
-                  <p className="text-muted-foreground flex items-center gap-1 text-xs">
-                    <Clock className="size-3" />
-                    Updated{' '}
-                    {format(
-                      project.updatedAt instanceof Date
-                        ? project.updatedAt
-                        : new Date(project.updatedAt),
-                      'MMM d, yyyy h:mm a'
-                    )}
-                  </p>
+                  <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3" />
+                      Updated{' '}
+                      {format(
+                        project.updatedAt instanceof Date
+                          ? project.updatedAt
+                          : new Date(project.updatedAt),
+                        'MMM d, yyyy h:mm a'
+                      )}
+                    </span>
+                    {project.notes ? (
+                      <HoverCard openDelay={120} closeDelay={80}>
+                        <HoverCardTrigger asChild>
+                          <button
+                            type="button"
+                            className="hover:text-foreground hover:bg-accent inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors"
+                            aria-label="Show notes"
+                          >
+                            <StickyNote className="size-3" />
+                            Notes
+                          </button>
+                        </HoverCardTrigger>
+                        <HoverCardContent
+                          align="end"
+                          side="bottom"
+                          className="max-w-xs rounded-md border border-accent-foreground/20"
+                        >
+                          <p className="text-foreground/90 text-sm italic whitespace-pre-wrap">
+                            {project.notes}
+                          </p>
+                        </HoverCardContent>
+                      </HoverCard>
+                    ) : null}
+                  </div>
                 </CardContent>
               </Card>
             );

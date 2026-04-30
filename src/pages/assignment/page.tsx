@@ -227,6 +227,7 @@ export function AssignmentPage() {
             <ToolProjectSelector
               phase={currentPhase}
               unlockedOnPhase="upload"
+              tool="assignment"
             />
 
             <Button
