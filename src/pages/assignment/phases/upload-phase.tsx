@@ -240,11 +240,16 @@ export function UploadPhase({
 
       {/* Upload Instructions */}
       {faculty.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="pt-6">
-            <div className="text-muted-foreground text-center">
-              <Users className="mx-auto mb-4 size-12 opacity-50" />
-              <p className="text-sm">
+        <Card className="border-dashed ring-0 border-2 bg-transparent shadow-none">
+          <CardContent className="flex items-center justify-center gap-4 py-8">
+            <div className="bg-muted/50 text-muted-foreground flex size-16 shrink-0 items-center justify-center rounded-full">
+              <Users className="size-7" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="text-foreground/80 text-lg font-medium">
+                No Faculty Loaded
+              </p>
+              <p className="text-muted-foreground text-sm">
                 Upload your faculty Excel file to begin the duty assignment
                 process.
               </p>

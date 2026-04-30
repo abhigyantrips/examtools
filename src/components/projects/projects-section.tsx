@@ -208,14 +208,21 @@ export function ProjectsSection() {
       {loading ? (
         <div className="text-muted-foreground text-sm">Loading projects…</div>
       ) : projects.length === 0 ? (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="text-lg">No Projects Yet</CardTitle>
-            <CardDescription>
-              Create a project to start organizing data for an exam, or import
-              an existing ZIP to recover state.
-            </CardDescription>
-          </CardHeader>
+        <Card className="mt-8 border-dashed ring-0 border-2 bg-transparent shadow-none">
+          <CardContent className="flex items-center justify-center gap-4 py-8">
+            <div className="bg-muted/50 text-muted-foreground flex size-16 shrink-0 items-center justify-center rounded-full">
+              <FolderOpen className="size-7" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="text-foreground/80 text-lg font-medium">
+                No Projects Yet
+              </p>
+              <p className="text-muted-foreground text-sm">
+                Create a project to start organizing data for an exam, or import
+                an existing ZIP to recover state.
+              </p>
+            </div>
+          </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

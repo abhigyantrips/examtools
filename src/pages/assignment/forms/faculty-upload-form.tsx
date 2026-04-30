@@ -152,7 +152,7 @@ export function FacultyUploadForm({
               <p className="text-sm font-medium">
                 {dragActive
                   ? 'Drop the file here'
-                  : 'Drag and drop your Excel file here'}
+                  : 'Drop your Excel file here'}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
                 or click to browse files (.xlsx, .xls)

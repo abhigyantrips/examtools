@@ -52,7 +52,7 @@ export function ImportPhase({
               <Upload className="text-muted-foreground mx-auto size-12" />
               <div>
                 <p className="text-sm font-medium">
-                  Drag and drop your ZIP file here
+                  Drop your ZIP file here
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
                   or click to browse files (.zip)
