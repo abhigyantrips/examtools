@@ -1,5 +1,6 @@
 export * from './excel';
 export * from './json';
+export * from './project';
 
 export interface Faculty {
   sNo: number;
