@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 
 import { useActiveProjectId } from '@/hooks/use-projects';
 
+import { ToolProjectSelector } from '@/components/projects/tool-project-selector';
 import { PWAPrompt } from '@/components/pwa-prompt';
 import {
   AlertDialog,
@@ -593,19 +594,11 @@ export function AttendancePage() {
               <ArrowLeft className="mr-2 size-4" /> Back
             </Button>
 
-            {project && (
-              <div className="text-muted-foreground text-xs">
-                Working on{' '}
-                <span className="text-foreground font-medium">
-                  {project.title}
-                </span>
-                {project.isDraft && (
-                  <span className="bg-muted ml-2 rounded px-2 py-0.5 text-[10px] uppercase tracking-wide">
-                    Draft
-                  </span>
-                )}
-              </div>
-            )}
+            <ToolProjectSelector
+              phase={phase}
+              unlockedOnPhase="import"
+              zipFileName={zipFileName}
+            />
 
             <Button
               onClick={handleContinue}

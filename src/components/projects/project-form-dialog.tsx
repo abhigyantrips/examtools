@@ -1,6 +1,16 @@
+import { Check } from 'lucide-react';
+
 import { useEffect, useState } from 'react';
 
-import type { Project, SemesterParity } from '@/types';
+import type { Project, ProjectColor, SemesterParity } from '@/types';
+import { PROJECT_COLORS } from '@/types';
+
+import {
+  PROJECT_COLOR_CLASSES,
+  randomProjectColor,
+  resolveProjectColor,
+} from '@/lib/project-colors';
+import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,6 +31,7 @@ export interface ProjectFormValues {
   title: string;
   semesterParity: SemesterParity;
   notes: string;
+  color: ProjectColor;
   setActive?: boolean;
 }
 
@@ -47,6 +58,7 @@ export function ProjectFormDialog({
   const [title, setTitle] = useState('');
   const [semesterParity, setSemesterParity] = useState<SemesterParity>('even');
   const [notes, setNotes] = useState('');
+  const [color, setColor] = useState<ProjectColor>('blue');
   const [setActive, setSetActive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,10 +68,12 @@ export function ProjectFormDialog({
       setTitle(initial.title);
       setSemesterParity(initial.semesterParity);
       setNotes(initial.notes);
+      setColor(resolveProjectColor(initial));
     } else {
       setTitle('');
       setSemesterParity('even');
       setNotes('');
+      setColor(randomProjectColor());
       setSetActive(true);
     }
   }, [open, mode, initial]);
@@ -76,6 +90,7 @@ export function ProjectFormDialog({
         title: trimmed,
         semesterParity,
         notes,
+        color,
         setActive: showActiveToggle ? setActive : undefined,
       });
       onOpenChange(false);
@@ -133,12 +148,42 @@ export function ProjectFormDialog({
           </div>
 
           <div className="space-y-2">
+            <Label>Color</Label>
+            <div className="flex flex-wrap gap-2">
+              {PROJECT_COLORS.map((c) => {
+                const classes = PROJECT_COLOR_CLASSES[c];
+                const selected = color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    aria-label={classes.label}
+                    aria-pressed={selected}
+                    className={cn(
+                      'relative flex size-8 items-center justify-center rounded-full transition-transform',
+                      classes.swatch,
+                      selected
+                        ? 'ring-foreground ring-offset-background scale-110 ring-2 ring-offset-2'
+                        : 'hover:scale-105'
+                    )}
+                  >
+                    {selected && (
+                      <Check className="size-4 text-white drop-shadow" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="project-notes">Notes</Label>
             <Textarea
               id="project-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes for this exam"
+              placeholder="Here are some notes to myself about this project..."
               rows={4}
             />
           </div>

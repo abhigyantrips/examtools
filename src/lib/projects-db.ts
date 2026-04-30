@@ -5,9 +5,12 @@ import type {
   Project,
   ProjectAttendanceData,
   ProjectBundle,
+  ProjectColor,
   ProjectRenumerationData,
   SemesterParity,
 } from '@/types';
+
+import { randomProjectColor } from './project-colors';
 
 const DB_NAME = 'ExamToolsDB';
 const DB_VERSION = 2;
@@ -150,6 +153,7 @@ export interface CreateProjectInput {
   title: string;
   semesterParity: SemesterParity;
   notes?: string;
+  color?: ProjectColor;
   isDraft?: boolean;
 }
 
@@ -164,6 +168,7 @@ export async function createProject(
     title: input.title.trim() || 'Untitled Exam',
     semesterParity: input.semesterParity,
     notes: input.notes ?? '',
+    color: input.color ?? randomProjectColor(),
     isDraft: input.isDraft ?? false,
     createdAt: now,
     updatedAt: now,
@@ -188,6 +193,7 @@ export interface UpdateProjectInput {
   title?: string;
   semesterParity?: SemesterParity;
   notes?: string;
+  color?: ProjectColor;
   isDraft?: boolean;
 }
 
@@ -207,6 +213,7 @@ export async function updateProject(
         : existing.title,
     semesterParity: patch.semesterParity ?? existing.semesterParity,
     notes: patch.notes !== undefined ? patch.notes : existing.notes,
+    color: patch.color !== undefined ? patch.color : existing.color,
     isDraft: patch.isDraft !== undefined ? patch.isDraft : existing.isDraft,
     updatedAt: new Date(),
   };
@@ -325,6 +332,107 @@ export async function putRenumeration(
       .put({ ...project, updatedAt: new Date() });
   }
   await tx.done;
+}
+
+// ---------------------------------------------------------------------------
+// Capabilities — whether a project has enough data to be opened in each tool.
+// ---------------------------------------------------------------------------
+
+export interface ProjectCapabilities {
+  hasAssignment: boolean;
+  hasAttendance: boolean;
+}
+
+const EMPTY_CAPS: ProjectCapabilities = {
+  hasAssignment: false,
+  hasAttendance: false,
+};
+
+function computeCapabilities(
+  examData: ExamData | undefined,
+  attendance: ProjectAttendanceData | undefined
+): ProjectCapabilities {
+  const hasAssignment = !!examData && (examData.assignments?.length ?? 0) > 0;
+  const hasAttendance =
+    !!attendance &&
+    Object.values(attendance.slots || {}).some(
+      (s) => Array.isArray(s.entries) && s.entries.length > 0
+    );
+  return { hasAssignment, hasAttendance };
+}
+
+export async function getProjectCapabilities(
+  projectId: string
+): Promise<ProjectCapabilities> {
+  const db = await getDB();
+  const tx = db.transaction([STORE_EXAM_DATA, STORE_ATTENDANCE], 'readonly');
+  const [examData, attendance] = await Promise.all([
+    tx.objectStore(STORE_EXAM_DATA).get(projectId),
+    tx.objectStore(STORE_ATTENDANCE).get(projectId),
+  ]);
+  await tx.done;
+  return computeCapabilities(examData, attendance);
+}
+
+export async function listProjectCapabilities(): Promise<
+  Record<string, ProjectCapabilities>
+> {
+  const db = await getDB();
+  const tx = db.transaction(
+    [STORE_PROJECTS, STORE_EXAM_DATA, STORE_ATTENDANCE],
+    'readonly'
+  );
+  const projects = await tx.objectStore(STORE_PROJECTS).getAllKeys();
+  const examStore = tx.objectStore(STORE_EXAM_DATA);
+  const attendanceStore = tx.objectStore(STORE_ATTENDANCE);
+
+  const out: Record<string, ProjectCapabilities> = {};
+  await Promise.all(
+    projects.map(async (key) => {
+      const id = key as string;
+      const [examData, attendance] = await Promise.all([
+        examStore.get(id),
+        attendanceStore.get(id),
+      ]);
+      out[id] = computeCapabilities(examData, attendance);
+    })
+  );
+  await tx.done;
+  // Default for any projects added between transactions.
+  return new Proxy(out, {
+    get(target, prop: string) {
+      return target[prop] ?? EMPTY_CAPS;
+    },
+  });
+}
+
+export type ToolKind = 'assignment' | 'attendance' | 'renumeration';
+
+export function projectAvailableFor(
+  caps: ProjectCapabilities,
+  tool: ToolKind
+): boolean {
+  switch (tool) {
+    case 'assignment':
+      return true;
+    case 'attendance':
+      return caps.hasAssignment;
+    case 'renumeration':
+      return caps.hasAssignment && caps.hasAttendance;
+  }
+}
+
+export function unmetRequirementLabel(
+  caps: ProjectCapabilities,
+  tool: ToolKind
+): string | null {
+  if (projectAvailableFor(caps, tool)) return null;
+  if (tool === 'attendance') return 'Needs assignment data';
+  if (tool === 'renumeration') {
+    if (!caps.hasAssignment) return 'Needs assignment data';
+    return 'Needs attendance data';
+  }
+  return null;
 }
 
 export async function getProjectBundle(

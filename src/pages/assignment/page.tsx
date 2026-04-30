@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 import { useExamData } from '@/hooks/use-exam-data';
 
+import { ToolProjectSelector } from '@/components/projects/tool-project-selector';
 import { PWAPrompt } from '@/components/pwa-prompt';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -222,6 +223,11 @@ export function AssignmentPage() {
               <ArrowLeft />
               Back
             </Button>
+
+            <ToolProjectSelector
+              phase={currentPhase}
+              unlockedOnPhase="upload"
+            />
 
             <Button
               onClick={handleContinue}

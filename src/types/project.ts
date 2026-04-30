@@ -9,12 +9,36 @@ import type {
 
 export type SemesterParity = 'even' | 'odd';
 
+// Closed set of accent colors a project can be painted with. Tailwind classes
+// are looked up via a static map (see lib/project-colors.ts) to keep the JIT
+// purger happy.
+export type ProjectColor =
+  | 'red'
+  | 'orange'
+  | 'amber'
+  | 'green'
+  | 'blue'
+  | 'purple';
+
+export const PROJECT_COLORS: ProjectColor[] = [
+  'red',
+  'orange',
+  'amber',
+  'green',
+  'blue',
+  'purple',
+];
+
 export interface Project {
   id: string;
   slug: string;
   title: string;
   semesterParity: SemesterParity;
   notes: string;
+  // Closed set of accent colors. Older records persisted before this field
+  // was introduced may not have it; readers fall back to a stable hash-based
+  // default (see lib/project-colors.ts).
+  color?: ProjectColor;
   // Drafts are auto-created when a user imports a ZIP without explicitly
   // selecting/creating a project. They are promoted to a real project on
   // explicit save, or discarded.

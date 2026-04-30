@@ -17,7 +17,13 @@ import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 import type { Project } from '@/types';
 
 import { importZipAsDraftProject } from '@/lib/project-import';
+import {
+  type ToolKind,
+  projectAvailableFor,
+  unmetRequirementLabel,
+} from '@/lib/projects-db';
 
+import { useProjectCapabilities } from '@/hooks/use-project-capabilities';
 import { useProjects } from '@/hooks/use-projects';
 
 import {
@@ -51,6 +57,7 @@ import {
   ProjectFormDialog,
   type ProjectFormValues,
 } from './project-form-dialog';
+import { ProjectIcon } from './project-icon';
 
 interface ConfirmDelete {
   project: Project;
@@ -67,6 +74,7 @@ export function ProjectsSection() {
     remove,
     setActive,
   } = useProjects();
+  const { capabilityFor } = useProjectCapabilities();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
@@ -84,6 +92,7 @@ export function ProjectsSection() {
             title: values.title,
             semesterParity: values.semesterParity,
             notes: values.notes,
+            color: values.color,
           },
           { setActive: values.setActive }
         );
@@ -105,6 +114,7 @@ export function ProjectsSection() {
           title: values.title,
           semesterParity: values.semesterParity,
           notes: values.notes,
+          color: values.color,
         });
         toast.success('Project updated');
       } catch (err) {
@@ -204,6 +214,12 @@ export function ProjectsSection() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => {
             const isActive = project.id === activeProjectId;
+            const caps = capabilityFor(project.id);
+            const tools: Array<{ tool: ToolKind; label: string; route: string }> = [
+              { tool: 'assignment', label: 'Open in Assignment', route: '/assignment' },
+              { tool: 'attendance', label: 'Open in Attendance', route: '/attendance' },
+              { tool: 'renumeration', label: 'Open in Renumeration', route: '/renumeration' },
+            ];
             return (
               <Card
                 key={project.id}
@@ -213,8 +229,9 @@ export function ProjectsSection() {
                     : undefined
                 }
               >
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div className="min-w-0 space-y-1">
+                <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                  <ProjectIcon project={project} size="md" />
+                  <div className="min-w-0 flex-1 space-y-1">
                     <CardTitle className="truncate text-base">
                       {project.title}
                     </CardTitle>
@@ -234,7 +251,7 @@ export function ProjectsSection() {
                         <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuItem
                         onClick={() => setActive(project.id)}
                         disabled={isActive}
@@ -242,33 +259,29 @@ export function ProjectsSection() {
                         <CheckCircle2 className="mr-2 size-4" />
                         {isActive ? 'Active Project' : 'Set as Active'}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setActive(project.id);
-                          navigate('/assignment');
-                        }}
-                      >
-                        <FolderOpen className="mr-2 size-4" />
-                        Open in Assignment
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setActive(project.id);
-                          navigate('/attendance');
-                        }}
-                      >
-                        <FolderOpen className="mr-2 size-4" />
-                        Open in Attendance
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setActive(project.id);
-                          navigate('/renumeration');
-                        }}
-                      >
-                        <FolderOpen className="mr-2 size-4" />
-                        Open in Renumeration
-                      </DropdownMenuItem>
+                      {tools.map(({ tool, label, route }) => {
+                        const available = projectAvailableFor(caps, tool);
+                        const requirement = unmetRequirementLabel(caps, tool);
+                        return (
+                          <DropdownMenuItem
+                            key={tool}
+                            disabled={!available}
+                            onClick={() => {
+                              if (!available) return;
+                              setActive(project.id);
+                              navigate(route);
+                            }}
+                          >
+                            <FolderOpen className="mr-2 size-4" />
+                            <span className="flex-1">{label}</span>
+                            {!available && requirement && (
+                              <span className="text-muted-foreground ml-2 text-[10px] uppercase tracking-wide">
+                                {requirement}
+                              </span>
+                            )}
+                          </DropdownMenuItem>
+                        );
+                      })}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setEditTarget(project)}>
                         <Pencil className="mr-2 size-4" />
