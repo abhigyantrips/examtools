@@ -230,11 +230,6 @@ export function ProjectsSection() {
             return (
               <Card
                 key={project.id}
-                className={
-                  isActive
-                    ? 'border-primary/40 ring-primary/20 ring-2'
-                    : undefined
-                }
               >
                 <CardHeader className="flex flex-row items-start gap-3 space-y-0">
                   <ProjectIcon project={project} size="md" />
