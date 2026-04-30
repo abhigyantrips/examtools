@@ -8,17 +8,34 @@ import {
   Users,
 } from 'lucide-react';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   AdditionalStaff,
   DutySlot,
   Faculty,
   NonSlotWiseAssignmentEntry,
+  Project,
+  ProjectRenumerationData,
   RenumerationRoleEntry,
   SlotWiseAssignmentEntry,
 } from '@/types';
 
+import { importZipAsDraftProject } from '@/lib/project-import';
+import {
+  buildZipFromProject,
+  extractExamDataFromZip,
+} from '@/lib/project-zip';
+import {
+  deleteProject,
+  getAttendance,
+  getExamData,
+  getProject,
+  getRenumeration,
+  putExamData,
+  putRenumeration,
+  setActiveProjectId,
+} from '@/lib/projects-db';
 import {
   readMetadataSlots,
   readRolesFromZip,
@@ -26,7 +43,8 @@ import {
 } from '@/lib/renumeration';
 import { cn } from '@/lib/utils';
 import { readTextFile } from '@/lib/zip';
-import { loadZip } from '@/lib/zip';
+
+import { useActiveProjectId } from '@/hooks/use-projects';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
 import { Button } from '@/components/ui/button';
@@ -42,11 +60,13 @@ const DISABLE_DELAY = true;
 type Phase = 'import' | 'info' | 'assign' | 'review';
 
 export function RenumerationPage() {
+  const { activeProjectId, setActive: setActiveProject } = useActiveProjectId();
+
   const [phase, setPhase] = useState<Phase>('import');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
 
-  // Zip file state
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipTimestamps, setZipTimestamps] = useState<{
@@ -54,32 +74,29 @@ export function RenumerationPage() {
     created?: string;
   } | null>(null);
 
-  // Imported data state
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [importChecks, setImportChecks] = useState<any | null>(null);
-
-  // Slot data
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
 
-  // Role data
   const [roles, setRoles] = useState<RenumerationRoleEntry[]>([]);
-  // Staff list imported from an Excel sheet in the Additional Info phase
   const [staffList, setStaffList] = useState<AdditionalStaff[]>([]);
-  // Slot wise assignments
   const [slotWiseAssignments, setSlotWiseAssignments] = useState<
     Record<string, Array<SlotWiseAssignmentEntry>>
   >({});
-  // Non-slot-wise assignments: map roleId -> list of {personId,name,source,count}
   const [nonSlotAssignments, setNonSlotAssignments] = useState<
     Record<string, Array<NonSlotWiseAssignmentEntry>>
   >({});
-  // Store mapping of ZIP role name to RenumerationRoleEntry ID
   const [roleNameToIdMap, setRoleNameToIdMap] = useState<
     Record<string, string>
   >({});
-  // Store if user has visited the assign phase to update its completion status
   const [visitedAssignPhase, setVisitedAssignPhase] = useState(false);
-  
+
+  // Avoid re-saving renumeration state into the DB before we've finished
+  // hydrating it from the DB (otherwise the empty initial state would
+  // overwrite stored data on first load).
+  const renumerationLoadedRef = useRef(false);
+  const justImportedRef = useRef(false);
+
   const phases: Phase[] = ['import', 'info', 'assign', 'review'];
 
   const getNextPhase = (current: Phase): Phase | null => {
@@ -93,53 +110,30 @@ export function RenumerationPage() {
   };
 
   const getPhaseCompletion = useCallback(
-    (phase: Phase): boolean => {
-      // Placeholder logic; replace with actual completion checks
-      switch (phase) {
+    (p: Phase): boolean => {
+      switch (p) {
         case 'import':
-          // console.log('importChecks', importChecks);
-          if (!importChecks) {
-            // Import checks haven't run yet
-            return false;
-          }
-          if (importChecks.progress.attendance?.state !== 'done') {
-            // Attendance check not done
-            return false;
-          }
-          if (importChecks.progress.subjectInfo?.state !== 'done') {
-            // Subject info check not done
-            return false;
-          }
+          if (!importChecks) return false;
+          if (importChecks.progress.attendance?.state !== 'done') return false;
+          if (importChecks.progress.subjectInfo?.state !== 'done') return false;
           if (
             importChecks.missingAttendanceSlots &&
             importChecks.missingAttendanceSlots.length > 0
-          ) {
-            // Missing attendance slots or check not done
+          )
             return false;
-          }
           if (
             importChecks.missingSubjectInfoSlots &&
             importChecks.missingSubjectInfoSlots.length > 0
-          ) {
-            // Missing subject info on slots or not done
+          )
             return false;
-          }
-          if (!facultyList || facultyList.length === 0) {
-            // No faculty loaded or not done
-            return false;
-          }
+          if (!facultyList || facultyList.length === 0) return false;
           return zipInstance !== null;
         case 'info':
-          // require at least one role defined and all roles to have a name and rate
-          if (roles.length === 0) {
-            return false;
-          }
+          if (roles.length === 0) return false;
           for (const r of roles) {
-            if (!r.name || r.rate == null || isNaN(r.rate) || r.rate < 1) {
+            if (!r.name || r.rate == null || isNaN(r.rate) || r.rate < 1)
               return false;
-            }
           }
-          // console.log('Roles complete:', roles);
           return true;
         case 'assign':
           return visitedAssignPhase;
@@ -160,10 +154,7 @@ export function RenumerationPage() {
   const handleContinue = useCallback(() => {
     const next = getNextPhase(phase);
     if (next) {
-      // Mark assign phase as visited when navigating to it
-      if (next === 'assign') {
-        setVisitedAssignPhase(true);
-      }
+      if (next === 'assign') setVisitedAssignPhase(true);
       setPhase(next);
     }
   }, [phase]);
@@ -171,164 +162,7 @@ export function RenumerationPage() {
   const handleBack = useCallback(() => {
     const prev = getPreviousPhase(phase);
     if (prev) setPhase(prev);
-  }, [phase, getPreviousPhase]);
-
-  const onImportZip = useCallback(async (f: File | null) => {
-    if (!f) return;
-    // Reset state before processing new ZIP
-    onZipReset();
-    try {
-      const zip = await loadZip(f);
-      // process zip
-      await processZip(zip, f.name, (partial: any) => {
-        setImportChecks(partial);
-      });
-      // persist ZIP in localStorage
-      try {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const dataUrl = reader.result as string;
-            localStorage.setItem('renumeration:zip:dataUrl', dataUrl);
-            localStorage.setItem('renumeration:zip:name', f.name);
-          } catch (err) {
-            console.warn('Failed to persist ZIP to localStorage', err);
-          }
-        };
-        reader.readAsDataURL(f);
-      } catch (err) {
-        console.warn('Failed to create data URL for ZIP', err);
-      }
-
-      // read last_modified timestamp
-      try {
-        const lm =
-          zip.file('last_modified.txt') ||
-          zip.file('internal/last_modified.txt');
-        if (lm) {
-          const text = await lm.async('string');
-          setZipTimestamps({ updated: text });
-        }
-      } catch (err) {
-        // ignore
-      }
-
-      // Extract data from ZIP and run verification checks with progressive updates
-      setImportChecks(null);
-      const checks = await runImportChecks(zip as any, (partial: any) => {
-        setImportChecks(partial);
-      });
-      // ensure final state is applied
-      setImportChecks(checks);
-      // populate faculty list if present
-      if (checks && checks.faculty && checks.faculty.length > 0) {
-        setFacultyList(checks.faculty);
-      } else {
-        setFacultyList([]);
-      }
-      // populate roles from assignments in the zip
-      try {
-        const rolesFromZip = await readRolesFromZip(zip as any);
-        if (rolesFromZip && rolesFromZip.length > 0) {
-          // Generate mapping of role name to ID
-          const nameToIdMap: Record<string, string> = {};
-          rolesFromZip.forEach((r) => {
-            nameToIdMap[r.name.toLowerCase()] = r.id;
-          });
-          setRoleNameToIdMap(nameToIdMap);
-          setRoles(rolesFromZip);
-        }
-      } catch (err) {
-        // ignore role loading errors
-      }
-      // Load slot data
-      try {
-        const meta = await readMetadataSlots(zip as any);
-        if (meta && meta.length > 0) {
-          // convert date strings to Date objects for display
-          const mapped = meta.map((s: any) => ({
-            ...s,
-            date: new Date(s.date),
-          }));
-          setZipSlots(mapped);
-        }
-      } catch (err) {
-        console.warn('Failed to read metadata slots from zip', err);
-      }
-      console.log('Loaded ZIP');
-    } catch (err) {
-      console.error('Failed to load ZIP', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    }
-  }, []);
-
-  // Zip processing function shared between import and restore
-  const processZip = useCallback(
-    async (zip: JSZip, name?: string, onProgress?: (partial: any) => void) => {
-      setZipInstance(zip as any);
-      if (name) setZipFileName(name);
-
-      // read last_modified timestamp
-      try {
-        const lm =
-          zip.file('last_modified.txt') ||
-          zip.file('internal/last_modified.txt');
-        if (lm) {
-          const text = await lm.async('string');
-          setZipTimestamps({ updated: text });
-        }
-      } catch (err) {
-        // ignore
-      }
-
-      // reset previous checks and state data
-      setImportChecks(null);
-      setFacultyList([]);
-
-      // run verification checks with progressive updates
-      const checks = await runImportChecks(zip as any, onProgress);
-      setImportChecks(checks);
-      // populate faculty list if present
-      if (checks && checks.faculty) {
-        setFacultyList(checks.faculty);
-      }
-
-      // populate roles from assignments in the zip
-      try {
-        const rolesFromZip = await readRolesFromZip(zip as any);
-        if (rolesFromZip && rolesFromZip.length > 0) {
-          const nameToIdMap: Record<string, string> = {};
-          rolesFromZip.forEach((r) => {
-            nameToIdMap[r.name.toLowerCase()] = r.id;
-          });
-          // Only set roleNameToIdMap if not already populated from localStorage
-          if (Object.keys(roleNameToIdMap).length === 0) {
-            setRoleNameToIdMap(nameToIdMap);
-          }
-          setRoles(rolesFromZip);
-        }
-      } catch (err) {
-        // ignore role loading errors
-      }
-
-      // Load slot data
-      try {
-        const meta = await readMetadataSlots(zip as any);
-        if (meta && meta.length > 0) {
-          const mapped = meta.map((s: any) => ({
-            ...s,
-            date: new Date(s.date),
-          }));
-          setZipSlots(mapped);
-        }
-      } catch (err) {
-        console.warn('Failed to read metadata slots from zip', err);
-      }
-
-      return checks;
-    },
-    []
-  );
+  }, [phase]);
 
   const runImportChecks = async (
     zip: JSZip,
@@ -357,7 +191,6 @@ export function RenumerationPage() {
       },
     };
 
-    // Emit initial pending state immediately
     onProgress?.(result);
 
     try {
@@ -386,7 +219,7 @@ export function RenumerationPage() {
       let obj;
       try {
         obj = JSON.parse(metaText);
-      } catch (parseErr) {
+      } catch {
         result.progress.metadata = {
           state: 'failed',
           message: 'Invalid metadata format - not a valid exam duty ZIP',
@@ -402,7 +235,6 @@ export function RenumerationPage() {
       onProgress?.(result);
       await sleep(DELAY_MS);
 
-      // Set faculty processing state before computing
       result.progress.faculty = {
         state: 'processing',
         message: 'Loading faculty data',
@@ -433,7 +265,6 @@ export function RenumerationPage() {
         phoneNo: String(f.phoneNo || ''),
       }));
 
-      // Check if we have valid data
       if (slots.length === 0) {
         result.progress.faculty = {
           state: 'failed',
@@ -459,7 +290,6 @@ export function RenumerationPage() {
       onProgress?.(result);
       await sleep(DELAY_MS);
 
-      // Check each slot for attendance and subject info (sequentially to provide progress updates)
       result.progress.attendance = {
         state: 'processing',
         message: 'Checking attendance',
@@ -490,7 +320,7 @@ export function RenumerationPage() {
           if (!att || !att.entries || att.entries.length === 0) {
             result.missingAttendanceSlots.push({ day, slot });
           }
-        } catch (err) {
+        } catch {
           result.missingAttendanceSlots.push({ day, slot });
         }
 
@@ -502,7 +332,6 @@ export function RenumerationPage() {
           result.missingSubjectInfoSlots.push({ day, slot, missing });
         }
 
-        // emit progress after each slot
         onProgress?.(result);
       }
 
@@ -515,11 +344,9 @@ export function RenumerationPage() {
         message: 'Subject info check complete',
       };
       onProgress?.(result);
-      // give a short pause after all slot checks complete
       await sleep(DELAY_MS);
     } catch (err) {
       console.error('runImportChecks failed', err);
-      // Mark all incomplete phases as failed
       if (result.progress.metadata.state === 'processing') {
         result.progress.metadata = {
           state: 'failed',
@@ -559,15 +386,74 @@ export function RenumerationPage() {
     return result;
   };
 
-  const onZipReset = useCallback(() => {
-    // clear persisted zip and reset state
-    localStorage.removeItem('renumeration:zip:dataUrl');
-    localStorage.removeItem('renumeration:zip:name');
-    localStorage.removeItem('renumeration:roles');
-    localStorage.removeItem('renumeration:staffList');
-    localStorage.removeItem('renumeration:slotWiseAssignments');
-    localStorage.removeItem('renumeration:nonSlotAssignments');
-    localStorage.removeItem('renumeration:roleNameToIdMap');
+  const processZip = useCallback(
+    async (zip: JSZip, name?: string, onProgress?: (partial: any) => void) => {
+      setZipInstance(zip);
+      if (name) setZipFileName(name);
+
+      try {
+        const lm =
+          zip.file('last_modified.txt') ||
+          zip.file('internal/last_modified.txt');
+        if (lm) {
+          const text = await lm.async('string');
+          setZipTimestamps({ updated: text });
+        }
+      } catch {
+        // ignore
+      }
+
+      setImportChecks(null);
+      setFacultyList([]);
+
+      const checks = await runImportChecks(zip, onProgress);
+      setImportChecks(checks);
+      if (checks && checks.faculty) setFacultyList(checks.faculty);
+
+      try {
+        const rolesFromZip = await readRolesFromZip(zip);
+        if (rolesFromZip && rolesFromZip.length > 0) {
+          const nameToIdMap: Record<string, string> = {};
+          rolesFromZip.forEach((r) => {
+            nameToIdMap[r.name.toLowerCase()] = r.id;
+          });
+          if (Object.keys(roleNameToIdMap).length === 0) {
+            setRoleNameToIdMap(nameToIdMap);
+          }
+          setRoles((prev) => (prev.length === 0 ? rolesFromZip : prev));
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const meta = await readMetadataSlots(zip);
+        if (meta && meta.length > 0) {
+          const mapped = meta.map((s: any) => ({
+            ...s,
+            date: new Date(s.date),
+          }));
+          setZipSlots(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to read metadata slots from zip', err);
+      }
+
+      return checks;
+    },
+    [roleNameToIdMap]
+  );
+
+  const onZipReset = useCallback(async () => {
+    if (project?.isDraft) {
+      try {
+        await deleteProject(project.id);
+      } catch (err) {
+        console.warn('Failed to delete draft project', err);
+      }
+    }
+    await setActiveProjectId(null);
+    setProject(null);
     setZipInstance(null);
     setZipFileName(null);
     setZipTimestamps(null);
@@ -581,167 +467,160 @@ export function RenumerationPage() {
     setVisitedAssignPhase(false);
     setError(null);
     setPhase('import');
-  }, []);
+    renumerationLoadedRef.current = false;
+  }, [project]);
 
-  // Functions to wrap setRoles and persist to localStorage
-  const setRolesAndPersist = (newRoles: RenumerationRoleEntry[]) => {
-    setRoles(newRoles);
-    try {
-      localStorage.setItem('renumeration:roles', JSON.stringify(newRoles));
-    } catch (err) {
-      console.warn('Failed to persist roles to localStorage', err);
-    }
-  };
+  const onImportZip = useCallback(
+    async (f: File | null) => {
+      if (!f) return;
+      // Reset state before processing new ZIP, but skip the draft cleanup
+      // the standard reset would do (we're about to create a new draft).
+      setImportChecks(null);
+      setFacultyList([]);
+      setRoles([]);
+      setStaffList([]);
+      setSlotWiseAssignments({});
+      setNonSlotAssignments({});
+      setRoleNameToIdMap({});
+      setVisitedAssignPhase(false);
+      setError(null);
+      renumerationLoadedRef.current = false;
 
-  // Functions to wrap setStaffList and persist to localStorage
-  const setStaffListAndPersist = (newList: AdditionalStaff[]) => {
-    setStaffList(newList);
-    try {
-      localStorage.setItem('renumeration:staffList', JSON.stringify(newList));
-    } catch (err) {
-      console.warn('Failed to persist staffList to localStorage', err);
-    }
-  };
-
-  // Functions to wrap setSlotAssignments and persist to localStorage
-  const setSlotWiseAssignmentsAndPersist = (
-    newMap: Record<string, Array<SlotWiseAssignmentEntry>>
-  ) => {
-    setSlotWiseAssignments(newMap);
-    try {
-      localStorage.setItem(
-        'renumeration:slotWiseAssignments',
-        JSON.stringify(newMap)
-      );
-    } catch (err) {
-      console.warn(
-        'Failed to persist slotWiseAssignments to localStorage',
-        err
-      );
-    }
-  };
-
-  // Functions to wrap nonSlotAssignments and persist to localStorage
-  const setNonSlotAssignmentsAndPersist = (
-    newMap: Record<string, Array<NonSlotWiseAssignmentEntry>>
-  ) => {
-    setNonSlotAssignments(newMap);
-    try {
-      localStorage.setItem(
-        'renumeration:nonSlotAssignments',
-        JSON.stringify(newMap)
-      );
-    } catch (err) {
-      console.warn('Failed to persist nonSlotAssignments to localStorage', err);
-    }
-  };
-
-  // restore persisted state from localStorage (roles, staff, assignments)
-  function restorePersistedState() {
-    try {
-      const raw = localStorage.getItem('renumeration:roles');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setRoles(parsed);
-        }
+      try {
+        const { project: draft, zip } = await importZipAsDraftProject(f);
+        justImportedRef.current = true;
+        await setActiveProject(draft.id);
+        setProject(draft);
+        await processZip(zip, f.name, (partial: any) => {
+          setImportChecks(partial);
+        });
+        // Finished hydrating; allow renumeration auto-save below.
+        renumerationLoadedRef.current = true;
+      } catch (err) {
+        console.error('Failed to load ZIP', err);
+        setError(err instanceof Error ? err : new Error(String(err)));
       }
-    } catch (err) {
-      console.warn('Failed to restore persisted roles', err);
-    }
+    },
+    [processZip, setActiveProject]
+  );
 
-    try {
-      const rawStaff = localStorage.getItem('renumeration:staffList');
-      if (rawStaff) {
-        const parsedStaff = JSON.parse(rawStaff);
-        if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
-          setStaffList(parsedStaff);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to restore persisted staffList', err);
-    }
-
-    try {
-      const rawNonSlot = localStorage.getItem(
-        'renumeration:nonSlotAssignments'
-      );
-      if (rawNonSlot) {
-        const parsedNonSlot = JSON.parse(rawNonSlot);
-        if (
-          parsedNonSlot &&
-          typeof parsedNonSlot === 'object' &&
-          Object.keys(parsedNonSlot).length > 0
-        ) {
-          setNonSlotAssignments(parsedNonSlot);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to restore persisted nonSlotAssignments', err);
-    }
-
-    try {
-      const rawSlotWise = localStorage.getItem(
-        'renumeration:slotWiseAssignments'
-      );
-      if (rawSlotWise) {
-        const parsedSlotWise = JSON.parse(rawSlotWise);
-        if (
-          parsedSlotWise &&
-          typeof parsedSlotWise === 'object' &&
-          Object.keys(parsedSlotWise).length > 0
-        ) {
-          setSlotWiseAssignments(parsedSlotWise);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to restore persisted slotWiseAssignments', err);
-    }
-
-    try {
-      const rawRoleNameToIdMap = localStorage.getItem(
-        'renumeration:roleNameToIdMap'
-      );
-      if (rawRoleNameToIdMap) {
-        const parsedMap = JSON.parse(rawRoleNameToIdMap);
-        if (
-          parsedMap &&
-          typeof parsedMap === 'object' &&
-          Object.keys(parsedMap).length > 0
-        ) {
-          setRoleNameToIdMap(parsedMap);
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to restore persisted roleNameToIdMap', err);
-    }
-  }
-
-  // on mount, try to restore persisted zip from localStorage
+  // Hydrate from active project when it changes.
   useEffect(() => {
-    const dataUrl = localStorage.getItem('renumeration:zip:dataUrl');
-    const name = localStorage.getItem('renumeration:zip:name');
-    if (!dataUrl) return;
+    let cancelled = false;
     (async () => {
+      if (!activeProjectId) {
+        if (!cancelled) {
+          setProject(null);
+          setZipInstance(null);
+          setZipFileName(null);
+          setImportChecks(null);
+          setFacultyList([]);
+          setRoles([]);
+          setStaffList([]);
+          setSlotWiseAssignments({});
+          setNonSlotAssignments({});
+          setRoleNameToIdMap({});
+          setVisitedAssignPhase(false);
+          setPhase('import');
+          renumerationLoadedRef.current = false;
+        }
+        return;
+      }
+      if (justImportedRef.current) {
+        justImportedRef.current = false;
+        return;
+      }
       setLoading(true);
       try {
-        const resp = await fetch(dataUrl);
-        const buffer = await resp.arrayBuffer();
-        const f = new File([buffer], name || 'attendance.zip', {
-          type: 'application/zip',
-        });
-        const zip = await loadZip(f);
-        // Use shared processor to restore state similar to import flow
-        await processZip(zip, name || 'attendance.zip');
-
-        // Restore persisted application state (roles, staff, assignments)
-        restorePersistedState();
+        const [proj, examData, attendanceData, renumeration] =
+          await Promise.all([
+            getProject(activeProjectId),
+            getExamData(activeProjectId),
+            getAttendance(activeProjectId),
+            getRenumeration(activeProjectId),
+          ]);
+        if (cancelled) return;
+        if (!proj) {
+          setProject(null);
+          setZipInstance(null);
+          setPhase('import');
+          return;
+        }
+        setProject(proj);
+        if (renumeration) {
+          setRoles(renumeration.roles);
+          setStaffList(renumeration.staffList);
+          setSlotWiseAssignments(renumeration.slotWiseAssignments);
+          setNonSlotAssignments(renumeration.nonSlotAssignments);
+          setRoleNameToIdMap(renumeration.roleNameToIdMap);
+        }
+        if (examData || attendanceData) {
+          const zip = buildZipFromProject({
+            examData,
+            attendance: attendanceData,
+          });
+          await processZip(zip, `${proj.title}.zip`);
+        }
+        renumerationLoadedRef.current = true;
       } catch (err) {
-        console.warn('Failed to restore ZIP from storage', err);
+        console.warn('Failed to hydrate renumeration from project', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+    // processZip depends on roleNameToIdMap; re-running it on every change
+    // would clobber hydration. We intentionally exclude it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId]);
+
+  // After a fresh import, also write the parsed exam data into the project.
+  useEffect(() => {
+    if (!zipInstance || !activeProjectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const examData = await extractExamDataFromZip(zipInstance);
+        if (examData && !cancelled) {
+          await putExamData(activeProjectId, examData);
+        }
+      } catch (err) {
+        console.warn('Failed to seed exam data into project', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zipInstance]);
+
+  // Persist renumeration state to project storage whenever any of the tracked
+  // pieces change. Skipped until we've finished the initial hydration to
+  // avoid overwriting stored values with the empty initial state.
+  useEffect(() => {
+    if (!activeProjectId) return;
+    if (!renumerationLoadedRef.current) return;
+    const data: ProjectRenumerationData = {
+      roles,
+      staffList,
+      slotWiseAssignments,
+      nonSlotAssignments,
+      roleNameToIdMap,
+      updatedAt: new Date(),
+    };
+    putRenumeration(activeProjectId, data).catch((err) => {
+      console.warn('Failed to persist renumeration state', err);
+    });
+  }, [
+    activeProjectId,
+    roles,
+    staffList,
+    slotWiseAssignments,
+    nonSlotAssignments,
+    roleNameToIdMap,
+  ]);
 
   if (loading) {
     return (
@@ -778,7 +657,6 @@ export function RenumerationPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Compact Phase Navigation */}
       <div className="bg-muted/30 border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center">
@@ -819,7 +697,6 @@ export function RenumerationPage() {
         </div>
       </div>
 
-      {/* Navigation Controls */}
       <div className="bg-background border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -830,6 +707,20 @@ export function RenumerationPage() {
             >
               <ArrowLeft className="mr-2 size-4" /> Back
             </Button>
+
+            {project && (
+              <div className="text-muted-foreground text-xs">
+                Working on{' '}
+                <span className="text-foreground font-medium">
+                  {project.title}
+                </span>
+                {project.isDraft && (
+                  <span className="bg-muted ml-2 rounded px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                    Draft
+                  </span>
+                )}
+              </div>
+            )}
 
             <Button
               onClick={handleContinue}
@@ -842,7 +733,6 @@ export function RenumerationPage() {
         </div>
       </div>
 
-      {/* Phase Content */}
       <main className="container mx-auto px-4 py-6">
         {phase === 'import' && (
           <ImportPhase
@@ -857,9 +747,9 @@ export function RenumerationPage() {
         {phase === 'info' && (
           <AdditionalInfoPhase
             roles={roles}
-            setRoles={setRolesAndPersist}
+            setRoles={setRoles}
             staffList={staffList}
-            setStaffList={setStaffListAndPersist}
+            setStaffList={setStaffList}
           />
         )}
         {phase === 'assign' && (
@@ -868,9 +758,9 @@ export function RenumerationPage() {
             facultyList={facultyList}
             staffList={staffList}
             nonSlotAssignments={nonSlotAssignments}
-            setNonSlotAssignments={setNonSlotAssignmentsAndPersist}
+            setNonSlotAssignments={setNonSlotAssignments}
             slotWiseAssignments={slotWiseAssignments}
-            setSlotWiseAssignments={setSlotWiseAssignmentsAndPersist}
+            setSlotWiseAssignments={setSlotWiseAssignments}
             zipSlots={zipSlots!}
           />
         )}

@@ -9,9 +9,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Assignment, DutySlot, Faculty, SlotAttendance } from '@/types';
+import type {
+  Assignment,
+  DutySlot,
+  Faculty,
+  Project,
+  SlotAttendance,
+} from '@/types';
 
 import {
   createEmptyAttendance,
@@ -22,8 +28,24 @@ import {
   saveSlotAttendance,
   updateSlotMetadata,
 } from '@/lib/attendance';
+import { importZipAsDraftProject } from '@/lib/project-import';
+import {
+  buildZipFromProject,
+  extractAttendanceFromZip,
+  extractExamDataFromZip,
+} from '@/lib/project-zip';
+import {
+  deleteProject,
+  getAttendance,
+  getExamData,
+  getProject,
+  putAttendance,
+  putExamData,
+  setActiveProjectId,
+} from '@/lib/projects-db';
 import { cn } from '@/lib/utils';
-import { loadZip } from '@/lib/zip';
+
+import { useActiveProjectId } from '@/hooks/use-projects';
 
 import { PWAPrompt } from '@/components/pwa-prompt';
 import {
@@ -45,16 +67,16 @@ import { MarkPhase } from './phases/mark-phase';
 import { ReviewPhase } from './phases/review-phase';
 import { SlotSelectionPhase } from './phases/slot-selection-phase';
 
+type Phase = 'import' | 'select' | 'mark' | 'review';
+
 export function AttendancePage() {
-  // const [loading, setLoading] = useState<boolean>(true);
+  const { activeProjectId, setActive: setActiveProject } = useActiveProjectId();
+
   const [error, setError] = useState<Error | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [zipInstance, setZipInstance] = useState<JSZip | null>(null);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipSlots, setZipSlots] = useState<DutySlot[] | null>(null);
-  const [zipTimestamps, setZipTimestamps] = useState<{
-    updated?: string;
-    created?: string;
-  } | null>(null);
   const [selected, setSelected] = useState<{
     day: number;
     slot: number;
@@ -67,24 +89,23 @@ export function AttendancePage() {
   const [assignedList, setAssignedList] = useState<
     Array<Pick<Assignment, 'facultyId' | 'role'>>
   >([]);
-  const [phase, setPhase] = useState<'import' | 'select' | 'mark' | 'review'>(
-    'import'
-  );
+  const [phase, setPhase] = useState<Phase>('import');
   const [markedMap, setMarkedMap] = useState<Record<string, boolean>>({});
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Prefer slots from imported ZIP metadata when present, otherwise use app exam structure
-  const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
+  // Tracks whether the currently loaded ZIP came from a freshly imported file
+  // (so we know to write the parsed exam data back into the project on first
+  // load) vs being rebuilt from project storage.
+  const justImportedRef = useRef(false);
 
-  type Phase = 'import' | 'select' | 'mark' | 'review';
+  const slots = useMemo(() => zipSlots ?? [], [zipSlots]);
 
   const getPhaseCompletion = useCallback(
     (p: Phase) => {
       switch (p) {
         case 'import':
-          // import phase considered complete when slots are available or zip loaded
-          return zipInstance !== null || [].length > 0;
+          return zipInstance !== null;
         case 'select':
           return selected !== null;
         case 'mark':
@@ -104,295 +125,206 @@ export function AttendancePage() {
   );
 
   const phases: Phase[] = ['import', 'select', 'mark', 'review'];
+  const getNextPhase = (current: Phase) =>
+    phases[Math.min(phases.indexOf(current) + 1, phases.length - 1)] ?? null;
+  const getPreviousPhase = (current: Phase) =>
+    phases[Math.max(phases.indexOf(current) - 1, 0)] ?? null;
 
-  const getNextPhase = (current: Phase): Phase | null => {
-    const idx = phases.indexOf(current);
-    return idx < phases.length - 1 ? phases[idx + 1] : null;
-  };
-
-  const getPreviousPhase = (current: Phase): Phase | null => {
-    const idx = phases.indexOf(current);
-    return idx > 0 ? phases[idx - 1] : null;
-  };
-
-  const handleContinue = useCallback(() => {
-    if (!canProceedToNext(phase)) {
-      toast.error('Please complete the current phase before continuing.');
-      return;
-    }
-    const next = getNextPhase(phase);
-    if (phase === 'review') {
-      // Reset selected and attendance to allow new slot selection
-      setSelected(null);
-      setAttendance(null);
-      // Update marked map to reflect newly marked slot
-      if (selected) {
-        setMarkedMap((prev) => ({
-          ...prev,
-          [`${selected.day}-${selected.slot}`]: true,
-        }));
+  // Persist current attendance state from the in-memory ZIP back into the
+  // active project. Called after every meaningful mutation.
+  const persistAttendanceToProject = useCallback(
+    async (zip: JSZip, projectId: string | null) => {
+      if (!projectId) return;
+      try {
+        const data = await extractAttendanceFromZip(zip);
+        if (data) {
+          await putAttendance(projectId, data);
+        }
+      } catch (err) {
+        console.warn('Failed to persist attendance to project', err);
       }
-      if (!zipInstance || !attendance) {
-        toast.error('No ZIP instance or attendance data found.');
-        return;
-      } else {
-        // Make a copy of zipInstance to modify
-        var zip = zipInstance;
-        // Update zip blob
-        saveSlotAttendance(zip as any, attendance)
-          .then(() => {
-            console.log('Saved attendance to ZIP');
-          })
-          .catch((err) => {
-            console.error('Failed to save attendance to ZIP', err);
-            toast.error('Failed to save attendance data to ZIP.');
-          });
-        setZipInstance(zip);
-      }
+    },
+    []
+  );
 
-      toast.success(
-        'Attendance data saved successfully. You can mark another slot now.'
-      );
-      // Move to select phase
-      setPhase('select');
-      return;
-    }
-    if (next) setPhase(next);
-  }, [phase, canProceedToNext]);
-
-  const handleBack = useCallback(() => {
-    const prev = getPreviousPhase(phase);
-    if (prev) setPhase(prev);
-  }, [phase]);
-
-  const onZipReset = useCallback(() => {
-    // clear persisted zip and reset state
-    localStorage.removeItem('attendance:zip:dataUrl');
-    localStorage.removeItem('attendance:zip:name');
-    setZipInstance(null);
-    setZipFileName(null);
-    setZipSlots(null);
-    setMarkedMap({});
-    setZipTimestamps(null);
-    setPhase('import');
-  }, []);
-
-  const onImportZip = useCallback(async (f: File | null) => {
-    if (!f) return;
-    setLoading(true);
+  const hydrateZipMetadata = useCallback(async (zip: JSZip) => {
     try {
-      const zip = await loadZip(f);
-      setZipInstance(zip as any);
-      setZipFileName(f.name);
-      // persist ZIP in localStorage as data URL so it survives reloads
-      try {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const dataUrl = reader.result as string;
-            localStorage.setItem('attendance:zip:dataUrl', dataUrl);
-            localStorage.setItem('attendance:zip:name', f.name);
-          } catch (err) {
-            console.warn('Failed to persist ZIP to localStorage', err);
-          }
-        };
-        reader.readAsDataURL(f);
-      } catch (err) {
-        console.warn('Failed to create data URL for ZIP', err);
-      }
-
-      // read last_modified.txt if present and expose to import UI
-      try {
-        const lm =
-          zip.file('last_modified.txt') ||
-          zip.file('internal/last_modified.txt');
-        if (lm) {
-          const text = await lm.async('string');
-          setZipTimestamps({ updated: text });
-        }
-      } catch (err) {
-        // ignore
-      }
-
-      // load metadata slots (if the zip contains internal/metadata.json)
-      try {
-        const meta = await readMetadataSlots(zip as any);
-        if (meta && meta.length > 0) {
-          // convert date strings to Date objects for display
-          const mapped = meta.map((s: any) => ({
-            ...s,
-            date: new Date(s.date),
-          }));
-          setZipSlots(mapped);
-          // compute marked map for these slots
-          const mm: Record<string, boolean> = {};
-          await Promise.all(
-            mapped.map(async (s: any) => {
-              try {
-                console.log('Reading attendance for slot:', s);
-                const att = await readSlotAttendance(
-                  zip as any,
-                  Number(s.day),
-                  Number(s.slot)
-                );
-                mm[`${s.day}-${s.slot}`] = !!(
-                  att &&
-                  att.entries &&
-                  att.entries.length > 0
-                );
-              } catch {
-                mm[`${s.day}-${s.slot}`] = false;
-              }
-            })
-          );
-          console.log('Marked map from metadata slots:', mm);
-          setMarkedMap(mm);
-          // Extract faculty list from metadata for faculty map
-          const facultyList = await readMetadataFaculty(zip as any);
-          if (facultyList && facultyList.length > 0) {
-            setFacultyList(facultyList);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to read metadata slots from zip', err);
-      }
-
-      // Also attempt to read faculty metadata regardless of slots
-      try {
-        const facultyMeta = await readMetadataFaculty(zip as any);
-        if (facultyMeta && facultyMeta.length > 0) {
-          setFacultyList(facultyMeta);
-        }
-      } catch (err) {
-        // ignore
-      }
-
-      console.log('Loaded ZIP');
-      // move to select phase after import
-      setPhase('select');
-    } catch (err) {
-      console.error('Failed to load ZIP', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // on mount, try to restore persisted zip from localStorage
-  useEffect(() => {
-    const dataUrl = localStorage.getItem('attendance:zip:dataUrl');
-    const name = localStorage.getItem('attendance:zip:name');
-    if (!dataUrl) return;
-    (async () => {
-      setLoading(true);
-      try {
-        const resp = await fetch(dataUrl);
-        const buffer = await resp.arrayBuffer();
-        const f = new File([buffer], name || 'attendance.zip', {
-          type: 'application/zip',
-        });
-        const zip = await loadZip(f);
-        setZipInstance(zip as any);
-        setZipFileName(name || 'attendance.zip');
-        // read metadata slots if present
-        try {
-          const meta = await readMetadataSlots(zip as any);
-          if (meta && meta.length > 0) {
-            const mapped = meta.map((s: any) => ({
-              ...s,
-              date: new Date(s.date),
-            }));
-            setZipSlots(mapped);
-          }
-        } catch (err) {
-          // ignore
-        }
-        // read last_modified
-        try {
-          const lm =
-            zip.file('last_modified.txt') ||
-            zip.file('internal/last_modified.txt');
-          if (lm) {
-            const text = await lm.async('string');
-            setZipTimestamps({ updated: text });
-          }
-        } catch (err) {}
-        setPhase('select');
-      } catch (err) {
-        console.warn('Failed to restore ZIP from storage', err);
-      }
-      setLoading(false);
-    })();
-  }, []);
-
-  // recompute marked map when zipInstance or slots change (fallback if no metadata)
-  useEffect(() => {
-    let cancelled = false;
-    async function compute() {
-      if (!zipInstance) {
-        setMarkedMap({});
-        return;
-      }
-      const mm: Record<string, boolean> = {};
-      const iterate = slots && slots.length > 0 ? slots : [];
-      setLoading(true);
-      await Promise.all(
-        iterate.map(async (s: any) => {
-          try {
-            const att = await readSlotAttendance(
-              zipInstance,
-              Number(s.day),
-              Number(s.slot)
-            );
-            if (!cancelled)
+      const meta = await readMetadataSlots(zip);
+      if (meta && meta.length > 0) {
+        const mapped = meta.map((s: any) => ({
+          ...s,
+          date: new Date(s.date),
+        })) as DutySlot[];
+        setZipSlots(mapped);
+        const mm: Record<string, boolean> = {};
+        await Promise.all(
+          mapped.map(async (s) => {
+            try {
+              const att = await readSlotAttendance(
+                zip,
+                Number(s.day),
+                Number(s.slot)
+              );
               mm[`${s.day}-${s.slot}`] = !!(
                 att &&
                 att.entries &&
                 att.entries.length > 0
               );
-          } catch {
-            if (!cancelled) mm[`${s.day}-${s.slot}`] = false;
-          }
-        })
-      );
-      if (!cancelled) setMarkedMap(mm);
-      setLoading(false);
+            } catch {
+              mm[`${s.day}-${s.slot}`] = false;
+            }
+          })
+        );
+        setMarkedMap(mm);
+      }
+    } catch (err) {
+      console.warn('Failed to read metadata slots from zip', err);
     }
-    compute();
-    return () => {
-      cancelled = true;
-    };
-  }, [zipInstance, slots]);
 
-  // Ensure faculty list is populated when a ZIP is loaded (restore path or external set)
+    try {
+      const facultyMeta = await readMetadataFaculty(zip);
+      if (facultyMeta && facultyMeta.length > 0) setFacultyList(facultyMeta);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const onImportZip = useCallback(
+    async (f: File | null) => {
+      if (!f) return;
+      setLoading(true);
+      try {
+        const { project: draft, zip } = await importZipAsDraftProject(f);
+        justImportedRef.current = true;
+        await setActiveProject(draft.id);
+        setProject(draft);
+        setZipInstance(zip);
+        setZipFileName(f.name);
+        await hydrateZipMetadata(zip);
+        setPhase('select');
+      } catch (err) {
+        console.error('Failed to load ZIP', err);
+        toast.error(err instanceof Error ? err.message : 'Failed to load ZIP');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [hydrateZipMetadata, setActiveProject]
+  );
+
+  // Hydrate from the active project on mount / when the active project changes.
   useEffect(() => {
-    if (!zipInstance) return;
     let cancelled = false;
     (async () => {
+      if (!activeProjectId) {
+        if (!cancelled) {
+          setProject(null);
+          setZipInstance(null);
+          setZipFileName(null);
+          setZipSlots(null);
+          setMarkedMap({});
+          setPhase('import');
+        }
+        return;
+      }
+      // Don't clobber the in-memory ZIP we just imported.
+      if (justImportedRef.current) {
+        justImportedRef.current = false;
+        return;
+      }
+      setLoading(true);
       try {
-        const meta = await readMetadataFaculty(zipInstance as any);
-        if (!cancelled && meta && meta.length > 0) setFacultyList(meta);
+        const [proj, examData, attendanceData] = await Promise.all([
+          getProject(activeProjectId),
+          getExamData(activeProjectId),
+          getAttendance(activeProjectId),
+        ]);
+        if (cancelled) return;
+        if (!proj) {
+          setProject(null);
+          setZipInstance(null);
+          setPhase('import');
+          return;
+        }
+        setProject(proj);
+        if (!examData && !attendanceData) {
+          // Empty project — nothing to hydrate; user must import a ZIP.
+          setZipInstance(null);
+          setZipFileName(null);
+          setZipSlots(null);
+          setPhase('import');
+          return;
+        }
+        const zip = buildZipFromProject({
+          examData,
+          attendance: attendanceData,
+        });
+        setZipInstance(zip);
+        setZipFileName(`${proj.title}.zip`);
+        await hydrateZipMetadata(zip);
+        setPhase('select');
       } catch (err) {
-        // ignore
+        console.warn('Failed to hydrate from project', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
+  }, [activeProjectId, hydrateZipMetadata]);
+
+  // After a fresh import, write the parsed exam data into the draft project
+  // so the project carries metadata even before the user marks anything.
+  useEffect(() => {
+    if (!zipInstance || !activeProjectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const examData = await extractExamDataFromZip(zipInstance);
+        if (examData && !cancelled) {
+          await putExamData(activeProjectId, examData);
+        }
+      } catch (err) {
+        console.warn('Failed to seed exam data into project', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // We intentionally only run this when the zipInstance reference changes,
+    // not on every render; further changes are persisted via explicit writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zipInstance]);
+
+  const onZipReset = useCallback(async () => {
+    // If the loaded project is a draft (auto-created from import), drop it
+    // entirely. Otherwise just detach this tool from the active project.
+    if (project?.isDraft) {
+      try {
+        await deleteProject(project.id);
+      } catch (err) {
+        console.warn('Failed to delete draft project', err);
+      }
+    }
+    await setActiveProjectId(null);
+    setProject(null);
+    setZipInstance(null);
+    setZipFileName(null);
+    setZipSlots(null);
+    setMarkedMap({});
+    setPhase('import');
+  }, [project]);
 
   const onSelectSlot = useCallback(
     async (day: number, slot: number) => {
       setSelected({ day, slot });
       setLoading(true);
-      // load or create attendance
       const ds = slots.find((s) => s.day === day && s.slot === slot);
 
       try {
-        if (!zipInstance) {
-          throw new Error('No ZIP instance loaded');
-        }
+        if (!zipInstance) throw new Error('No ZIP instance loaded');
 
-        // Read attendance and assignments in parallel to reduce blocking time
         const [existing, fromZip] = await Promise.all([
           readSlotAttendance(zipInstance, day, slot),
           readAssignmentsFromZip(zipInstance, day, slot),
@@ -411,21 +343,18 @@ export function AttendancePage() {
           ds ? `${ds.startTime} - ${ds.endTime}` : undefined
         );
 
-        // Prefill optional metadata from slot definition
         attendanceData.subjectCode = ds?.subjectCode || undefined;
         attendanceData.subjectNames = ds?.subjectNames || undefined;
         attendanceData.studentsAttended = ds?.studentsAttended;
 
         if (existing) {
           attendanceData.entries = existing.entries.slice();
-          // Existing attendance metadata (if present) should take precedence
           attendanceData.subjectCode =
             existing.subjectCode ?? attendanceData.subjectCode;
           attendanceData.subjectNames =
             existing.subjectNames ?? attendanceData.subjectNames;
           attendanceData.studentsAttended =
             existing.studentsAttended ?? attendanceData.studentsAttended;
-          // Ensure all assigned faculty are included (excluding buffers)
           localAssignedList
             .filter((a) => a.role !== 'buffer')
             .forEach((a) => {
@@ -440,7 +369,6 @@ export function AttendancePage() {
               }
             });
         } else {
-          // Default all assigned faculty to absent
           localAssignedList.forEach((a) => {
             attendanceData.entries.push({
               facultyId: a.facultyId,
@@ -476,7 +404,6 @@ export function AttendancePage() {
 
       if (!metadataChanged) return;
 
-      // Keep in-memory slot metadata in sync for downstream checks and screens
       setZipSlots((prev) => {
         if (!prev) return prev;
         return prev.map((s) =>
@@ -493,17 +420,80 @@ export function AttendancePage() {
 
       if (!zipInstance) return;
 
-      updateSlotMetadata(zipInstance as any, next.day, next.slot, {
+      updateSlotMetadata(zipInstance, next.day, next.slot, {
         subjectCode: next.subjectCode,
         subjectNames: next.subjectNames,
         studentsAttended: next.studentsAttended,
-      }).catch((err) => {
-        console.error('Failed to update slot metadata in ZIP', err);
-        toast.error('Failed to update slot metadata in ZIP.');
-      });
+      })
+        .then(async () => {
+          // Slot metadata edits also affect exam data; refresh stored exam
+          // data so the project list/other tools see the change.
+          if (activeProjectId) {
+            try {
+              const examData = await extractExamDataFromZip(zipInstance);
+              if (examData) await putExamData(activeProjectId, examData);
+            } catch (err) {
+              console.warn('Failed to persist exam data after slot edit', err);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to update slot metadata in ZIP', err);
+          toast.error('Failed to update slot metadata in ZIP.');
+        });
     },
-    [attendance, zipInstance]
+    [attendance, zipInstance, activeProjectId]
   );
+
+  const handleContinue = useCallback(() => {
+    if (!canProceedToNext(phase)) {
+      toast.error('Please complete the current phase before continuing.');
+      return;
+    }
+    const next = getNextPhase(phase);
+    if (phase === 'review') {
+      setSelected(null);
+      setAttendance(null);
+      if (selected) {
+        setMarkedMap((prev) => ({
+          ...prev,
+          [`${selected.day}-${selected.slot}`]: true,
+        }));
+      }
+      if (!zipInstance || !attendance) {
+        toast.error('No ZIP instance or attendance data found.');
+        return;
+      }
+      saveSlotAttendance(zipInstance, attendance)
+        .then(async () => {
+          await persistAttendanceToProject(zipInstance, activeProjectId);
+        })
+        .catch((err) => {
+          console.error('Failed to save attendance', err);
+          toast.error('Failed to save attendance data.');
+        });
+
+      toast.success(
+        'Attendance data saved. You can mark another slot now.'
+      );
+      setPhase('select');
+      return;
+    }
+    if (next) setPhase(next);
+  }, [
+    phase,
+    canProceedToNext,
+    selected,
+    zipInstance,
+    attendance,
+    persistAttendanceToProject,
+    activeProjectId,
+  ]);
+
+  const handleBack = useCallback(() => {
+    const prev = getPreviousPhase(phase);
+    if (prev) setPhase(prev);
+  }, [phase]);
 
   const attemptSelectSlot = useCallback(
     (day: number, slot: number) => {
@@ -512,7 +502,6 @@ export function AttendancePage() {
         setPendingSelection({ day, slot });
         return;
       }
-      // proceed directly
       onSelectSlot(day, slot);
     },
     [markedMap, onSelectSlot]
@@ -553,7 +542,6 @@ export function AttendancePage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Compact Phase Navigation */}
       <div className="bg-muted/30 border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center">
@@ -594,7 +582,6 @@ export function AttendancePage() {
         </div>
       </div>
 
-      {/* Navigation Controls */}
       <div className="bg-background border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -606,11 +593,24 @@ export function AttendancePage() {
               <ArrowLeft className="mr-2 size-4" /> Back
             </Button>
 
+            {project && (
+              <div className="text-muted-foreground text-xs">
+                Working on{' '}
+                <span className="text-foreground font-medium">
+                  {project.title}
+                </span>
+                {project.isDraft && (
+                  <span className="bg-muted ml-2 rounded px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                    Draft
+                  </span>
+                )}
+              </div>
+            )}
+
             <Button
               onClick={handleContinue}
               disabled={!canProceedToNext(phase)}
             >
-              {/* Iterative Marking */}
               {phase === 'review' ? 'Mark Another Slot' : 'Continue'}
               <ArrowRight className="ml-2 size-4" />
             </Button>
@@ -618,12 +618,11 @@ export function AttendancePage() {
         </div>
       </div>
 
-      {/* Phase Content */}
       <main className="container mx-auto px-4 py-6">
         {phase === 'import' && (
           <ImportPhase
             zipFileName={zipFileName}
-            zipTimestamps={zipTimestamps}
+            zipTimestamps={null}
             onImport={onImportZip}
             onReset={onZipReset}
           />
@@ -659,29 +658,22 @@ export function AttendancePage() {
       <Toaster />
       <PWAPrompt />
 
-      {/* Confirm dialog when editing already-marked slot */}
       <AlertDialog
         open={!!pendingSelection}
         onOpenChange={(open) => {
-          if (!open) {
-            setPendingSelection(null);
-          }
+          if (!open) setPendingSelection(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Edit existing attendance?</AlertDialogTitle>
+            <AlertDialogTitle>Edit Existing Attendance?</AlertDialogTitle>
             <AlertDialogDescription>
               This slot already has attendance recorded. Are you sure you want
               to edit it?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setPendingSelection(null);
-              }}
-            >
+            <AlertDialogCancel onClick={() => setPendingSelection(null)}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
